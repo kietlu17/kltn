@@ -1,0 +1,409 @@
+services:
+  certs-init:
+    image: alpine:3.20
+    container_name: certs-init
+    command: sh -c "apk add --no-cache openssl >/dev/null && sh /scripts/generate-certs.sh"
+    volumes:
+      - certs_data:/certs
+      - ./docker/certs:/scripts:ro
+
+  mongo:
+    image: mongo:7
+    container_name: mongo
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "mongodb://localhost:27017/admin", "--eval", "db.runCommand({ ping: 1 }).ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  postgres:
+    image: postgres:15
+    container_name: postgres
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/db-init:/docker-entrypoint-initdb.d:ro
+
+  kafka_e:
+    image: apache/kafka:4.2.0-rc2
+    container_name: kafka-e
+    restart: unless-stopped
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,INTERNAL://0.0.0.0:29092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,INTERNAL://kafka-e:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,INTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-e:9093
+      KAFKA_CLUSTERS_0_NAME: event-cluster
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+
+  kafka-ui_e:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui-e
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: event-cluster
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka-e:29092
+      KAFKA_CLUSTERS_0_READONLY: "false"
+    depends_on:
+      - kafka_e
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: auth-service/Dockerfile
+    container_name: auth-service
+    restart: unless-stopped
+    environment:
+      PORT: 3001
+      MONGO_URI: mongodb://mongo:27017/auth-service
+      USER_SERVICE_URL: https://user-service:3002
+      SHOP_SERVICE_URL: https://shop-service:3003
+      TLS_ENABLED: "true"
+      TLS_REQUEST_CLIENT_CERT: "true"
+      TLS_REJECT_UNAUTHORIZED: "true"
+      TLS_CA_PATH: /certs/ca/ca.crt
+      TLS_CERT_PATH: /certs/auth-service/tls.crt
+      TLS_KEY_PATH: /certs/auth-service/tls.key
+      MTLS_ENABLED: "true"
+      MTLS_REJECT_UNAUTHORIZED: "true"
+      MTLS_CA_PATH: /certs/ca/ca.crt
+      MTLS_CLIENT_CERT_PATH: /certs/auth-service/tls.crt
+      MTLS_CLIENT_KEY_PATH: /certs/auth-service/tls.key
+    volumes:
+      - certs_data:/certs:ro
+    depends_on:
+      certs-init:
+        condition: service_completed_successfully
+      mongo:
+        condition: service_healthy
+
+  user-service:
+    build:
+      context: .
+      dockerfile: user-service/Dockerfile
+    container_name: user-service
+    restart: unless-stopped
+    environment:
+      PORT: 3002
+      MONGO_URI: mongodb://mongo:27017/user-service
+      TLS_ENABLED: "true"
+      TLS_REQUEST_CLIENT_CERT: "true"
+      TLS_REJECT_UNAUTHORIZED: "true"
+      TLS_CA_PATH: /certs/ca/ca.crt
+      TLS_CERT_PATH: /certs/user-service/tls.crt
+      TLS_KEY_PATH: /certs/user-service/tls.key
+    volumes:
+      - certs_data:/certs:ro
+    depends_on:
+      certs-init:
+        condition: service_completed_successfully
+      mongo:
+        condition: service_healthy
+
+  shop-service:
+    build:
+      context: .
+      dockerfile: shop-service/Dockerfile
+    container_name: shop-service
+    restart: unless-stopped
+    environment:
+      PORT: 3003
+      MONGO_URI: mongodb://mongo:27017/shop-service
+      TLS_ENABLED: "true"
+      TLS_REQUEST_CLIENT_CERT: "true"
+      TLS_REJECT_UNAUTHORIZED: "true"
+      TLS_CA_PATH: /certs/ca/ca.crt
+      TLS_CERT_PATH: /certs/shop-service/tls.crt
+      TLS_KEY_PATH: /certs/shop-service/tls.key
+    volumes:
+      - certs_data:/certs:ro
+    depends_on:
+      certs-init:
+        condition: service_completed_successfully
+      mongo:
+        condition: service_healthy
+
+  product-service:
+    build:
+      context: .
+      dockerfile: product-service/Dockerfile
+    container_name: product-service
+    restart: unless-stopped
+    environment:
+      PORT: 3004
+      MONGO_URI: mongodb://mongo:27017/product-service
+      KAFKA_BROKER: kafka-e:29092
+      TLS_ENABLED: "true"
+      TLS_REQUEST_CLIENT_CERT: "true"
+      TLS_REJECT_UNAUTHORIZED: "true"
+      TLS_CA_PATH: /certs/ca/ca.crt
+      TLS_CERT_PATH: /certs/product-service/tls.crt
+      TLS_KEY_PATH: /certs/product-service/tls.key
+    volumes:
+      - certs_data:/certs:ro
+      - product_uploads:/app/uploads
+    depends_on:
+      certs-init:
+        condition: service_completed_successfully
+      mongo:
+        condition: service_healthy
+      kafka_e:
+        condition: service_started
+
+  cart-service:
+    build:
+      context: .
+      dockerfile: cart-service/Dockerfile
+    container_name: cart-service
+    restart: unless-stopped
+    environment:
+      PORT: 3005
+      MONGO_URI: mongodb://mongo:27017/cart-service
+      TLS_ENABLED: "true"
+      TLS_REQUEST_CLIENT_CERT: "true"
+      TLS_REJECT_UNAUTHORIZED: "true"
+      TLS_CA_PATH: /certs/ca/ca.crt
+      TLS_CERT_PATH: /certs/cart-service/tls.crt
+      TLS_KEY_PATH: /certs/cart-service/tls.key
+    volumes:
+      - certs_data:/certs:ro
+    depends_on:
+      certs-init:
+        condition: service_completed_successfully
+      mongo:
+        condition: service_healthy
+
+  order-service:
+    build:
+      context: .
+      dockerfile: order-service/Dockerfile
+    container_name: order-service
+    restart: unless-stopped
+    environment:
+      PORT: 3006
+      PG_HOST: postgres
+      PG_PORT: 5432
+      PG_DATABASE: order_service
+      PG_USER: postgres
+      PG_PASSWORD: postgres
+      PRODUCT_SERVICE_URL: https://product-service:3004
+      KAFKA_BROKER: kafka-e:29092
+      TLS_ENABLED: "true"
+      TLS_REQUEST_CLIENT_CERT: "true"
+      TLS_REJECT_UNAUTHORIZED: "true"
+      TLS_CA_PATH: /certs/ca/ca.crt
+      TLS_CERT_PATH: /certs/order-service/tls.crt
+      TLS_KEY_PATH: /certs/order-service/tls.key
+      MTLS_ENABLED: "true"
+      MTLS_REJECT_UNAUTHORIZED: "true"
+      MTLS_CA_PATH: /certs/ca/ca.crt
+      MTLS_CLIENT_CERT_PATH: /certs/order-service/tls.crt
+      MTLS_CLIENT_KEY_PATH: /certs/order-service/tls.key
+    volumes:
+      - certs_data:/certs:ro
+    depends_on:
+      certs-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      kafka_e:
+        condition: service_started
+
+  inventory-service:
+    build:
+      context: .
+      dockerfile: inventory-service/Dockerfile
+    container_name: inventory-service
+    restart: unless-stopped
+    environment:
+      PORT: 3007
+      PG_HOST: postgres
+      PG_PORT: 5432
+      PG_DATABASE: inventory_service
+      PG_USER: postgres
+      PG_PASSWORD: postgres
+      KAFKA_BROKER: kafka-e:29092
+      TLS_ENABLED: "true"
+      TLS_REQUEST_CLIENT_CERT: "true"
+      TLS_REJECT_UNAUTHORIZED: "true"
+      TLS_CA_PATH: /certs/ca/ca.crt
+      TLS_CERT_PATH: /certs/inventory-service/tls.crt
+      TLS_KEY_PATH: /certs/inventory-service/tls.key
+    volumes:
+      - certs_data:/certs:ro
+    depends_on:
+      certs-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      kafka_e:
+        condition: service_started
+
+  review-service:
+    build:
+      context: .
+      dockerfile: review-service/Dockerfile
+    container_name: review-service
+    restart: unless-stopped
+    environment:
+      PORT: 3008
+      MONGO_URI: mongodb://mongo:27017/review-service
+      ORDER_SERVICE_URL: https://order-service:3006
+      PRODUCT_SERVICE_URL: https://product-service:3004
+      TLS_ENABLED: "true"
+      TLS_REQUEST_CLIENT_CERT: "true"
+      TLS_REJECT_UNAUTHORIZED: "true"
+      TLS_CA_PATH: /certs/ca/ca.crt
+      TLS_CERT_PATH: /certs/review-service/tls.crt
+      TLS_KEY_PATH: /certs/review-service/tls.key
+      MTLS_ENABLED: "true"
+      MTLS_REJECT_UNAUTHORIZED: "true"
+      MTLS_CA_PATH: /certs/ca/ca.crt
+      MTLS_CLIENT_CERT_PATH: /certs/review-service/tls.crt
+      MTLS_CLIENT_KEY_PATH: /certs/review-service/tls.key
+    volumes:
+      - certs_data:/certs:ro
+    depends_on:
+      certs-init:
+        condition: service_completed_successfully
+      mongo:
+        condition: service_healthy
+
+  chat-service:
+    build:
+      context: .
+      dockerfile: chat-service/Dockerfile
+    container_name: chat-service
+    restart: unless-stopped
+    environment:
+      PORT: 3009
+      MONGO_URI: mongodb://mongo:27017/chat-service
+      TLS_ENABLED: "true"
+      TLS_REQUEST_CLIENT_CERT: "true"
+      TLS_REJECT_UNAUTHORIZED: "true"
+      TLS_CA_PATH: /certs/ca/ca.crt
+      TLS_CERT_PATH: /certs/chat-service/tls.crt
+      TLS_KEY_PATH: /certs/chat-service/tls.key
+    volumes:
+      - certs_data:/certs:ro
+    depends_on:
+      certs-init:
+        condition: service_completed_successfully
+      mongo:
+        condition: service_healthy
+
+  payment-service:
+    build:
+      context: .
+      dockerfile: payment-service/Dockerfile
+    container_name: payment-service
+    restart: unless-stopped
+    environment:
+      PORT: 3010
+      PG_HOST: postgres
+      PG_PORT: 5432
+      PG_DATABASE: payment_service
+      PG_USER: postgres
+      PG_PASSWORD: postgres
+      WALLET_DEFAULT_BALANCE: 0
+      KAFKA_BROKER: kafka-e:29092
+      TLS_ENABLED: "true"
+      TLS_REQUEST_CLIENT_CERT: "true"
+      TLS_REJECT_UNAUTHORIZED: "true"
+      TLS_CA_PATH: /certs/ca/ca.crt
+      TLS_CERT_PATH: /certs/payment-service/tls.crt
+      TLS_KEY_PATH: /certs/payment-service/tls.key
+    volumes:
+      - certs_data:/certs:ro
+    depends_on:
+      certs-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      kafka_e:
+        condition: service_started
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: api-gateway/Dockerfile
+    container_name: api-gateway
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      AUTH_SERVICE_URL: https://auth-service:3001
+      USER_SERVICE_URL: https://user-service:3002
+      SHOP_SERVICE_URL: https://shop-service:3003
+      PRODUCT_SERVICE_URL: https://product-service:3004
+      CART_SERVICE_URL: https://cart-service:3005
+      ORDER_SERVICE_URL: https://order-service:3006
+      PAYMENT_SERVICE_URL: https://payment-service:3010
+      REVIEW_SERVICE_URL: https://review-service:3008
+      CHAT_SERVICE_URL: https://chat-service:3009
+      MTLS_ENABLED: "true"
+      MTLS_REJECT_UNAUTHORIZED: "true"
+      MTLS_CA_PATH: /certs/ca/ca.crt
+      MTLS_CLIENT_CERT_PATH: /certs/api-gateway/tls.crt
+      MTLS_CLIENT_KEY_PATH: /certs/api-gateway/tls.key
+    volumes:
+      - certs_data:/certs:ro
+    depends_on:
+      certs-init:
+        condition: service_completed_successfully
+      auth-service:
+        condition: service_started
+      user-service:
+        condition: service_started
+      shop-service:
+        condition: service_started
+      product-service:
+        condition: service_started
+      cart-service:
+        condition: service_started
+      order-service:
+        condition: service_started
+      review-service:
+        condition: service_started
+      chat-service:
+        condition: service_started
+      payment-service:
+        condition: service_started
+
+volumes:
+  certs_data:
+  mongo_data:
+  postgres_data:
+  kafka_data:
+  product_uploads:
