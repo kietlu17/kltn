@@ -328,6 +328,8 @@ services:
       dockerfile: payment-service/Dockerfile
     container_name: payment-service
     restart: unless-stopped
+    env_file:
+      - ./payment-service/.env
     environment:
       PORT: 3010
       PG_HOST: postgres
@@ -399,6 +401,19 @@ services:
       chat-service:
         condition: service_started
       payment-service:
+        condition: service_started
+
+  ngrok:
+    image: ngrok/ngrok:3
+    container_name: ngrok
+    restart: unless-stopped
+    command: http api-gateway:3000 --log=stdout
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
+    ports:
+      - "4040:4040"
+    depends_on:
+      api-gateway:
         condition: service_started
 
 volumes:

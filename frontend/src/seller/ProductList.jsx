@@ -71,6 +71,7 @@ export default function SellerProductList() {
           <div>Ảnh</div>
           <div>Tên</div>
           <div>Giá</div>
+          <div>Đã bán</div>
           <div>Tồn kho</div>
           <div>Danh mục</div>
           <div>Duyệt</div>
@@ -84,6 +85,7 @@ export default function SellerProductList() {
             </div>
             <div>{product.name}</div>
             <div>{formatPrice(product.price)}</div>
+            <div>{Number(product.sold ?? 0)}</div>
             <div>{product.quantity ?? 0}</div>
             <div>{categoryMap.get(product.categoryId)?.name || '-'}</div>
             <div>{product.moderationStatus || 'pending'}</div>

@@ -40,6 +40,7 @@ export default function Checkout() {
   const [paymentMethod, setPaymentMethod] = useState('cod');
   const [walletBalance, setWalletBalance] = useState(0);
   const [walletLoading, setWalletLoading] = useState(false);
+  const [bankQrRequests, setBankQrRequests] = useState([]);
 
   useEffect(() => {
     refreshCart();
@@ -124,6 +125,46 @@ export default function Checkout() {
     0
   );
 
+  function isPaidStatus(status) {
+    return ['paid', 'confirmed', 'shipped', 'delivered'].includes(String(status || '').toLowerCase());
+  }
+
+  useEffect(() => {
+    if (!user?.id || bankQrRequests.length === 0) return undefined;
+    const orderIds = bankQrRequests.map((item) => Number(item.orderId)).filter((id) => Number.isFinite(id));
+    if (!orderIds.length) return undefined;
+
+    let timer;
+    async function checkOrderPayments() {
+      try {
+        const res = await api.get(`/orders/${user.id}`);
+        const rows = Array.isArray(res.data) ? res.data : [];
+        const statusById = new Map(rows.map((row) => [Number(row.id || row._id), row.status]));
+        setBankQrRequests((prev) =>
+          prev.map((item) => ({
+            ...item,
+            orderStatus: statusById.get(Number(item.orderId)) || item.orderStatus || 'pending_payment'
+          }))
+        );
+        const allPaid = orderIds.every((id) => isPaidStatus(statusById.get(id)));
+        if (allPaid) {
+          setBankQrRequests([]);
+          showToast('Thanh toán SePay thành công. Đơn hàng đã được ghi nhận.');
+          navigate('/cart?tab=orders');
+          return;
+        }
+      } catch {
+        // no-op
+      }
+      timer = setTimeout(checkOrderPayments, 3000);
+    }
+
+    checkOrderPayments();
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [bankQrRequests.length, user?.id, showToast, navigate]);
+
   async function checkout() {
     if (!user?.id) {
       showToast('Vui lòng đăng nhập để tiếp tục thanh toán', 'error');
@@ -200,14 +241,16 @@ export default function Checkout() {
       (address) => String(address._id || address.id) === String(selectedAddressId)
     );
 
+    const createdOrders = [];
     try {
       for (const [, items] of ordersByShop.entries()) {
-        await api.post('/orders', {
+        const created = await api.post('/orders', {
           userId,
           products: items,
           shippingAddress: selectedAddress,
           paymentMethod
         });
+        createdOrders.push(created.data);
       }
     } catch (err) {
       const message = err?.response?.data?.message || 'Đặt hàng thất bại';
@@ -232,6 +275,39 @@ export default function Checkout() {
 
     localStorage.removeItem('checkoutSelection');
     await refreshCart();
+
+    if (paymentMethod === 'bank_transfer') {
+      try {
+        const qrResponses = [];
+        for (const order of createdOrders) {
+          const orderId = Number(order?.id || order?._id);
+          const amount = Number(order?.total_price || order?.totalPrice || 0);
+          if (!Number.isFinite(orderId) || !Number.isFinite(amount) || amount <= 0) continue;
+          const qr = await api.post(`/payments/sepay/orders/${orderId}/qr`, {
+            userId,
+            amount
+          });
+          qrResponses.push({
+            ...qr.data,
+            orderId,
+            orderStatus: order?.status || 'pending_payment'
+          });
+        }
+        if (qrResponses.length === 0) {
+          showToast('Không thể tạo mã QR thanh toán cho đơn hàng', 'error');
+          navigate('/cart?tab=orders');
+          return;
+        }
+        setBankQrRequests(qrResponses);
+        showToast('Đơn hàng đã tạo. Vui lòng quét QR SePay để thanh toán.');
+        return;
+      } catch (err) {
+        showToast(err?.response?.data?.message || 'Không thể tạo QR SePay cho đơn hàng', 'error');
+        navigate('/cart?tab=orders');
+        return;
+      }
+    }
+
     showToast(paymentMethod === 'wallet' ? 'Đặt hàng thành công. Đã thanh toán bằng ví.' : 'Đặt hàng thành công');
     navigate('/cart?tab=orders');
   }
@@ -287,7 +363,7 @@ export default function Checkout() {
 
       <div className="card checkout-card">
         <h3>Thanh toán</h3>
-        <p className="muted">Mô phỏng thanh toán trong bản demo.</p>
+        <p className="muted">Hỗ trợ thanh toán ví và SePay QR.</p>
         <div className="muted">
           Số dư ví: <strong>{walletLoading ? 'Đang tải...' : formatPrice(walletBalance)}</strong>
         </div>
@@ -310,7 +386,7 @@ export default function Checkout() {
               checked={paymentMethod === 'bank_transfer'}
               onChange={(event) => setPaymentMethod(event.target.value)}
             />
-            Chuyển khoản ngân hàng (thủ công)
+            Chuyển khoản ngân hàng qua SePay QR
           </label>
           <label className="radio-field">
             <input
@@ -324,6 +400,35 @@ export default function Checkout() {
           </label>
         </div>
         <button className="btn btn-outline btn-full">Áp dụng mã giảm giá</button>
+
+        {bankQrRequests.length > 0 && (
+          <div className="sepay-qr-box">
+            <div className="sepay-qr-head">
+              <strong>Thanh toán đơn hàng bằng SePay</strong>
+              <button className="btn btn-ghost" onClick={() => navigate('/cart?tab=orders')}>
+                Xem đơn hàng
+              </button>
+            </div>
+            {bankQrRequests.map((item) => (
+              <div key={`${item.id}-${item.orderId}`} className="sepay-qr-order">
+                <div className="sepay-qr-grid">
+                  <img src={item.qrUrl} alt={`SePay QR order ${item.orderId}`} />
+                  <div className="sepay-qr-meta">
+                    <div><span className="muted">Đơn hàng</span><strong>#{item.orderId}</strong></div>
+                    <div><span className="muted">Số tiền</span><strong>{formatPrice(item.amount)}</strong></div>
+                    <div><span className="muted">Ngân hàng</span><strong>{item.bankCode}</strong></div>
+                    <div><span className="muted">Tài khoản</span><strong>{item.accountNumber}</strong></div>
+                    <div><span className="muted">Nội dung</span><strong>{item.requestCode}</strong></div>
+                    <div>
+                      <span className="muted">Trạng thái đơn</span>
+                      <strong>{item.orderStatus || 'pending_payment'}</strong>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

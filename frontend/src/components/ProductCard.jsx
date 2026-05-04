@@ -13,6 +13,7 @@ export default function ProductCard({ product, onAdd, detailBasePath = '/product
   const shopId = product?.shopId || product?.shop?._id || product?.shop?.id;
   const category = product?.categoryName || product?.category || '';
   const isOutOfStock = Number(product?.quantity ?? 0) <= 0;
+  const sold = Number(product?.sold ?? 0);
   const variantPrices = Array.isArray(product?.variants)
     ? product.variants
       .map((variant) => Number(variant?.price))
@@ -43,6 +44,7 @@ export default function ProductCard({ product, onAdd, detailBasePath = '/product
 
         <div className="product-meta">
           <span className="product-price">{priceLabel}</span>
+          <span className="product-sold">Đã bán: {sold}</span>
           {shopId ? (
             <Link to={`/shop/${shopId}`} className="product-shop shop-link">
               {shop}

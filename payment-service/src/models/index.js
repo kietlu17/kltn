@@ -1,5 +1,7 @@
 const Wallet = require('./Wallet');
 const WalletTransaction = require('./WalletTransaction');
+const SepayPaymentRequest = require('./SepayPaymentRequest');
+const SepayWebhookLog = require('./SepayWebhookLog');
 
 Wallet.hasMany(WalletTransaction, {
   foreignKey: 'user_id',
@@ -12,5 +14,7 @@ WalletTransaction.belongsTo(Wallet, {
 
 module.exports = {
   Wallet,
-  WalletTransaction
+  WalletTransaction,
+  SepayPaymentRequest,
+  SepayWebhookLog
 };

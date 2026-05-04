@@ -25,6 +25,16 @@ function getOrderId(order) {
   return order?.id || order?._id;
 }
 
+function canSellerConfirmOrder(order) {
+  const method = String(order?.payment_method || '').toLowerCase();
+  const status = String(order?.status || '').toLowerCase();
+  if (['cancelled', 'payment_failed', 'confirmed', 'shipped', 'delivered'].includes(status)) return false;
+  if (method === 'cod') {
+    return ['pending_payment', 'payment_processing', 'paid'].includes(status);
+  }
+  return status === 'paid';
+}
+
 function toLocalDateKey(date) {
   const value = date instanceof Date ? date : new Date(date);
   if (Number.isNaN(value.getTime())) return '';
@@ -145,14 +155,15 @@ export default function SellerOrders() {
   };
 
   const handleConfirmAll = async () => {
-    const pendingOrders = normalizedOrders.filter((order) => order.status === 'paid');
+    const pendingOrders = normalizedOrders.filter((order) => canSellerConfirmOrder(order));
     if (!pendingOrders.length) {
-      showToast('Không có đơn đã thanh toán để xác nhận');
+      showToast('Không có đơn đủ điều kiện để xác nhận');
       return;
     }
     try {
       await Promise.all(pendingOrders.map((order) => api.post(`/orders/${getOrderId(order)}/confirm`)));
-      setOrders((prev) => prev.map((order) => (order.status === 'paid' ? { ...order, status: 'confirmed' } : order)));
+      const confirmedIds = new Set(pendingOrders.map((order) => order.id || order._id).filter(Boolean));
+      setOrders((prev) => prev.map((order) => (confirmedIds.has(order.id || order._id) ? { ...order, status: 'confirmed' } : order)));
       showToast(`Đã xác nhận ${pendingOrders.length} đơn`);
     } catch (err) {
       showToast(err?.response?.data?.message || 'Không thể xác nhận tất cả đơn', 'error');
@@ -210,7 +221,7 @@ export default function SellerOrders() {
                 <div className="muted">{order.shipping_address?.line1 || order.shippingAddress?.line1 || 'Không có'}</div>
                 <div className={`status ${order.status}`}>{order.status}</div>
                 <div>
-                  {order.status === 'paid' ? (
+                  {canSellerConfirmOrder(order) ? (
                     <button
                       type="button"
                       className="btn btn-ghost"

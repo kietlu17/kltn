@@ -70,6 +70,10 @@ function toNumber(value) {
   return Number.isFinite(number) ? number : 0;
 }
 
+function isCodPaymentMethod(paymentMethod) {
+  return String(paymentMethod || '').toLowerCase() === 'cod';
+}
+
 function normalizeIdempotencyKey(value) {
   if (!value) return '';
   return String(value).trim().slice(0, 128);
@@ -143,13 +147,16 @@ async function cancelOrderWithCompensation(order, options = {}) {
   const previousStatus = order.status;
   const paymentMethod = String(order.payment_method || '').toLowerCase();
   const failureReason = String(options.reason || '').toLowerCase();
+  const walletRefundEligible =
+    paymentMethod === 'wallet' &&
+    ['paid', 'payment_processing', 'payment_failed'].includes(previousStatus) &&
+    failureReason !== 'insufficient_wallet_balance';
+  const bankTransferRefundEligible =
+    paymentMethod === 'bank_transfer' &&
+    ['paid', 'confirmed', 'shipped', 'delivered'].includes(previousStatus);
   const shouldRefundToWallet = options.shouldRefundToWallet != null
     ? Boolean(options.shouldRefundToWallet)
-    : (
-      paymentMethod !== 'cod' &&
-      ['paid', 'payment_processing', 'payment_failed'].includes(previousStatus) &&
-      failureReason !== 'insufficient_wallet_balance'
-    );
+    : (walletRefundEligible || bankTransferRefundEligible);
 
   if (!isCancelled) {
     order.status = 'cancelled';
@@ -291,8 +298,19 @@ async function confirmOrder(req, res) {
     if (order.status === 'payment_failed') {
       return res.status(400).json({ message: 'Payment failed for this order' });
     }
-    if (order.status !== 'paid') {
+    const isCodOrder = isCodPaymentMethod(order.payment_method);
+    if (isCodOrder) {
+      if (['pending_payment', 'payment_processing', 'paid'].includes(order.status)) {
+        order.status = 'confirmed';
+        await order.save();
+      }
       return res.json(order.toJSON());
+    }
+    if (['confirmed', 'shipped', 'delivered'].includes(order.status)) {
+      return res.json(order.toJSON());
+    }
+    if (order.status !== 'paid') {
+      return res.status(400).json({ message: 'Order payment is not completed yet' });
     }
     order.status = 'confirmed';
     await order.save();
@@ -407,6 +425,9 @@ async function updateAdminOrderStatus(req, res) {
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
     }
+    if (isCodPaymentMethod(order.payment_method) && status === 'paid' && order.status !== 'delivered') {
+      return res.status(400).json({ message: 'COD order can be marked paid only after delivered' });
+    }
     order.status = status;
     await order.save();
     return res.json(order.toJSON());
@@ -509,6 +530,10 @@ async function handlePaymentSucceeded(event) {
   const order = await Order.findByPk(orderId);
   if (!order || order.status === 'cancelled') return;
   const paymentMethod = String(order.payment_method || '').toLowerCase();
+  if (paymentMethod === 'cod') {
+    // Ignore COD success events to avoid premature "paid" status before delivery.
+    return;
+  }
   if (paymentMethod === 'wallet' && event?.walletDebited !== true) {
     order.status = 'payment_failed';
     await order.save();
@@ -533,7 +558,9 @@ async function handlePaymentFailed(event) {
   const reason = event?.reason || 'payment_failed';
   await cancelOrderWithCompensation(order, {
     reason,
-    shouldRefundToWallet: String(reason).toLowerCase() !== 'insufficient_wallet_balance'
+    shouldRefundToWallet:
+      String(order.payment_method || '').toLowerCase() === 'wallet' &&
+      String(reason).toLowerCase() !== 'insufficient_wallet_balance'
   });
 }
 
@@ -547,7 +574,7 @@ async function handlePaymentTimeout(event) {
   await order.save();
   await cancelOrderWithCompensation(order, {
     reason: event?.reason || 'payment_timeout',
-    shouldRefundToWallet: true
+    shouldRefundToWallet: String(order.payment_method || '').toLowerCase() === 'wallet'
   });
 }
 

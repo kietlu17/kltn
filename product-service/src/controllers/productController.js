@@ -9,6 +9,33 @@ function parseNumber(value, fallback = 0) {
   return fallback;
 }
 
+function parsePriceValue(value, fallback = NaN) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.round(value);
+  }
+  const raw = String(value ?? '').trim();
+  if (!raw) return fallback;
+
+  const sanitized = raw.replace(/[^\d.,-]/g, '');
+  if (!sanitized) return fallback;
+
+  if (/^-?\d+$/.test(sanitized)) {
+    const parsedInt = Number(sanitized);
+    return Number.isFinite(parsedInt) ? parsedInt : fallback;
+  }
+
+  if (/^-?\d{1,3}([.,]\d{3})+$/.test(sanitized)) {
+    const noGrouping = sanitized.replace(/[.,]/g, '');
+    const parsedGrouped = Number(noGrouping);
+    return Number.isFinite(parsedGrouped) ? parsedGrouped : fallback;
+  }
+
+  const normalizedDecimal = sanitized.replace(',', '.');
+  const parsedDecimal = Number(normalizedDecimal);
+  if (Number.isFinite(parsedDecimal)) return Math.round(parsedDecimal);
+  return fallback;
+}
+
 function parseVariants(rawVariants) {
   if (rawVariants == null || rawVariants === '') return [];
   let input = rawVariants;
@@ -30,7 +57,7 @@ function parseVariants(rawVariants) {
         name: String(item?.name || '').trim(),
         sku: String(item?.sku || '').trim(),
         imageUrl: String(item?.imageUrl || '').trim(),
-        price: parseNumber(item?.price, NaN),
+        price: parsePriceValue(item?.price, NaN),
         quantity: parseNumber(item?.quantity, NaN)
       };
       if (existingId) normalizedItem._id = existingId;
@@ -132,7 +159,7 @@ async function createProduct(req, res) {
     const categoryId = req.body.categoryId || null;
     let variants = parseVariants(req.body.variants);
 
-    let price = req.body.price != null ? Number(req.body.price) : NaN;
+    let price = req.body.price != null ? parsePriceValue(req.body.price, NaN) : NaN;
     let quantity = req.body.quantity != null ? Number(req.body.quantity) : 0;
 
     if (!name || !shopId) {
@@ -248,6 +275,7 @@ async function updateProduct(req, res) {
 
     const updates = { ...req.body };
     delete updates.shopId;
+    delete updates.sold;
 
     if (updates.categoryId === '') {
       updates.categoryId = null;
@@ -290,7 +318,7 @@ async function updateProduct(req, res) {
       updates.quantity = summary.totalQuantity;
     } else {
       if (updates.price != null) {
-        const nextPrice = Number(updates.price);
+        const nextPrice = parsePriceValue(updates.price, NaN);
         if (!Number.isFinite(nextPrice) || nextPrice < 0) {
           return res.status(400).json({ message: 'price must be a non-negative number' });
         }
@@ -393,6 +421,13 @@ async function applyStockChange(items, direction) {
         throw new Error('Insufficient stock');
       }
       product.quantity = Number(product.quantity || 0) + direction * item.quantity;
+    }
+
+    const currentSold = Number(product.sold || 0);
+    if (direction < 0) {
+      product.sold = currentSold + item.quantity;
+    } else if (direction > 0) {
+      product.sold = Math.max(0, currentSold - item.quantity);
     }
   }
 

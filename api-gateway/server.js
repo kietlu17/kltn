@@ -66,7 +66,8 @@ const PUBLIC_PATHS = [
   { method: 'POST', path: '/auth/login' },
   { method: 'POST', path: '/auth/register' },
   { method: 'POST', path: '/auth/session' },
-  { method: 'GET', path: '/shops' }
+  { method: 'GET', path: '/shops' },
+  { method: 'POST', path: '/payments/sepay/webhook' }
 ];
 
 function matchesPath(targetPath, reqPath) {
@@ -125,6 +126,7 @@ function getRequiredRoles(req) {
   if (path.startsWith('/chat')) return ['buyer', 'seller', 'admin'];
   if (path.startsWith('/reviews')) return ['buyer', 'admin'];
   if (path.startsWith('/payments/wallet')) return ['buyer', 'admin'];
+  if (path.startsWith('/payments/sepay')) return ['buyer', 'admin'];
 
   if (path.startsWith('/orders')) {
     if (method === 'POST' && /^\/orders\/\d+\/confirm$/.test(path)) return ['seller', 'admin'];

@@ -655,6 +655,11 @@ img {
   font-weight: 700;
 }
 
+.product-sold {
+  color: var(--muted);
+  font-size: 13px;
+}
+
 .product-shop {
   color: var(--muted);
 }
@@ -1550,7 +1555,7 @@ img {
 
 .seller-table-row {
   display: grid;
-  grid-template-columns: 80px 2fr 1fr 0.7fr 1fr 1fr 1fr;
+  grid-template-columns: 80px 2fr 1fr 0.8fr 0.8fr 1fr 1fr 1fr 1fr;
   gap: 12px;
   align-items: center;
   padding: 10px;
@@ -1670,6 +1675,73 @@ img {
   justify-content: space-between;
   font-size: 18px;
   font-weight: 600;
+}
+
+.sepay-qr-box {
+  margin-top: 14px;
+  border: 1px solid #f3e2dc;
+  border-radius: 12px;
+  padding: 12px;
+  background: #fffaf8;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sepay-qr-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.sepay-qr-grid {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 12px;
+  align-items: start;
+}
+
+.sepay-qr-grid img {
+  width: 160px;
+  height: 160px;
+  object-fit: contain;
+  border-radius: 10px;
+  background: white;
+  border: 1px solid #f1f1f1;
+}
+
+.sepay-qr-meta {
+  display: grid;
+  gap: 8px;
+}
+
+.sepay-qr-meta > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sepay-status {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.sepay-status.pending {
+  color: #92400e;
+  background: #fef3c7;
+}
+
+.sepay-status.paid {
+  color: #065f46;
+  background: #d1fae5;
+}
+
+.sepay-qr-order {
+  padding-top: 12px;
+  border-top: 1px solid #f1e1db;
 }
 
 .shop-detail {
@@ -2075,6 +2147,10 @@ img {
 
   .product-actions {
     flex-direction: column;
+  }
+
+  .sepay-qr-grid {
+    grid-template-columns: 1fr;
   }
 
   .footer-inner {

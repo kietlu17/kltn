@@ -19,6 +19,7 @@ const productSchema = new mongoose.Schema(
     detail: { type: String, default: '' },
     images: [{ type: String }],
     quantity: { type: Number, default: 0 },
+    sold: { type: Number, default: 0, min: 0 },
     variants: { type: [variantSchema], default: [] },
     categoryId: { type: String, default: null },
     shopId: { type: String, required: true },

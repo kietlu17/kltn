@@ -20,6 +20,8 @@ export default function Profile() {
   const [walletTxs, setWalletTxs] = useState([]);
   const [topupAmount, setTopupAmount] = useState('50');
   const [topupLoading, setTopupLoading] = useState(false);
+  const [sepayTopupRequest, setSepayTopupRequest] = useState(null);
+  const [sepayLoading, setSepayLoading] = useState(false);
 
   function formatMoney(value) {
     return Number(value || 0).toLocaleString('vi-VN', { style: 'currency', currency: 'VND' });
@@ -109,6 +111,50 @@ export default function Profile() {
     }
   }
 
+  async function createSepayTopupQr() {
+    if (!user?.id) return;
+    const amount = Number(topupAmount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      showToast('Số tiền nạp phải lớn hơn 0', 'error');
+      return;
+    }
+    setSepayLoading(true);
+    try {
+      const res = await api.post(`/payments/wallet/${user.id}/topup/sepay-qr`, { amount });
+      setSepayTopupRequest(res.data || null);
+      showToast('Đã tạo mã QR SePay');
+    } catch (err) {
+      showToast(err?.response?.data?.message || 'Không thể tạo mã QR SePay', 'error');
+    } finally {
+      setSepayLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    const requestId = sepayTopupRequest?.id;
+    if (!requestId || sepayTopupRequest?.status === 'paid') return undefined;
+    let timer;
+    async function check() {
+      try {
+        const res = await api.get(`/payments/sepay/requests/${requestId}`);
+        const next = res.data || null;
+        setSepayTopupRequest(next);
+        if (next?.status === 'paid') {
+          showToast('Nạp ví qua SePay thành công');
+          loadWallet();
+          return;
+        }
+      } catch {
+        // no-op
+      }
+      timer = setTimeout(check, 3000);
+    }
+    check();
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [sepayTopupRequest?.id, sepayTopupRequest?.status]);
+
   return (
     <div className="container page-section">
       <div className="section-header">
@@ -180,7 +226,31 @@ export default function Profile() {
             <button className="btn btn-primary" onClick={topupWallet} disabled={topupLoading}>
               {topupLoading ? 'Đang xử lý...' : 'Nạp tiền'}
             </button>
+            <button className="btn btn-outline" onClick={createSepayTopupQr} disabled={sepayLoading}>
+              {sepayLoading ? 'Đang tạo QR...' : 'Nạp qua SePay QR'}
+            </button>
           </div>
+
+          {sepayTopupRequest && (
+            <div className="sepay-qr-box">
+              <div className="sepay-qr-head">
+                <strong>Nạp ví qua SePay</strong>
+                <span className={`sepay-status ${sepayTopupRequest.status || 'pending'}`}>
+                  {sepayTopupRequest.status === 'paid' ? 'Đã thanh toán' : 'Chờ thanh toán'}
+                </span>
+              </div>
+              <div className="sepay-qr-grid">
+                <img src={sepayTopupRequest.qrUrl} alt="SePay QR nạp ví" />
+                <div className="sepay-qr-meta">
+                  <div><span className="muted">Số tiền</span><strong>{formatMoney(sepayTopupRequest.amount)}</strong></div>
+                  <div><span className="muted">Ngân hàng</span><strong>{sepayTopupRequest.bankCode}</strong></div>
+                  <div><span className="muted">Tài khoản</span><strong>{sepayTopupRequest.accountNumber}</strong></div>
+                  <div><span className="muted">Nội dung</span><strong>{sepayTopupRequest.requestCode}</strong></div>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div>
             <label>Giao dịch gần đây</label>
             {walletTxs.length === 0 ? (

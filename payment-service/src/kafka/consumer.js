@@ -4,6 +4,8 @@ const { debitForOrder, refundOrderToWallet } = require('../services/walletServic
 
 const BANK_TRANSFER_DELAY_MS = Number(process.env.BANK_TRANSFER_DELAY_MS || 3000);
 const BANK_TRANSFER_TIMEOUT_MS = Number(process.env.BANK_TRANSFER_TIMEOUT_MS || 10000);
+const BANK_TRANSFER_PAYMENT_WINDOW_MS = Number(process.env.BANK_TRANSFER_PAYMENT_WINDOW_MS || 5 * 60 * 1000);
+const SEPAY_ENABLED = String(process.env.SEPAY_ENABLED || '').toLowerCase() === 'true';
 const paymentOutcome = new Map();
 
 function normalizeOrder(payload) {
@@ -82,6 +84,26 @@ async function handleOrderCreated(payload) {
       eventAt: new Date().toISOString()
     });
 
+    if (SEPAY_ENABLED) {
+      // Wait for SePay webhook to confirm payment within a strict window.
+      setTimeout(async () => {
+        try {
+          await publishPaymentEvent('payment.timeout', {
+            orderId,
+            status: 'payment_timeout',
+            paymentMethod: method,
+            reason: 'payment_window_expired',
+            userId: normalized.userId || null,
+            totalPrice: normalized.totalPrice,
+            eventAt: new Date().toISOString()
+          });
+        } catch (err) {
+          console.error('Publish payment window timeout failed', err.message);
+        }
+      }, BANK_TRANSFER_PAYMENT_WINDOW_MS);
+      return;
+    }
+
     paymentOutcome.set(orderId, 'pending');
 
     setTimeout(async () => {
@@ -154,13 +176,8 @@ async function handleOrderCreated(payload) {
   }
 
   if (method === 'cod') {
-    await publishPaymentEvent('payment.succeeded', {
-      orderId,
-      status: 'paid',
-      paymentMethod: method,
-      walletDebited: false,
-      eventAt: new Date().toISOString()
-    });
+    // COD is cash-on-delivery: do not mark payment succeeded before delivery.
+    // Order service keeps order in pre-payment state until fulfillment completes.
     return;
   }
 
@@ -178,7 +195,7 @@ async function handleOrderCancelled(payload) {
     userId: normalized.userId,
     amount: normalized.totalPrice,
     reason: cancelReason,
-    allowWithoutDebit: true
+    allowWithoutDebit: false
   });
   if (!refund.ok) return;
   await publishPaymentEvent('payment.refunded', {

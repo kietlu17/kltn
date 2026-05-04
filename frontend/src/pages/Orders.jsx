@@ -61,6 +61,8 @@ export default function Orders({ embedded = false }) {
   const [activeStatus, setActiveStatus] = useState('all');
   const [expandedOrderId, setExpandedOrderId] = useState(null);
   const [disputeForm, setDisputeForm] = useState({});
+  const [sepayQrByOrder, setSepayQrByOrder] = useState({});
+  const [loadingQrOrderId, setLoadingQrOrderId] = useState(null);
   const { user } = useAuth();
   const { showToast } = useToast();
   const userId = user?.id || '';
@@ -110,6 +112,28 @@ export default function Orders({ embedded = false }) {
       setDisputeForm((prev) => ({ ...prev, [orderId]: { reason: '', note: '', evidenceText: '' } }));
     } catch (err) {
       showToast(err?.response?.data?.message || 'Không thể gửi khiếu nại', 'error');
+    }
+  }
+
+  async function continueBankTransferPayment(order) {
+    const orderId = Number(order?.id || order?._id);
+    const userId = user?.id;
+    const amount = Number(order?.total_price || order?.total || 0);
+    if (!Number.isFinite(orderId) || !userId || !Number.isFinite(amount) || amount <= 0) {
+      showToast('Không đủ thông tin để tạo QR thanh toán', 'error');
+      return;
+    }
+
+    setLoadingQrOrderId(orderId);
+    try {
+      const res = await api.post(`/payments/sepay/orders/${orderId}/qr`, { userId, amount });
+      setSepayQrByOrder((prev) => ({ ...prev, [orderId]: res.data }));
+      showToast('Đã tạo mã QR thanh toán');
+      setExpandedOrderId(orderId);
+    } catch (err) {
+      showToast(err?.response?.data?.message || 'Không thể tạo mã QR thanh toán', 'error');
+    } finally {
+      setLoadingQrOrderId(null);
     }
   }
 
@@ -188,6 +212,19 @@ export default function Orders({ embedded = false }) {
                   ) : (
                     <span className="muted">-</span>
                   )}
+                  {order.status === 'payment_processing' && String(order.payment_method || '').toLowerCase() === 'bank_transfer' && (
+                    <button
+                      type="button"
+                      className="btn btn-outline"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        continueBankTransferPayment(order);
+                      }}
+                      disabled={loadingQrOrderId === orderId}
+                    >
+                      {loadingQrOrderId === orderId ? 'Đang tạo QR...' : 'Tiếp tục thanh toán'}
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -226,6 +263,24 @@ export default function Orders({ embedded = false }) {
                           </div>
                         );
                       })}
+                    </div>
+                  )}
+
+                  {order.status === 'payment_processing' && String(order.payment_method || '').toLowerCase() === 'bank_transfer' && sepayQrByOrder[orderId] && (
+                    <div className="sepay-qr-box">
+                      <div className="sepay-qr-head">
+                        <strong>Quét mã để thanh toán đơn #{orderId}</strong>
+                        <span className="sepay-status pending">Hiệu lực 5 phút</span>
+                      </div>
+                      <div className="sepay-qr-grid">
+                        <img src={sepayQrByOrder[orderId].qrUrl} alt={`SePay QR ${orderId}`} />
+                        <div className="sepay-qr-meta">
+                          <div><span className="muted">Số tiền</span><strong>{formatPrice(sepayQrByOrder[orderId].amount)}</strong></div>
+                          <div><span className="muted">Ngân hàng</span><strong>{sepayQrByOrder[orderId].bankCode}</strong></div>
+                          <div><span className="muted">Tài khoản</span><strong>{sepayQrByOrder[orderId].accountNumber}</strong></div>
+                          <div><span className="muted">Nội dung</span><strong>{sepayQrByOrder[orderId].requestCode}</strong></div>
+                        </div>
+                      </div>
                     </div>
                   )}
 

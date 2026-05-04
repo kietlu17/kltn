@@ -228,6 +228,7 @@ export default function ProductDetail() {
   const shopId = product?.shopId || product?.shop?._id || product?.shop?.id;
   const shopName = shopMap.get(shopId)?.name || product.shopName || 'Shop chính thức';
   const isOutOfStock = Number(effectiveStock ?? 0) <= 0;
+  const sold = Number(product?.sold ?? 0);
 
   return (
     <div className="container page-section">
@@ -265,6 +266,7 @@ export default function ProductDetail() {
           <p className="muted">
             {shopId ? <Link to={`/shop/${shopId}`} className="shop-link">{shopName}</Link> : shopName}
           </p>
+          <p className="muted">Đã bán: {sold}</p>
           <p className="muted">Tồn kho: {effectiveStock ?? 0}</p>
 
           {Array.isArray(product.variants) && product.variants.length > 0 && (
