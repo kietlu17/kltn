@@ -1,6 +1,7 @@
 const { Kafka } = require('kafkajs');
-const { publishPaymentEvent } = require('./producer');
-const { debitForOrder, refundOrderToWallet } = require('../services/walletService');
+const { sequelize } = require('../config/db');
+const { InboxEvent } = require('../models');
+const { publishPaymentEvent, enqueueEvent } = require('./producer');
 
 const BANK_TRANSFER_DELAY_MS = Number(process.env.BANK_TRANSFER_DELAY_MS || 3000);
 const BANK_TRANSFER_TIMEOUT_MS = Number(process.env.BANK_TRANSFER_TIMEOUT_MS || 10000);
@@ -11,100 +12,151 @@ const paymentOutcome = new Map();
 function normalizeOrder(payload) {
   const orderId = Number(payload?.id || payload?.orderId);
   const userId = payload?.user_id || payload?.userId;
-  const totalPrice = Number(payload?.total_price || payload?.totalPrice || 0);
+  const totalPrice = Number(payload?.total_price || payload?.totalPrice || payload?.amount || 0);
   const paymentMethod = String(payload?.payment_method || payload?.paymentMethod || '').toLowerCase();
-  return { orderId, userId, totalPrice, paymentMethod };
+  const sagaId = payload?.sagaId || (Number.isFinite(orderId) ? `order:${orderId}:payment` : undefined);
+  const correlationId = payload?.correlationId || sagaId;
+  return { orderId, userId, totalPrice, paymentMethod, sagaId, correlationId };
 }
 
-async function publishPaymentFailed(payload, reason) {
-  await publishPaymentEvent('payment.failed', {
-    orderId: payload.orderId,
-    status: 'payment_failed',
-    paymentMethod: payload.paymentMethod,
-    reason,
-    userId: payload.userId || null,
-    totalPrice: payload.totalPrice,
-    eventAt: new Date().toISOString()
+function buildMessageId(topic, partition, message, payload) {
+  return String(payload?.eventId || payload?.idempotencyKey || `${topic}:${partition}:${message.offset}`);
+}
+
+async function withInbox(topic, partition, message, handler) {
+  const payload = JSON.parse(message.value.toString());
+  const messageId = buildMessageId(topic, partition, message, payload);
+  const [inbox, created] = await InboxEvent.findOrCreate({
+    where: { message_id: messageId },
+    defaults: {
+      message_id: messageId,
+      topic,
+      payload,
+      status: 'processing',
+      attempts: 1
+    }
   });
+
+  if (!created && inbox.status === 'processed') {
+    console.log('[payment-service] duplicate event skipped', { topic, messageId });
+    return;
+  }
+
+  try {
+    await handler(payload);
+    inbox.status = 'processed';
+    inbox.processed_at = new Date();
+    inbox.error = null;
+    await inbox.save();
+  } catch (err) {
+    inbox.status = 'failed';
+    inbox.attempts += 1;
+    inbox.error = err.message;
+    await inbox.save();
+    console.error('[payment-service] consume failed', {
+      topic,
+      messageId,
+      sagaId: payload?.sagaId,
+      correlationId: payload?.correlationId,
+      error: err.message
+    });
+    throw err;
+  }
+}
+
+async function enqueuePaymentFailed(transaction, payload, reason) {
+  await publishPaymentEvent(
+    'payment.failed',
+    {
+      orderId: payload.orderId,
+      status: 'payment_failed',
+      paymentMethod: payload.paymentMethod,
+      reason,
+      userId: payload.userId || null,
+      totalPrice: payload.totalPrice,
+      sagaId: payload.sagaId,
+      correlationId: payload.correlationId
+    },
+    {
+      transaction,
+      eventType: 'PaymentFailed',
+      key: payload.orderId,
+      aggregateId: payload.orderId
+    }
+  );
 }
 
 async function handleOrderCreated(payload) {
   const normalized = normalizeOrder(payload);
-  const { orderId } = normalized;
-  const method = normalized.paymentMethod;
+  const { orderId, paymentMethod: method } = normalized;
   if (!Number.isFinite(orderId)) return;
 
   if (method === 'wallet') {
-    if (!normalized.userId) {
-      await publishPaymentFailed(normalized, 'missing_user_id');
-      return;
-    }
-    const debit = await debitForOrder({
-      orderId,
-      userId: normalized.userId,
-      amount: normalized.totalPrice,
-      paymentMethod: method
+    await sequelize.transaction(async (transaction) => {
+      if (!normalized.userId) {
+        await enqueuePaymentFailed(transaction, normalized, 'missing_user_id');
+        return;
+      }
+      await enqueueEvent({
+        transaction,
+        topic: 'wallet.debit.requested',
+        eventType: 'WalletDebitRequested',
+        key: orderId,
+        aggregateId: orderId,
+        payload: {
+          orderId,
+          userId: normalized.userId,
+          amount: normalized.totalPrice,
+          totalPrice: normalized.totalPrice,
+          paymentMethod: method,
+          sagaId: normalized.sagaId,
+          correlationId: normalized.correlationId
+        }
+      });
     });
-    if (!debit.ok) {
-      await publishPaymentFailed(normalized, debit.reason || 'wallet_debit_failed');
-      return;
-    }
-    try {
-      await publishPaymentEvent('payment.succeeded', {
-        orderId,
-        status: 'paid',
-        paymentMethod: method,
-        userId: normalized.userId || null,
-        totalPrice: normalized.totalPrice,
-        walletDebited: true,
-        debitTransactionId: debit.transaction?.id || null,
-        eventAt: new Date().toISOString()
-      });
-    } catch (err) {
-      // Saga compensation: rollback wallet debit if success event cannot be published.
-      await refundOrderToWallet({
-        orderId,
-        userId: normalized.userId,
-        amount: normalized.totalPrice,
-        reason: 'payment_event_publish_failed',
-        allowWithoutDebit: false
-      });
-      await publishPaymentFailed(normalized, 'payment_event_publish_failed');
-    }
     return;
   }
 
   if (method === 'bank_transfer') {
-    await publishPaymentEvent('payment.pending', {
-      orderId,
-      status: 'payment_processing',
-      paymentMethod: method,
-      userId: normalized.userId || null,
-      totalPrice: normalized.totalPrice,
-      eventAt: new Date().toISOString()
+    await sequelize.transaction(async (transaction) => {
+      await publishPaymentEvent(
+        'payment.pending',
+        {
+          orderId,
+          status: 'payment_processing',
+          paymentMethod: method,
+          userId: normalized.userId || null,
+          totalPrice: normalized.totalPrice,
+          sagaId: normalized.sagaId,
+          correlationId: normalized.correlationId
+        },
+        {
+          transaction,
+          eventType: 'PaymentPending',
+          key: orderId,
+          aggregateId: orderId
+        }
+      );
     });
 
+    paymentOutcome.set(orderId, 'pending');
     if (SEPAY_ENABLED) {
-      // Wait for SePay webhook to confirm payment within a strict window.
       setTimeout(async () => {
         try {
-          await publishPaymentEvent('payment.timeout', {
-            orderId,
-            status: 'payment_timeout',
-            paymentMethod: method,
-            reason: 'payment_window_expired',
-            userId: normalized.userId || null,
-            totalPrice: normalized.totalPrice,
-            eventAt: new Date().toISOString()
+          if (paymentOutcome.get(orderId) !== 'pending') return;
+          paymentOutcome.set(orderId, 'timed_out');
+          await handleQrPaymentExpired({
+            ...normalized,
+            purpose: 'order_payment',
+            reason: 'payment_window_expired'
           });
+          paymentOutcome.delete(orderId);
         } catch (err) {
           console.error('Publish payment window timeout failed', err.message);
         }
       }, BANK_TRANSFER_PAYMENT_WINDOW_MS);
       return;
     }
-
-    paymentOutcome.set(orderId, 'pending');
 
     setTimeout(async () => {
       try {
@@ -113,40 +165,30 @@ async function handleOrderCreated(payload) {
         if (paymentOutcome.get(orderId) !== 'pending') return;
         if (shouldTimeout) {
           paymentOutcome.set(orderId, 'timed_out');
-          await publishPaymentEvent('payment.timeout', {
-            orderId,
-            status: 'payment_timeout',
-            paymentMethod: method,
-            reason: 'payment_timeout',
-            userId: normalized.userId || null,
-            totalPrice: normalized.totalPrice,
-            eventAt: new Date().toISOString()
+          await handleQrPaymentExpired({
+            ...normalized,
+            reason: 'payment_timeout'
           });
           paymentOutcome.delete(orderId);
           return;
         }
         if (shouldFail) {
           paymentOutcome.set(orderId, 'failed');
-          await publishPaymentEvent('payment.failed', {
-            orderId,
-            status: 'payment_failed',
-            paymentMethod: method,
-            reason: 'bank_transfer_failed',
-            userId: normalized.userId || null,
-            totalPrice: normalized.totalPrice,
-            eventAt: new Date().toISOString()
+          await handleQrPaymentFailed({
+            ...normalized,
+            reason: 'bank_transfer_failed'
           });
           paymentOutcome.delete(orderId);
           return;
         }
         paymentOutcome.set(orderId, 'succeeded');
-        await publishPaymentEvent('payment.succeeded', {
+        await handleQrPaymentSucceeded({
+          purpose: 'order_payment',
           orderId,
-          status: 'paid',
-          paymentMethod: method,
-          userId: normalized.userId || null,
-          totalPrice: normalized.totalPrice,
-          eventAt: new Date().toISOString()
+          userId: normalized.userId,
+          amount: normalized.totalPrice,
+          sagaId: normalized.sagaId,
+          correlationId: normalized.correlationId
         });
         paymentOutcome.delete(orderId);
       } catch (err) {
@@ -158,14 +200,9 @@ async function handleOrderCreated(payload) {
       try {
         if (paymentOutcome.get(orderId) !== 'pending') return;
         paymentOutcome.set(orderId, 'timed_out');
-        await publishPaymentEvent('payment.timeout', {
-          orderId,
-          status: 'payment_timeout',
-          paymentMethod: method,
-          reason: 'payment_timeout',
-          userId: normalized.userId || null,
-          totalPrice: normalized.totalPrice,
-          eventAt: new Date().toISOString()
+        await handleQrPaymentExpired({
+          ...normalized,
+          reason: 'payment_timeout'
         });
         paymentOutcome.delete(orderId);
       } catch (err) {
@@ -175,13 +212,11 @@ async function handleOrderCreated(payload) {
     return;
   }
 
-  if (method === 'cod') {
-    // COD is cash-on-delivery: do not mark payment succeeded before delivery.
-    // Order service keeps order in pre-payment state until fulfillment completes.
-    return;
-  }
+  if (method === 'cod') return;
 
-  await publishPaymentFailed(normalized, 'unsupported_payment_method');
+  await sequelize.transaction(async (transaction) => {
+    await enqueuePaymentFailed(transaction, normalized, 'unsupported_payment_method');
+  });
 }
 
 async function handleOrderCancelled(payload) {
@@ -189,22 +224,169 @@ async function handleOrderCancelled(payload) {
   if (!Number.isFinite(normalized.orderId) || !normalized.userId) return;
   const shouldRefundToWallet = Boolean(payload?.shouldRefundToWallet);
   if (!shouldRefundToWallet) return;
-  const cancelReason = String(payload?.cancel_reason || 'order_cancelled');
-  const refund = await refundOrderToWallet({
-    orderId: normalized.orderId,
-    userId: normalized.userId,
-    amount: normalized.totalPrice,
-    reason: cancelReason,
-    allowWithoutDebit: false
+  const cancelReason = String(payload?.cancel_reason || payload?.reason || 'order_cancelled');
+
+  await sequelize.transaction(async (transaction) => {
+    await enqueueEvent({
+      transaction,
+      topic: 'wallet.refund.requested',
+      eventType: 'WalletRefundRequested',
+      key: normalized.orderId,
+      aggregateId: normalized.orderId,
+      payload: {
+        orderId: normalized.orderId,
+        userId: normalized.userId,
+        amount: normalized.totalPrice,
+        totalPrice: normalized.totalPrice,
+        paymentMethod: normalized.paymentMethod,
+        reason: cancelReason,
+        allowWithoutDebit: normalized.paymentMethod === 'bank_transfer',
+        sagaId: normalized.sagaId,
+        correlationId: normalized.correlationId
+      }
+    });
   });
-  if (!refund.ok) return;
-  await publishPaymentEvent('payment.refunded', {
-    orderId: normalized.orderId,
-    userId: normalized.userId,
-    status: 'refunded',
-    reason: cancelReason,
-    eventAt: new Date().toISOString()
+}
+
+async function handleWalletDebited(payload) {
+  await sequelize.transaction(async (transaction) => {
+    await publishPaymentEvent(
+      'payment.succeeded',
+      {
+        orderId: Number(payload.orderId),
+        status: 'paid',
+        paymentMethod: payload.paymentMethod || 'wallet',
+        userId: payload.userId || null,
+        totalPrice: Number(payload.amount || 0),
+        walletDebited: true,
+        debitTransactionId: payload.transactionId || null,
+        sagaId: payload.sagaId,
+        correlationId: payload.correlationId
+      },
+      {
+        transaction,
+        eventType: 'PaymentSucceeded',
+        key: payload.orderId,
+        aggregateId: payload.orderId
+      }
+    );
   });
+}
+
+async function handleWalletDebitFailed(payload) {
+  await sequelize.transaction(async (transaction) => {
+    await publishPaymentEvent(
+      'payment.failed',
+      {
+        orderId: Number(payload.orderId),
+        status: 'payment_failed',
+        paymentMethod: payload.paymentMethod || 'wallet',
+        reason: payload.reason || 'wallet_debit_failed',
+        userId: payload.userId || null,
+        totalPrice: Number(payload.amount || 0),
+        sagaId: payload.sagaId,
+        correlationId: payload.correlationId
+      },
+      {
+        transaction,
+        eventType: 'PaymentFailed',
+        key: payload.orderId,
+        aggregateId: payload.orderId
+      }
+    );
+  });
+}
+
+async function handleWalletRefunded(payload) {
+  await sequelize.transaction(async (transaction) => {
+    await publishPaymentEvent(
+      'payment.refunded',
+      {
+        orderId: Number(payload.orderId),
+        userId: payload.userId || null,
+        status: 'refunded',
+        amount: Number(payload.amount || 0),
+        reason: payload.reason || 'order_cancelled',
+        sagaId: payload.sagaId,
+        correlationId: payload.correlationId
+      },
+      {
+        transaction,
+        eventType: 'PaymentRefunded',
+        key: payload.orderId,
+        aggregateId: payload.orderId
+      }
+    );
+  });
+}
+
+async function handleQrPaymentSucceeded(payload) {
+  if (payload.purpose !== 'order_payment' || !payload.orderId) return;
+  paymentOutcome.set(Number(payload.orderId), 'succeeded');
+  await sequelize.transaction(async (transaction) => {
+    await publishPaymentEvent(
+      'payment.succeeded',
+      {
+        orderId: Number(payload.orderId),
+        status: 'paid',
+        paymentMethod: 'bank_transfer',
+        userId: payload.userId || null,
+        totalPrice: Number(payload.amount || 0),
+        walletDebited: false,
+        qrRequestId: payload.requestId || null,
+        requestCode: payload.requestCode || null,
+        sagaId: payload.sagaId,
+        correlationId: payload.correlationId
+      },
+      {
+        transaction,
+        eventType: 'PaymentSucceeded',
+        key: payload.orderId,
+        aggregateId: payload.orderId
+      }
+    );
+  });
+  paymentOutcome.delete(Number(payload.orderId));
+}
+
+async function handleQrPaymentFailed(payload) {
+  if (payload.purpose && payload.purpose !== 'order_payment') return;
+  const normalized = normalizeOrder(payload);
+  if (!Number.isFinite(normalized.orderId)) return;
+  paymentOutcome.set(normalized.orderId, 'failed');
+  await sequelize.transaction(async (transaction) => {
+    await enqueuePaymentFailed(transaction, normalized, payload.reason || 'qr_payment_failed');
+  });
+  paymentOutcome.delete(normalized.orderId);
+}
+
+async function handleQrPaymentExpired(payload) {
+  if (payload.purpose && payload.purpose !== 'order_payment') return;
+  const normalized = normalizeOrder(payload);
+  if (!Number.isFinite(normalized.orderId)) return;
+  paymentOutcome.set(normalized.orderId, 'timed_out');
+  await sequelize.transaction(async (transaction) => {
+    await publishPaymentEvent(
+      'payment.timeout',
+      {
+        orderId: normalized.orderId,
+        status: 'payment_timeout',
+        paymentMethod: normalized.paymentMethod || 'bank_transfer',
+        reason: payload.reason || 'payment_window_expired',
+        userId: normalized.userId || null,
+        totalPrice: normalized.totalPrice,
+        sagaId: normalized.sagaId,
+        correlationId: normalized.correlationId
+      },
+      {
+        transaction,
+        eventType: 'PaymentTimedOut',
+        key: normalized.orderId,
+        aggregateId: normalized.orderId
+      }
+    );
+  });
+  paymentOutcome.delete(normalized.orderId);
 }
 
 async function initConsumer() {
@@ -217,12 +399,25 @@ async function initConsumer() {
   await consumer.connect();
   await consumer.subscribe({ topic: 'order.created' });
   await consumer.subscribe({ topic: 'order.cancelled' });
+  await consumer.subscribe({ topic: 'wallet.debited' });
+  await consumer.subscribe({ topic: 'wallet.debit_failed' });
+  await consumer.subscribe({ topic: 'wallet.refunded' });
+  await consumer.subscribe({ topic: 'qr.payment.succeeded' });
+  await consumer.subscribe({ topic: 'qr.payment.failed' });
+  await consumer.subscribe({ topic: 'qr.payment.expired' });
 
   await consumer.run({
-    eachMessage: async ({ topic, message }) => {
-      const payload = JSON.parse(message.value.toString());
-      if (topic === 'order.created') await handleOrderCreated(payload);
-      if (topic === 'order.cancelled') await handleOrderCancelled(payload);
+    eachMessage: async ({ topic, partition, message }) => {
+      await withInbox(topic, partition, message, async (payload) => {
+        if (topic === 'order.created') await handleOrderCreated(payload);
+        if (topic === 'order.cancelled') await handleOrderCancelled(payload);
+        if (topic === 'wallet.debited') await handleWalletDebited(payload);
+        if (topic === 'wallet.debit_failed') await handleWalletDebitFailed(payload);
+        if (topic === 'wallet.refunded') await handleWalletRefunded(payload);
+        if (topic === 'qr.payment.succeeded') await handleQrPaymentSucceeded(payload);
+        if (topic === 'qr.payment.failed') await handleQrPaymentFailed(payload);
+        if (topic === 'qr.payment.expired') await handleQrPaymentExpired(payload);
+      });
     }
   });
 

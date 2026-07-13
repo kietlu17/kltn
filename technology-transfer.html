@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tài liệu chuyển giao công nghệ - Ecommerce Microservices</title>
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --paper: #ffffff;
+      --ink: #172033;
+      --muted: #5f6d83;
+      --line: #d9e1ec;
+      --primary: #2563eb;
+      --primary-soft: #e8f0ff;
+      --accent: #0891b2;
+      --accent-soft: #e6f7fb;
+      --warning: #b45309;
+      --warning-soft: #fff7ed;
+      --success: #047857;
+      --success-soft: #ecfdf5;
+      --code-bg: #0f172a;
+      --code-ink: #e5e7eb;
+      --shadow: 0 18px 45px rgba(23, 32, 51, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Segoe UI", Arial, sans-serif;
+      line-height: 1.6;
+    }
+
+    a {
+      color: var(--primary);
+      text-decoration: none;
+    }
+
+    .page {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 32px 20px 64px;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, #1d4ed8 0%, #0891b2 58%, #0f766e 100%);
+      color: #ffffff;
+      border-radius: 28px;
+      padding: 44px;
+      box-shadow: var(--shadow);
+    }
+
+    .hero h1 {
+      margin: 0 0 12px;
+      font-size: clamp(30px, 5vw, 48px);
+      line-height: 1.12;
+      letter-spacing: -0.04em;
+    }
+
+    .hero p {
+      max-width: 820px;
+      margin: 0;
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 17px;
+    }
+
+    .meta-grid,
+    .toc-grid,
+    .cards,
+    .requirements {
+      display: grid;
+      gap: 16px;
+    }
+
+    .meta-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      margin-top: 28px;
+    }
+
+    .meta-item {
+      padding: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(8px);
+    }
+
+    .meta-item span,
+    .eyebrow {
+      display: block;
+      color: rgba(255, 255, 255, 0.74);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .meta-item strong {
+      display: block;
+      margin-top: 4px;
+      font-size: 15px;
+    }
+
+    .section {
+      margin-top: 28px;
+      padding: 30px;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+    }
+
+    .section h2 {
+      margin: 0 0 16px;
+      font-size: 28px;
+      letter-spacing: -0.03em;
+    }
+
+    .section h3 {
+      margin: 28px 0 12px;
+      font-size: 21px;
+      letter-spacing: -0.02em;
+    }
+
+    .section h4 {
+      margin: 20px 0 10px;
+      font-size: 17px;
+    }
+
+    .section p,
+    .section li {
+      color: var(--muted);
+    }
+
+    .toc-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .toc-card,
+    .service-card,
+    .note,
+    .db-card {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: #fbfdff;
+      padding: 18px;
+    }
+
+    .toc-card h3 {
+      margin-top: 0;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 3px 10px;
+      border-radius: 999px;
+      background: var(--primary-soft);
+      color: var(--primary);
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .badge.accent {
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    .badge.success {
+      background: var(--success-soft);
+      color: var(--success);
+    }
+
+    .badge.warning {
+      background: var(--warning-soft);
+      color: var(--warning);
+    }
+
+    .arch {
+      display: grid;
+      gap: 18px;
+      margin: 20px 0 6px;
+    }
+
+    .arch-row {
+      display: grid;
+      grid-template-columns: 1fr auto 1.2fr auto 1fr;
+      gap: 12px;
+      align-items: stretch;
+    }
+
+    .arch-node {
+      min-height: 112px;
+      padding: 18px;
+      border: 2px solid var(--line);
+      border-radius: 20px;
+      background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+    }
+
+    .arch-node h4 {
+      margin: 0 0 8px;
+      font-size: 18px;
+    }
+
+    .arch-node p {
+      margin: 0;
+      font-size: 14px;
+    }
+
+    .arrow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--primary);
+      font-size: 28px;
+      font-weight: 800;
+    }
+
+    .service-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .mini {
+      padding: 12px;
+      border-radius: 14px;
+      background: var(--primary-soft);
+      color: #1e3a8a;
+      font-size: 13px;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .storage-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 14px;
+    }
+
+    .db-card h4 {
+      margin-top: 0;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      margin-top: 14px;
+    }
+
+    table {
+      width: 100%;
+      min-width: 820px;
+      border-collapse: collapse;
+      background: #ffffff;
+    }
+
+    th,
+    td {
+      padding: 13px 14px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #f1f5f9;
+      color: #334155;
+      font-size: 13px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    code {
+      padding: 2px 6px;
+      border-radius: 7px;
+      background: #eef2ff;
+      color: #3730a3;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.92em;
+    }
+
+    pre {
+      overflow-x: auto;
+      margin: 12px 0 0;
+      padding: 16px;
+      border-radius: 16px;
+      background: var(--code-bg);
+      color: var(--code-ink);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    pre code {
+      padding: 0;
+      background: transparent;
+      color: inherit;
+    }
+
+    .cards {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .service-card h4 {
+      margin-top: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .requirements {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .checklist {
+      padding-left: 0;
+      list-style: none;
+    }
+
+    .checklist li {
+      margin: 8px 0;
+      padding-left: 28px;
+      position: relative;
+    }
+
+    .checklist li::before {
+      content: "✓";
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--success-soft);
+      color: var(--success);
+      font-weight: 800;
+      text-align: center;
+      line-height: 20px;
+      font-size: 12px;
+    }
+
+    .note {
+      border-left: 5px solid var(--primary);
+      background: #f8fbff;
+    }
+
+    .note.warning {
+      border-left-color: var(--warning);
+      background: var(--warning-soft);
+    }
+
+    .note.success {
+      border-left-color: var(--success);
+      background: var(--success-soft);
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .footer {
+      margin-top: 28px;
+      color: var(--muted);
+      text-align: center;
+      font-size: 13px;
+    }
+
+    @media (max-width: 900px) {
+      .meta-grid,
+      .toc-grid,
+      .cards,
+      .requirements,
+      .storage-grid,
+      .two-col {
+        grid-template-columns: 1fr;
+      }
+
+      .arch-row {
+        grid-template-columns: 1fr;
+      }
+
+      .arrow {
+        transform: rotate(90deg);
+      }
+
+      .service-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .hero,
+      .section {
+        padding: 24px;
+      }
+    }
+
+    @media print {
+      body {
+        background: #ffffff;
+      }
+
+      .page {
+        max-width: none;
+        padding: 0;
+      }
+
+      .hero,
+      .section {
+        box-shadow: none;
+        break-inside: avoid;
+      }
+
+      .hero {
+        color: #111827;
+        background: #ffffff;
+        border: 1px solid var(--line);
+      }
+
+      .meta-item {
+        color: #111827;
+        border-color: var(--line);
+        background: #ffffff;
+      }
+
+      .meta-item span,
+      .eyebrow {
+        color: var(--muted);
+      }
+
+      a {
+        color: #111827;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <span class="eyebrow">Tài liệu chuyển giao công nghệ</span>
+      <h1>Hệ thống Ecommerce Microservices</h1>
+      <p>
+        Tài liệu mô tả kiến trúc, công nghệ, dịch vụ, cơ sở dữ liệu và quy trình cài đặt hệ thống thương mại điện tử
+        triển khai theo mô hình microservices.
+      </p>
+      <div class="meta-grid">
+        <div class="meta-item">
+          <span>Loại tài liệu</span>
+          <strong>Technology Transfer</strong>
+        </div>
+        <div class="meta-item">
+          <span>Kiểu triển khai</span>
+          <strong>Docker Compose / Local</strong>
+        </div>
+        <div class="meta-item">
+          <span>Backend</span>
+          <strong>Node.js 20 + Express</strong>
+        </div>
+        <div class="meta-item">
+          <span>Frontend</span>
+          <strong>React 18 + Vite</strong>
+        </div>
+      </div>
+    </header>
+
+    <section class="section" id="muc-luc">
+      <h2>Mục lục</h2>
+      <div class="toc-grid">
+        <a class="toc-card" href="#kien-truc">
+          <h3>1. Kiến trúc hệ thống & công nghệ</h3>
+          <p>Sơ đồ tổng quan, danh sách dịch vụ, công nghệ sử dụng và cơ sở dữ liệu.</p>
+        </a>
+        <a class="toc-card" href="#cai-dat">
+          <h3>2. Hướng dẫn và cài đặt hệ thống</h3>
+          <p>Yêu cầu hệ thống, cấu hình môi trường, Docker Compose, backend, frontend và khởi tạo DB.</p>
+        </a>
+      </div>
+    </section>
+
+    <section class="section" id="kien-truc">
+      <h2>KIẾN TRÚC HỆ THỐNG &amp; CÔNG NGHỆ</h2>
+      <p>
+        Hệ thống sử dụng kiến trúc microservices. Frontend gọi API Gateway tại cổng <code>3000</code>;
+        Gateway chịu trách nhiệm proxy request, xác thực JWT, kiểm soát role và rate limit trước khi chuyển tiếp
+        đến từng dịch vụ nghiệp vụ.
+      </p>
+
+      <h3>Sơ đồ kiến trúc tổng quan</h3>
+      <div class="arch" aria-label="Sơ đồ kiến trúc tổng quan">
+        <div class="arch-row">
+          <div class="arch-node">
+            <h4>Frontend</h4>
+            <p>React 18, Vite, Axios. Chạy dev tại <code>5173</code>, gọi gateway qua <code>VITE_API_BASE_URL</code>.</p>
+          </div>
+          <div class="arrow">→</div>
+          <div class="arch-node">
+            <h4>API Gateway</h4>
+            <p>Express proxy, CORS, logging, JWT validation, role guard, rate limiting, mTLS client.</p>
+          </div>
+          <div class="arrow">→</div>
+          <div class="arch-node">
+            <h4>Microservices</h4>
+            <p>Các dịch vụ độc lập xử lý auth, user, shop, product, cart, order, inventory, payment, review, chat.</p>
+          </div>
+        </div>
+        <div class="service-grid">
+          <div class="mini">Auth<br>3001</div>
+          <div class="mini">User<br>3002</div>
+          <div class="mini">Shop<br>3003</div>
+          <div class="mini">Product<br>3004</div>
+          <div class="mini">Cart<br>3005</div>
+          <div class="mini">Order<br>3006</div>
+          <div class="mini">Inventory<br>3007</div>
+          <div class="mini">Review<br>3008</div>
+          <div class="mini">Chat<br>3009</div>
+          <div class="mini">Payment<br>3010</div>
+        </div>
+        <div class="storage-grid">
+          <div class="db-card">
+            <h4>MongoDB</h4>
+            <p>Lưu dữ liệu document cho auth, hồ sơ người dùng, shop, sản phẩm, giỏ hàng, đánh giá và chat.</p>
+          </div>
+          <div class="db-card">
+            <h4>PostgreSQL</h4>
+            <p>Lưu dữ liệu giao dịch có cấu trúc cho đơn hàng, tồn kho, ví và thanh toán.</p>
+          </div>
+          <div class="db-card">
+            <h4>Kafka</h4>
+            <p>Truyền sự kiện giữa product, order, inventory và payment để đồng bộ luồng nghiệp vụ bất đồng bộ.</p>
+          </div>
+        </div>
+      </div>
+
+      <h3>Danh sách các dịch vụ</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Dịch vụ</th>
+              <th>Port</th>
+              <th>Gateway route</th>
+              <th>CSDL / hạ tầng</th>
+              <th>Vai trò chính</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>api-gateway</strong></td>
+              <td><code>3000</code></td>
+              <td>Tất cả route public</td>
+              <td>Không lưu DB</td>
+              <td>Điểm vào hệ thống, proxy, xác thực JWT, phân quyền, rate limit, mTLS đến service nội bộ.</td>
+            </tr>
+            <tr>
+              <td><strong>auth-service</strong></td>
+              <td><code>3001</code></td>
+              <td><code>/auth</code></td>
+              <td>MongoDB: <code>auth-service</code></td>
+              <td>Đăng ký, đăng nhập, validate token/session, quản lý khóa/mở tài khoản admin.</td>
+            </tr>
+            <tr>
+              <td><strong>user-service</strong></td>
+              <td><code>3002</code></td>
+              <td><code>/users</code></td>
+              <td>MongoDB: <code>user-service</code></td>
+              <td>Hồ sơ người dùng, thông tin liên hệ, danh sách địa chỉ và địa chỉ mặc định.</td>
+            </tr>
+            <tr>
+              <td><strong>shop-service</strong></td>
+              <td><code>3003</code></td>
+              <td><code>/shops</code></td>
+              <td>MongoDB: <code>shop-service</code></td>
+              <td>Tạo và truy vấn gian hàng, liên kết shop với chủ sở hữu.</td>
+            </tr>
+            <tr>
+              <td><strong>product-service</strong></td>
+              <td><code>3004</code></td>
+              <td><code>/products</code>, <code>/categories</code>, <code>/uploads</code></td>
+              <td>MongoDB: <code>product-service</code>; Kafka producer</td>
+              <td>Quản lý sản phẩm, danh mục, upload ảnh, duyệt sản phẩm, phát sự kiện <code>product.created</code>.</td>
+            </tr>
+            <tr>
+              <td><strong>cart-service</strong></td>
+              <td><code>3005</code></td>
+              <td><code>/cart</code></td>
+              <td>MongoDB: <code>cart-service</code></td>
+              <td>Thêm, xóa, cập nhật số lượng sản phẩm trong giỏ hàng theo user.</td>
+            </tr>
+            <tr>
+              <td><strong>order-service</strong></td>
+              <td><code>3006</code></td>
+              <td><code>/orders</code></td>
+              <td>PostgreSQL: <code>order_service</code>; Kafka producer/consumer</td>
+              <td>Tạo đơn, hủy/confirm đơn, quản lý đơn seller/admin, khiếu nại và trạng thái thanh toán.</td>
+            </tr>
+            <tr>
+              <td><strong>inventory-service</strong></td>
+              <td><code>3007</code></td>
+              <td>Service nội bộ</td>
+              <td>PostgreSQL: <code>inventory_service</code>; Kafka consumer</td>
+              <td>Theo dõi tồn kho, reserved stock, cập nhật tồn kho khi có sản phẩm hoặc đơn hàng.</td>
+            </tr>
+            <tr>
+              <td><strong>review-service</strong></td>
+              <td><code>3008</code></td>
+              <td><code>/reviews</code></td>
+              <td>MongoDB: <code>review-service</code></td>
+              <td>Tạo và truy vấn đánh giá sản phẩm, đảm bảo một user chỉ đánh giá một lần cho mỗi sản phẩm.</td>
+            </tr>
+            <tr>
+              <td><strong>chat-service</strong></td>
+              <td><code>3009</code></td>
+              <td><code>/chat</code></td>
+              <td>MongoDB: <code>chat-service</code>; Gemini API tùy chọn</td>
+              <td>Quản lý hội thoại buyer-seller, tin nhắn và phản hồi AI khi cấu hình API key.</td>
+            </tr>
+            <tr>
+              <td><strong>payment-service</strong></td>
+              <td><code>3010</code></td>
+              <td><code>/payments</code></td>
+              <td>PostgreSQL: <code>payment_service</code>; Kafka producer/consumer</td>
+              <td>Ví điện tử, nạp tiền, giao dịch ví, QR SePay, webhook và phát sự kiện thanh toán.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Công nghệ sử dụng</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Nhóm</th>
+              <th>Công nghệ</th>
+              <th>Mục đích</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Frontend</td>
+              <td><code>React 18</code>, <code>Vite 5</code>, <code>React Router</code>, <code>Axios</code></td>
+              <td>Xây dựng giao diện buyer, seller, admin và gọi API Gateway.</td>
+            </tr>
+            <tr>
+              <td>Backend</td>
+              <td><code>Node.js 20</code>, <code>Express</code>, <code>CommonJS</code></td>
+              <td>Xây dựng API REST cho gateway và các service nghiệp vụ.</td>
+            </tr>
+            <tr>
+              <td>Database</td>
+              <td><code>MongoDB 7</code>, <code>PostgreSQL 15</code></td>
+              <td>Lưu dữ liệu document và dữ liệu giao dịch quan hệ.</td>
+            </tr>
+            <tr>
+              <td>ORM/ODM</td>
+              <td><code>Mongoose</code>, <code>Sequelize</code></td>
+              <td>Định nghĩa schema/model và đồng bộ bảng PostgreSQL tự động khi service khởi động.</td>
+            </tr>
+            <tr>
+              <td>Messaging</td>
+              <td><code>Apache Kafka</code>, <code>KafkaJS</code>, <code>Kafka UI</code></td>
+              <td>Trao đổi sự kiện sản phẩm, đơn hàng, tồn kho và thanh toán.</td>
+            </tr>
+            <tr>
+              <td>Security</td>
+              <td><code>JWT</code>, <code>TLS</code>, <code>mTLS</code>, <code>bcryptjs</code></td>
+              <td>Xác thực, phân quyền, mã hóa mật khẩu và bảo vệ kết nối giữa gateway-service.</td>
+            </tr>
+            <tr>
+              <td>Infrastructure</td>
+              <td><code>Docker</code>, <code>Docker Compose</code>, <code>ngrok</code></td>
+              <td>Đóng gói service, chạy local stack và expose gateway để nhận webhook khi cần.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Cơ sở dữ liệu</h3>
+      <div class="cards">
+        <div class="service-card">
+          <h4>MongoDB <span class="badge success">Document DB</span></h4>
+          <ul>
+            <li><code>auth-service</code>: collection <code>AuthUser</code> gồm email, password hash, role, shopId, trạng thái khóa.</li>
+            <li><code>user-service</code>: collection <code>UserProfile</code> gồm hồ sơ, số điện thoại và danh sách địa chỉ.</li>
+            <li><code>shop-service</code>: collection <code>Shop</code> gồm tên shop, ownerId, mô tả.</li>
+            <li><code>product-service</code>: collections <code>Product</code>, <code>Category</code> gồm sản phẩm, biến thể, ảnh, tồn kho ban đầu và trạng thái duyệt.</li>
+            <li><code>cart-service</code>: collection <code>Cart</code> gồm userId và danh sách sản phẩm trong giỏ.</li>
+            <li><code>review-service</code>: collection <code>Review</code> gồm productId, userId, rating, comment.</li>
+            <li><code>chat-service</code>: collections <code>Conversation</code>, <code>Message</code> cho hội thoại và tin nhắn.</li>
+          </ul>
+        </div>
+        <div class="service-card">
+          <h4>PostgreSQL <span class="badge accent">Relational DB</span></h4>
+          <ul>
+            <li><code>order_service</code>: bảng <code>orders</code> lưu sản phẩm JSONB, tổng tiền, trạng thái, idempotency key, địa chỉ giao hàng, payment method.</li>
+            <li><code>order_service</code>: bảng <code>disputes</code> lưu khiếu nại, trạng thái xử lý, ghi chú admin.</li>
+            <li><code>inventory_service</code>: bảng <code>inventory</code> lưu <code>product_id</code>, <code>stock</code>, <code>reserved_stock</code>.</li>
+            <li><code>payment_service</code>: bảng <code>wallets</code>, <code>wallet_transactions</code>, <code>sepay_payment_requests</code>, <code>sepay_webhook_logs</code>.</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>Luồng sự kiện Kafka</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Topic</th>
+              <th>Producer</th>
+              <th>Consumer</th>
+              <th>Mục đích</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>product.created</code></td>
+              <td>product-service</td>
+              <td>inventory-service</td>
+              <td>Tạo bản ghi tồn kho khi sản phẩm mới được tạo.</td>
+            </tr>
+            <tr>
+              <td><code>order.created</code></td>
+              <td>order-service</td>
+              <td>inventory-service, payment-service</td>
+              <td>Giữ hàng, bắt đầu quy trình thanh toán cho đơn mới.</td>
+            </tr>
+            <tr>
+              <td><code>order.cancelled</code></td>
+              <td>order-service</td>
+              <td>inventory-service, payment-service</td>
+              <td>Hoàn reserved stock và xử lý hoàn/hủy thanh toán liên quan.</td>
+            </tr>
+            <tr>
+              <td><code>payment.pending</code></td>
+              <td>payment-service</td>
+              <td>order-service</td>
+              <td>Cập nhật đơn sang trạng thái chờ thanh toán/xử lý.</td>
+            </tr>
+            <tr>
+              <td><code>payment.succeeded</code></td>
+              <td>payment-service</td>
+              <td>order-service</td>
+              <td>Cập nhật đơn đã thanh toán thành công.</td>
+            </tr>
+            <tr>
+              <td><code>payment.failed</code></td>
+              <td>payment-service</td>
+              <td>order-service</td>
+              <td>Cập nhật đơn thanh toán thất bại.</td>
+            </tr>
+            <tr>
+              <td><code>payment.timeout</code></td>
+              <td>payment-service</td>
+              <td>order-service</td>
+              <td>Cập nhật đơn hết thời gian thanh toán.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="section" id="cai-dat">
+      <h2>HƯỚNG DẪN VÀ CÀI ĐẶT HỆ THỐNG</h2>
+      <p>
+        Có hai cách chạy hệ thống: chạy toàn bộ stack bằng Docker Compose hoặc chạy từng service bằng Node.js.
+        Docker Compose là cách khuyến nghị vì đã cấu hình sẵn MongoDB, PostgreSQL, Kafka, TLS/mTLS và gateway.
+      </p>
+
+      <h3>Yêu cầu hệ thống</h3>
+      <div class="requirements">
+        <div class="note success">
+          <h4>Runtime</h4>
+          <ul class="checklist">
+            <li>Node.js 20 trở lên</li>
+            <li>npm đi kèm Node.js</li>
+            <li>Trình duyệt hiện đại để chạy frontend</li>
+          </ul>
+        </div>
+        <div class="note success">
+          <h4>Container</h4>
+          <ul class="checklist">
+            <li>Docker Desktop hoặc Docker Engine</li>
+            <li>Docker Compose v2</li>
+            <li>Tối thiểu 4 GB RAM trống cho stack local</li>
+          </ul>
+        </div>
+        <div class="note success">
+          <h4>Cổng local</h4>
+          <ul class="checklist">
+            <li><code>3000</code> API Gateway</li>
+            <li><code>5173</code> Vite frontend</li>
+            <li><code>27017</code>, <code>5432</code>, <code>9092</code>, <code>8080</code>, <code>4040</code></li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>Cấu hình môi trường (.env)</h3>
+      <p>
+        Không commit token thật, webhook secret hoặc thông tin tài khoản ngân hàng sản xuất. Dưới đây là mẫu cấu hình
+        an toàn để bàn giao; khi triển khai thực tế cần thay các placeholder bằng giá trị của môi trường đích.
+      </p>
+
+      <h4>Root <code>.env</code></h4>
+      <pre><code>NGROK_AUTHTOKEN=&lt;your-ngrok-authtoken&gt;</code></pre>
+
+      <h4><code>frontend/.env</code></h4>
+      <pre><code>VITE_API_GATEWAY_URL=http://localhost:3000
+VITE_API_BASE_URL=http://localhost:3000</code></pre>
+
+      <h4><code>payment-service/.env</code></h4>
+      <pre><code>PORT=3010
+
+# PostgreSQL
+PG_HOST=postgres
+PG_PORT=5432
+PG_DATABASE=payment_service
+PG_USER=postgres
+PG_PASSWORD=&lt;postgres-password&gt;
+
+# Kafka
+KAFKA_BROKER=kafka-e:29092
+
+# Wallet
+WALLET_DEFAULT_BALANCE=0
+
+# SePay
+SEPAY_ENABLED=true
+SEPAY_BANK_CODE=&lt;bank-code&gt;
+SEPAY_ACCOUNT_NUMBER=&lt;account-number&gt;
+SEPAY_ACCOUNT_NAME=&lt;account-name&gt;
+SEPAY_WEBHOOK_API_KEY=&lt;webhook-api-key&gt;
+SEPAY_QR_BASE_URL=https://qr.sepay.vn/img
+
+# Bank-transfer simulation
+BANK_TRANSFER_SHOULD_FAIL=false
+BANK_TRANSFER_SHOULD_TIMEOUT=false
+BANK_TRANSFER_DELAY_MS=3000
+BANK_TRANSFER_TIMEOUT_MS=10000
+BANK_TRANSFER_PAYMENT_WINDOW_MS=300000
+
+# TLS / mTLS
+TLS_ENABLED=true
+TLS_REQUEST_CLIENT_CERT=true
+TLS_REJECT_UNAUTHORIZED=true
+TLS_CA_PATH=/certs/ca/ca.crt
+TLS_CERT_PATH=/certs/payment-service/tls.crt
+TLS_KEY_PATH=/certs/payment-service/tls.key</code></pre>
+
+      <div class="note warning">
+        <strong>Lưu ý bảo mật:</strong> các biến như <code>JWT_SECRET</code>, <code>ADMIN_EMAIL</code>, <code>ADMIN_PASSWORD</code>,
+        <code>GEMINI_API_KEY</code>, <code>SEPAY_WEBHOOK_API_KEY</code> nên được cấu hình qua secret manager hoặc file môi trường riêng
+        theo từng môi trường, không ghi trực tiếp vào tài liệu bàn giao.
+      </div>
+
+      <h3>Khởi chạy Docker Compose</h3>
+      <p>Chạy toàn bộ hệ thống từ thư mục gốc repository:</p>
+      <pre><code>docker compose up -d --build</code></pre>
+
+      <h4>Kiểm tra trạng thái container</h4>
+      <pre><code>docker compose ps
+docker compose logs -f api-gateway
+docker compose logs -f auth-service
+docker compose logs -f payment-service</code></pre>
+
+      <h4>Các endpoint local quan trọng</h4>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Thành phần</th>
+              <th>URL</th>
+              <th>Ghi chú</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>API Gateway</td>
+              <td><code>http://localhost:3000</code></td>
+              <td>Điểm vào API cho frontend và client.</td>
+            </tr>
+            <tr>
+              <td>Kafka UI</td>
+              <td><code>http://localhost:8080</code></td>
+              <td>Quan sát topic, message và consumer group.</td>
+            </tr>
+            <tr>
+              <td>ngrok dashboard</td>
+              <td><code>http://localhost:4040</code></td>
+              <td>Xem tunnel, request webhook nếu bật ngrok.</td>
+            </tr>
+            <tr>
+              <td>MongoDB</td>
+              <td><code>mongodb://localhost:27017</code></td>
+              <td>Dùng cho các service document.</td>
+            </tr>
+            <tr>
+              <td>PostgreSQL</td>
+              <td><code>localhost:5432</code></td>
+              <td>User mặc định trong compose: <code>postgres</code>.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Cài đặt Backend</h3>
+      <p>
+        Khi chạy bằng Docker Compose, backend đã được build tự động. Nếu cần chạy từng service ở môi trường local,
+        cài dependency trong từng thư mục service rồi chạy <code>npm start</code>.
+      </p>
+      <pre><code>cd auth-service
+npm install
+npm start</code></pre>
+
+      <p>Lặp lại với các service backend còn lại:</p>
+      <pre><code>api-gateway
+auth-service
+user-service
+shop-service
+product-service
+cart-service
+order-service
+inventory-service
+review-service
+chat-service
+payment-service</code></pre>
+
+      <div class="note">
+        Khi chạy service ngoài Docker, cần đổi biến môi trường trỏ về host local, ví dụ <code>MONGO_URI=mongodb://localhost:27017/auth-service</code>,
+        <code>PG_HOST=localhost</code>, <code>KAFKA_BROKER=localhost:9092</code>, đồng thời tắt hoặc cấp đúng chứng chỉ TLS/mTLS nếu không chạy trong mạng Docker.
+      </div>
+
+      <h3>Cài đặt Frontend</h3>
+      <p>Frontend đặt trong thư mục <code>frontend</code>, sử dụng Vite dev server tại cổng <code>5173</code>.</p>
+      <pre><code>cd frontend
+npm install
+npm run dev</code></pre>
+
+      <p>Build bản production:</p>
+      <pre><code>cd frontend
+npm run build
+npm run preview</code></pre>
+
+      <h3>Khởi tạo cơ sở dữ liệu</h3>
+      <div class="two-col">
+        <div>
+          <h4>MongoDB</h4>
+          <p>
+            MongoDB container được khai báo trong <code>docker-compose.yml</code>. Các database MongoDB được tạo tự động khi
+            service đầu tiên ghi dữ liệu thông qua Mongoose.
+          </p>
+          <pre><code>docker compose logs -f mongo</code></pre>
+        </div>
+        <div>
+          <h4>PostgreSQL</h4>
+          <p>
+            PostgreSQL sử dụng script <code>docker/db-init/01-create-databases.sql</code> để tạo ba database nghiệp vụ khi volume
+            PostgreSQL được khởi tạo lần đầu.
+          </p>
+          <pre><code>CREATE DATABASE order_service;
+CREATE DATABASE inventory_service;
+CREATE DATABASE payment_service;</code></pre>
+        </div>
+      </div>
+
+      <h4>Đồng bộ schema PostgreSQL</h4>
+      <p>
+        Các service <code>order-service</code>, <code>inventory-service</code>, <code>payment-service</code> dùng Sequelize
+        và gọi <code>sequelize.sync()</code> khi khởi động để tạo/cập nhật bảng theo model hiện tại.
+      </p>
+
+      <h4>Reset dữ liệu local khi cần</h4>
+      <pre><code>docker compose down -v
+docker compose up -d --build</code></pre>
+
+      <div class="note warning">
+        Lệnh <code>docker compose down -v</code> xóa toàn bộ volume local gồm MongoDB, PostgreSQL, Kafka và dữ liệu upload.
+        Chỉ dùng cho môi trường phát triển hoặc khi đã sao lưu dữ liệu cần thiết.
+      </div>
+
+      <h3>Checklist nghiệm thu sau cài đặt</h3>
+      <ul class="checklist">
+        <li><code>docker compose ps</code> hiển thị các service backend, MongoDB, PostgreSQL và Kafka đang chạy.</li>
+        <li><code>http://localhost:3000</code> truy cập được API Gateway.</li>
+        <li><code>http://localhost:8080</code> mở được Kafka UI.</li>
+        <li>Frontend chạy bằng <code>npm run dev</code> và gọi API Gateway thành công.</li>
+        <li>Đăng ký/đăng nhập user, tạo sản phẩm, tạo đơn hàng và thanh toán test không phát sinh lỗi kết nối DB/Kafka.</li>
+      </ul>
+    </section>
+
+    <footer class="footer">
+      Tài liệu được tạo cho mục đích chuyển giao nội bộ. Mọi secret trong ví dụ đã được thay bằng placeholder.
+    </footer>
+  </main>
+</body>
+</html>

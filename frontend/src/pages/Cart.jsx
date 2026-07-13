@@ -215,11 +215,11 @@ export default function Cart() {
             </div>
             <div className="summary-row">
               <span>Phí vận chuyển</span>
-              <strong>{formatPrice(total > 0 ? 2.5 : 0)}</strong>
+              <strong>0</strong>
             </div>
             <div className="summary-row total">
               <span>Tổng cộng</span>
-              <strong>{formatPrice(total + (total > 0 ? 2.5 : 0))}</strong>
+              <strong>{formatPrice(total)}</strong>
             </div>
             <button className="btn btn-primary btn-full" onClick={handleCheckout} disabled={selectedIds.length === 0}>
               Thanh toán

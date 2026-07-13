@@ -130,18 +130,25 @@ function summarizeVariants(variants) {
 function buildModerationFields({ name, description, detail }) {
   const evaluation = evaluateProductContent({ name, description, detail });
   if (evaluation.flagged) {
+    const matches = [...new Set(evaluation.matches)];
     return {
       moderationStatus: 'pending',
       moderatedBy: 'system-rule',
       moderatedAt: new Date(),
-      moderationNote: `Flagged by keyword rule: ${evaluation.matches.join(', ')}`
+      moderationNote: `Flagged by keyword rule: ${matches.join(', ')}`,
+      moderationKeywordMatches: matches,
+      sellerModerationMessage: `San pham cua ban chua tu khoa vi pham: ${matches.join(
+        ', '
+      )}. Vui long chinh sua noi dung va cap nhat lai.`
     };
   }
   return {
     moderationStatus: 'approved',
     moderatedBy: 'system-rule',
     moderatedAt: new Date(),
-    moderationNote: 'Auto-approved by keyword rule'
+    moderationNote: 'Auto-approved by keyword rule',
+    moderationKeywordMatches: [],
+    sellerModerationMessage: 'San pham da qua kiem duyet tu dong.'
   };
 }
 
@@ -209,7 +216,12 @@ async function createProduct(req, res) {
     return res.status(201).json({
       ...product.toObject(),
       autoModeration: moderation.moderationStatus,
-      moderationNote: moderation.moderationNote
+      moderationNote: moderation.moderationNote,
+      moderationAlert: {
+        flagged: moderation.moderationStatus === 'pending',
+        keywords: moderation.moderationKeywordMatches,
+        message: moderation.sellerModerationMessage
+      }
     });
   } catch (err) {
     if (/variant|price must|quantity must/i.test(err.message || '')) {
@@ -353,7 +365,16 @@ async function updateProduct(req, res) {
     recalcProductSummary(product);
     await product.save();
 
-    return res.json(product);
+    return res.json({
+      ...product.toObject(),
+      autoModeration: moderation.moderationStatus,
+      moderationNote: moderation.moderationNote,
+      moderationAlert: {
+        flagged: moderation.moderationStatus === 'pending',
+        keywords: moderation.moderationKeywordMatches,
+        message: moderation.sellerModerationMessage
+      }
+    });
   } catch (err) {
     if (/variant|price must|quantity must/i.test(err.message || '')) {
       return res.status(400).json({ message: err.message });

@@ -292,19 +292,19 @@ async function confirmOrder(req, res) {
     if (order.status === 'cancelled') {
       return res.status(400).json({ message: 'Cancelled order cannot be confirmed' });
     }
-    if (order.status === 'pending_payment' || order.status === 'payment_processing') {
-      return res.status(400).json({ message: 'Order payment is not completed yet' });
-    }
     if (order.status === 'payment_failed') {
       return res.status(400).json({ message: 'Payment failed for this order' });
     }
     const isCodOrder = isCodPaymentMethod(order.payment_method);
     if (isCodOrder) {
-      if (['pending_payment', 'payment_processing', 'paid'].includes(order.status)) {
+      if (['pending_payment', 'payment_processing'].includes(order.status)) {
         order.status = 'confirmed';
         await order.save();
       }
       return res.json(order.toJSON());
+    }
+    if (order.status === 'pending_payment' || order.status === 'payment_processing') {
+      return res.status(400).json({ message: 'Order payment is not completed yet' });
     }
     if (['confirmed', 'shipped', 'delivered'].includes(order.status)) {
       return res.json(order.toJSON());
@@ -418,17 +418,33 @@ async function updateAdminOrderStatus(req, res) {
   try {
     const id = Number(req.params.id);
     const { status } = req.body || {};
-    if (!ALLOWED_ORDER_STATUSES.has(status)) {
+    const nextStatus = String(status || '').toLowerCase();
+    if (!ALLOWED_ORDER_STATUSES.has(nextStatus)) {
       return res.status(400).json({ message: 'Invalid status' });
     }
     const order = await Order.findByPk(id);
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
     }
-    if (isCodPaymentMethod(order.payment_method) && status === 'paid' && order.status !== 'delivered') {
-      return res.status(400).json({ message: 'COD order can be marked paid only after delivered' });
+    const currentStatus = String(order.status || '').toLowerCase();
+    if (isCodPaymentMethod(order.payment_method)) {
+      const allowedCodNextByCurrent = {
+        pending_payment: new Set(['pending_payment', 'confirmed', 'cancelled', 'payment_failed']),
+        payment_processing: new Set(['payment_processing', 'confirmed', 'cancelled', 'payment_failed']),
+        confirmed: new Set(['confirmed', 'shipped', 'cancelled']),
+        shipped: new Set(['shipped', 'paid', 'cancelled']),
+        paid: new Set(['paid', 'cancelled']),
+        payment_failed: new Set(['payment_failed']),
+        cancelled: new Set(['cancelled'])
+      };
+      const allowedSet = allowedCodNextByCurrent[currentStatus] || new Set([currentStatus]);
+      if (!allowedSet.has(nextStatus)) {
+        return res.status(400).json({
+          message: 'Invalid COD status flow. Expected: pending_payment -> confirmed -> shipped -> paid'
+        });
+      }
     }
-    order.status = status;
+    order.status = nextStatus;
     await order.save();
     return res.json(order.toJSON());
   } catch (err) {

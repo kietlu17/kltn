@@ -27,6 +27,8 @@ const targets = {
   cart: process.env.CART_SERVICE_URL || 'http://localhost:3005',
   orders: process.env.ORDER_SERVICE_URL || 'http://localhost:3006',
   payments: process.env.PAYMENT_SERVICE_URL || 'http://localhost:3010',
+  wallet: process.env.WALLET_SERVICE_URL || 'http://localhost:3011',
+  paymentGateway: process.env.PAYMENT_GATEWAY_URL || 'http://localhost:3012',
   reviews: process.env.REVIEW_SERVICE_URL || 'http://localhost:3008',
   chat: process.env.CHAT_SERVICE_URL || 'http://localhost:3009'
 };
@@ -235,6 +237,9 @@ app.use('/uploads', buildProxy(targets.products));
 app.use('/categories', buildProxy(targets.products));
 app.use('/cart', buildProxy(targets.cart));
 app.use('/orders', buildProxy(targets.orders));
+app.use('/payments/wallet/:userId/topup/sepay-qr', buildProxy(targets.paymentGateway));
+app.use('/payments/wallet', buildProxy(targets.wallet));
+app.use('/payments/sepay', buildProxy(targets.paymentGateway));
 app.use('/payments', buildProxy(targets.payments));
 app.use('/reviews', buildProxy(targets.reviews));
 app.use('/chat', buildProxy(targets.chat));

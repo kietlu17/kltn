@@ -1,8 +1,7 @@
 const crypto = require('crypto');
 const { Op, UniqueConstraintError } = require('sequelize');
 const { sequelize } = require('../config/db');
-const { SepayPaymentRequest, SepayWebhookLog } = require('../models');
-const { topupWallet } = require('./walletService');
+const { SepayPaymentRequest, SepayWebhookLog, OutboxEvent } = require('../models');
 
 function toMoney(value) {
   const number = Number(value);
@@ -11,8 +10,7 @@ function toMoney(value) {
 }
 
 function normalizeAmount(amount) {
-  const money = toMoney(amount);
-  return Math.round(money);
+  return Math.round(toMoney(amount));
 }
 
 function getSepayConfig() {
@@ -50,11 +48,14 @@ function buildQrUrl({ qrBaseUrl, accountNumber, bankCode, amount, description })
   const url = new URL(qrBaseUrl);
   url.searchParams.set('acc', accountNumber);
   url.searchParams.set('bank', bankCode);
-  if (Number.isFinite(amount) && amount > 0) {
-    url.searchParams.set('amount', String(Math.round(amount)));
-  }
+  if (Number.isFinite(amount) && amount > 0) url.searchParams.set('amount', String(Math.round(amount)));
   url.searchParams.set('des', description);
   return url.toString();
+}
+
+function getExpiryDate() {
+  const ttlMs = Number(process.env.QR_PAYMENT_WINDOW_MS || 5 * 60 * 1000);
+  return new Date(Date.now() + ttlMs);
 }
 
 function toPublicRequest(row) {
@@ -72,16 +73,57 @@ function toPublicRequest(row) {
     qrUrl: value.qr_url,
     status: value.status,
     paidAt: value.paid_at || null,
-    createdAt: value.created_at || null
+    expiresAt: value.expires_at || null,
+    createdAt: value.created_at || null,
+    sagaId: value.saga_id || null,
+    correlationId: value.correlation_id || null
   };
 }
 
-async function createSepayTopupRequest({ userId, amount }) {
+async function enqueueQrEvent(transaction, request, eventType, topic, extra = {}) {
+  const publicRequest = toPublicRequest(request);
+  const payload = {
+    eventId: `${eventType}:${request.request_code}:${extra.gatewayTransactionId || request.updated_at?.getTime?.() || Date.now()}`,
+    eventType,
+    requestId: request.id,
+    requestCode: request.request_code,
+    purpose: request.purpose,
+    userId: request.user_id,
+    orderId: request.order_id,
+    amount: Number(request.amount || 0),
+    paymentMethod: 'bank_transfer',
+    status: request.status,
+    sagaId: request.saga_id || null,
+    correlationId: request.correlation_id || null,
+    occurredAt: new Date().toISOString(),
+    request: publicRequest,
+    ...extra
+  };
+
+  await OutboxEvent.create(
+    {
+      aggregate_type: 'sepay_payment_request',
+      aggregate_id: String(request.id),
+      event_type: eventType,
+      topic,
+      event_key: String(request.order_id || request.user_id || request.request_code),
+      payload,
+      headers: {
+        sagaId: request.saga_id || '',
+        correlationId: request.correlation_id || ''
+      },
+      saga_id: request.saga_id || null,
+      correlation_id: request.correlation_id || null
+    },
+    { transaction }
+  );
+}
+
+async function createSepayTopupRequest({ userId, amount, correlationId }) {
   const config = assertSepayConfig();
   const normalizedAmount = normalizeAmount(amount);
-  if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
-    throw new Error('amount must be greater than 0');
-  }
+  if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) throw new Error('amount must be greater than 0');
+
   const requestCode = generateRequestCode('TOPUP');
   const qrUrl = buildQrUrl({
     qrBaseUrl: config.qrBaseUrl,
@@ -90,6 +132,7 @@ async function createSepayTopupRequest({ userId, amount }) {
     amount: normalizedAmount,
     description: requestCode
   });
+
   const created = await SepayPaymentRequest.create({
     request_code: requestCode,
     purpose: 'wallet_topup',
@@ -101,21 +144,19 @@ async function createSepayTopupRequest({ userId, amount }) {
     account_name: config.accountName || null,
     qr_url: qrUrl,
     status: 'pending',
-    metadata: {}
+    expires_at: getExpiryDate(),
+    metadata: {},
+    correlation_id: correlationId || null
   });
   return toPublicRequest(created);
 }
 
-async function createSepayOrderRequest({ orderId, userId, amount }) {
+async function createSepayOrderRequest({ orderId, userId, amount, correlationId }) {
   const config = assertSepayConfig();
   const normalizedOrderId = Number(orderId);
   const normalizedAmount = normalizeAmount(amount);
-  if (!Number.isFinite(normalizedOrderId)) {
-    throw new Error('orderId is invalid');
-  }
-  if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
-    throw new Error('amount must be greater than 0');
-  }
+  if (!Number.isFinite(normalizedOrderId)) throw new Error('orderId is invalid');
+  if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) throw new Error('amount must be greater than 0');
 
   const existing = await SepayPaymentRequest.findOne({
     where: {
@@ -134,6 +175,7 @@ async function createSepayOrderRequest({ orderId, userId, amount }) {
     return toPublicRequest(existing);
   }
 
+  const sagaId = `order:${normalizedOrderId}:payment`;
   const requestCode = generateRequestCode(`ORD${normalizedOrderId}`);
   const qrUrl = buildQrUrl({
     qrBaseUrl: config.qrBaseUrl,
@@ -153,7 +195,10 @@ async function createSepayOrderRequest({ orderId, userId, amount }) {
     account_name: config.accountName || null,
     qr_url: qrUrl,
     status: 'pending',
-    metadata: {}
+    expires_at: getExpiryDate(),
+    metadata: {},
+    saga_id: sagaId,
+    correlation_id: correlationId || sagaId
   });
   return toPublicRequest(created);
 }
@@ -161,14 +206,6 @@ async function createSepayOrderRequest({ orderId, userId, amount }) {
 async function getSepayRequestById(id) {
   const row = await SepayPaymentRequest.findByPk(Number(id));
   if (!row) return null;
-  return toPublicRequest(row);
-}
-
-async function markOrderRequestEventPublished(requestId) {
-  const row = await SepayPaymentRequest.findByPk(Number(requestId));
-  if (!row) return null;
-  row.event_published_at = new Date();
-  await row.save();
   return toPublicRequest(row);
 }
 
@@ -189,13 +226,29 @@ function collectRequestCodeCandidates(payload) {
   sourceTexts.forEach((text) => {
     const tokens = text.match(/[A-Z0-9]{8,80}/g) || [];
     tokens.forEach((token) => {
-      if (token.startsWith('ORD') || token.startsWith('TOPUP')) {
-        candidates.add(token);
-      }
+      if (token.startsWith('ORD') || token.startsWith('TOPUP')) candidates.add(token);
     });
   });
 
   return Array.from(candidates);
+}
+
+async function markRequestFailed(request, reason, metadata = {}) {
+  return sequelize.transaction(async (transaction) => {
+    const locked = await SepayPaymentRequest.findByPk(request.id, {
+      transaction,
+      lock: transaction.LOCK.UPDATE
+    });
+    if (!locked || locked.status !== 'pending') return locked || request;
+    locked.status = 'failed';
+    locked.metadata = {
+      ...(locked.metadata || {}),
+      failure: { reason, ...metadata }
+    };
+    await locked.save({ transaction });
+    await enqueueQrEvent(transaction, locked, 'QRPaymentFailed', 'qr.payment.failed', { reason });
+    return locked;
+  });
 }
 
 async function processSepayWebhook(payload, headers = {}) {
@@ -232,69 +285,43 @@ async function processSepayWebhook(payload, headers = {}) {
       payload: payload || {}
     });
   } catch (err) {
-    if (err instanceof UniqueConstraintError) {
-      duplicate = true;
-    } else {
-      throw err;
-    }
+    if (err instanceof UniqueConstraintError) duplicate = true;
+    else throw err;
   }
 
-  if (!requestCodeCandidates.length || transferType !== 'in') {
-    return { duplicate, handled: true, matched: false };
-  }
+  if (!requestCodeCandidates.length || transferType !== 'in') return { duplicate, handled: true, matched: false };
 
   const request = await SepayPaymentRequest.findOne({
     where: { request_code: { [Op.in]: requestCodeCandidates } }
   });
-  if (!request) {
-    return { duplicate, handled: true, matched: false };
-  }
+  if (!request) return { duplicate, handled: true, matched: false };
 
   const requiredAmount = toMoney(request.amount);
   if (transferAmount < requiredAmount) {
+    const failed = await markRequestFailed(request, 'insufficient_amount', { transferAmount });
     return {
       duplicate,
       handled: true,
       matched: true,
       paid: false,
       reason: 'insufficient_amount',
-      request: toPublicRequest(request)
+      request: toPublicRequest(failed)
     };
   }
 
   if (request.status === 'paid') {
-    return {
-      handled: true,
-      duplicate,
-      matched: true,
-      paid: true,
-      shouldPublishOrderEvent: request.purpose === 'order_payment' && !request.event_published_at,
-      request: toPublicRequest(request)
-    };
+    return { handled: true, duplicate, matched: true, paid: true, request: toPublicRequest(request) };
+  }
+  if (request.status !== 'pending') {
+    return { handled: true, duplicate, matched: true, paid: false, reason: request.status, request: toPublicRequest(request) };
   }
 
-  if (request.purpose === 'wallet_topup') {
-    await topupWallet(
-      request.user_id,
-      requiredAmount,
-      {
-        source: 'sepay_webhook',
-        requestCode: request.request_code,
-        sepayTransactionId: transactionId
-      },
-      {
-        idempotencyKey: `sepay:wallet:${transactionId}`,
-        reason: 'sepay_topup'
-      }
-    );
-  }
-
-  await sequelize.transaction(async (transaction) => {
+  const refreshed = await sequelize.transaction(async (transaction) => {
     const locked = await SepayPaymentRequest.findByPk(request.id, {
       transaction,
       lock: transaction.LOCK.UPDATE
     });
-    if (!locked || locked.status === 'paid') return;
+    if (!locked || locked.status !== 'pending') return locked;
     locked.status = 'paid';
     locked.paid_at = new Date();
     locked.sepay_transaction_id = transactionId;
@@ -308,17 +335,50 @@ async function processSepayWebhook(payload, headers = {}) {
       }
     };
     await locked.save({ transaction });
+    await enqueueQrEvent(transaction, locked, 'QRPaymentSucceeded', 'qr.payment.succeeded', {
+      gatewayTransactionId: transactionId,
+      transferAmount
+    });
+    return locked;
   });
 
-  const refreshed = await SepayPaymentRequest.findByPk(request.id);
-  return {
-    handled: true,
-    duplicate,
-    matched: true,
-    paid: true,
-    shouldPublishOrderEvent: refreshed.purpose === 'order_payment' && !refreshed.event_published_at,
-    request: toPublicRequest(refreshed)
-  };
+  return { handled: true, duplicate, matched: true, paid: true, request: toPublicRequest(refreshed) };
+}
+
+async function expirePendingRequests() {
+  const now = new Date();
+  const rows = await SepayPaymentRequest.findAll({
+    where: {
+      status: 'pending',
+      expires_at: { [Op.lte]: now }
+    },
+    limit: Number(process.env.QR_EXPIRY_BATCH_SIZE || 50)
+  });
+
+  for (const row of rows) {
+    await sequelize.transaction(async (transaction) => {
+      const locked = await SepayPaymentRequest.findByPk(row.id, {
+        transaction,
+        lock: transaction.LOCK.UPDATE
+      });
+      if (!locked || locked.status !== 'pending') return;
+      locked.status = 'expired';
+      await locked.save({ transaction });
+      await enqueueQrEvent(transaction, locked, 'QRPaymentExpired', 'qr.payment.expired', {
+        reason: 'payment_window_expired'
+      });
+    });
+  }
+}
+
+function initExpiryPublisher() {
+  const intervalMs = Number(process.env.QR_EXPIRY_POLL_INTERVAL_MS || 30000);
+  const timer = setInterval(() => {
+    expirePendingRequests().catch((err) => {
+      console.error('[payment-gateway] expire pending QR failed', err.message);
+    });
+  }, intervalMs);
+  timer.unref?.();
 }
 
 module.exports = {
@@ -326,6 +386,7 @@ module.exports = {
   createSepayTopupRequest,
   createSepayOrderRequest,
   getSepayRequestById,
-  markOrderRequestEventPublished,
-  processSepayWebhook
+  processSepayWebhook,
+  expirePendingRequests,
+  initExpiryPublisher
 };

@@ -92,12 +92,15 @@ export default function Home() {
               <button className="btn btn-outline">Xem voucher</button>
             </div>
           </div>
-          <div className="banner-image" />
+          <div className="banner-image" >
+                      <img src="../dist/assets/sp.webp" alt="" />
+            </div>
+
         </div>
         <div className="banner-strip">
           <div>
             <h4>Miễn phí vận chuyển</h4>
-            <p>Cho đơn hàng từ 20 USD</p>
+            <p>Cho đơn hàng từ 200.000 VNĐ</p>
           </div>
           <div>
             <h4>Shop uy tín</h4>

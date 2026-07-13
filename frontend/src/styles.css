@@ -2167,10 +2167,79 @@ img {
   font-weight: 700;
 }
 
+.admin-table {
+  overflow-x: auto;
+  gap: 14px;
+}
+
+.admin-table .seller-table-row {
+  gap: 20px;
+  align-items: center;
+  min-width: 760px;
+  padding: 14px 16px;
+}
+
+.admin-table .seller-table-row > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-users-table .seller-table-row {
+  grid-template-columns:
+    minmax(260px, 2.4fr)
+    minmax(110px, 0.8fr)
+    minmax(130px, 0.9fr)
+    minmax(160px, 1fr);
+}
+
+.admin-products-table .seller-table-row {
+  min-width: 920px;
+  grid-template-columns:
+    minmax(260px, 2fr)
+    minmax(220px, 1.5fr)
+    minmax(150px, 0.9fr)
+    minmax(280px, 1.8fr);
+}
+
+.admin-orders-table .seller-table-row {
+  min-width: 920px;
+  grid-template-columns:
+    minmax(80px, 0.5fr)
+    minmax(260px, 1.7fr)
+    minmax(180px, 1fr)
+    minmax(340px, 2fr);
+}
+
+.admin-disputes-table .seller-table-row {
+  min-width: 940px;
+  grid-template-columns:
+    minmax(90px, 0.5fr)
+    minmax(120px, 0.7fr)
+    minmax(280px, 2fr)
+    minmax(150px, 0.9fr)
+    minmax(240px, 1.5fr);
+}
+
+.admin-categories-table .seller-table-row {
+  min-width: 980px;
+  grid-template-columns:
+    minmax(220px, 1.3fr)
+    minmax(300px, 2fr)
+    minmax(260px, 1.5fr)
+    minmax(170px, 1fr);
+}
+
+.admin-table input,
+.admin-table select {
+  width: 100%;
+  min-width: 0;
+}
+
 .admin-actions {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   flex-wrap: wrap;
+  align-items: center;
 }
 
 .admin-actions select {

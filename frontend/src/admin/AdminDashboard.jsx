@@ -4,6 +4,11 @@ import api from '../services/api';
 import { useToast } from '../context/ToastContext.jsx';
 
 const orderStatuses = ['pending_payment', 'payment_processing', 'paid', 'confirmed', 'shipped', 'delivered', 'payment_failed', 'cancelled'];
+const codOrderStatuses = ['pending_payment', 'confirmed', 'shipped', 'paid', 'payment_failed', 'cancelled'];
+
+function isCodOrder(order) {
+  return String(order?.payment_method || '').toLowerCase() === 'cod';
+}
 
 function SectionHeader({ title, subtitle }) {
   return (
@@ -150,7 +155,7 @@ export default function AdminDashboard() {
       {activeTab === 'users' && (
         <>
           <SectionHeader title="Quản lý người dùng" subtitle={`${activeCounts.users} tài khoản`} />
-          <div className="seller-table">
+          <div className="seller-table admin-table admin-users-table">
             <div className="seller-table-row seller-table-head">
               <div>Email</div>
               <div>Vai trò</div>
@@ -180,7 +185,7 @@ export default function AdminDashboard() {
       {activeTab === 'products' && (
         <>
           <SectionHeader title="Duyệt sản phẩm" subtitle={`${activeCounts.products} chờ duyệt`} />
-          <div className="seller-table">
+          <div className="seller-table admin-table admin-products-table">
             <div className="seller-table-row seller-table-head">
               <div>Tên</div>
               <div>Shop</div>
@@ -212,7 +217,7 @@ export default function AdminDashboard() {
       {activeTab === 'orders' && (
         <>
           <SectionHeader title="Quản lý đơn hàng" subtitle={`${activeCounts.orders} đơn`} />
-          <div className="seller-table">
+          <div className="seller-table admin-table admin-orders-table">
             <div className="seller-table-row seller-table-head">
               <div>ID</div>
               <div>Người dùng</div>
@@ -226,7 +231,7 @@ export default function AdminDashboard() {
                 <div>{order.status}</div>
                 <div className="admin-actions">
                   <select value={order.status} onChange={(event) => updateOrderStatus(order.id, event.target.value)}>
-                    {orderStatuses.map((status) => (
+                    {(isCodOrder(order) ? codOrderStatuses : orderStatuses).map((status) => (
                       <option key={status} value={status}>{status}</option>
                     ))}
                   </select>
@@ -243,7 +248,7 @@ export default function AdminDashboard() {
       {activeTab === 'disputes' && (
         <>
           <SectionHeader title="Quản lý khiếu nại" subtitle={`${activeCounts.disputes} phiếu`} />
-          <div className="seller-table">
+          <div className="seller-table admin-table admin-disputes-table">
             <div className="seller-table-row seller-table-head">
               <div>ID</div>
               <div>Đơn hàng</div>
@@ -270,7 +275,7 @@ export default function AdminDashboard() {
       {activeTab === 'categories' && (
         <>
           <SectionHeader title="Quản lý danh mục" subtitle={`${activeCounts.categories} danh mục`} />
-          <div className="seller-table">
+          <div className="seller-table admin-table admin-categories-table">
             <div className="seller-table-row seller-table-head">
               <div>Tên</div>
               <div>Mô tả</div>

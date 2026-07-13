@@ -355,6 +355,69 @@ services:
       kafka_e:
         condition: service_started
 
+  wallet-service:
+    build:
+      context: .
+      dockerfile: wallet-service/Dockerfile
+    container_name: wallet-service
+    restart: unless-stopped
+    environment:
+      PORT: 3011
+      PG_HOST: postgres
+      PG_PORT: 5432
+      PG_DATABASE: wallet_service
+      PG_USER: postgres
+      PG_PASSWORD: postgres
+      WALLET_DEFAULT_BALANCE: 0
+      KAFKA_BROKER: kafka-e:29092
+      TLS_ENABLED: "true"
+      TLS_REQUEST_CLIENT_CERT: "true"
+      TLS_REJECT_UNAUTHORIZED: "true"
+      TLS_CA_PATH: /certs/ca/ca.crt
+      TLS_CERT_PATH: /certs/wallet-service/tls.crt
+      TLS_KEY_PATH: /certs/wallet-service/tls.key
+    volumes:
+      - certs_data:/certs:ro
+    depends_on:
+      certs-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      kafka_e:
+        condition: service_started
+
+  payment-gateway:
+    build:
+      context: .
+      dockerfile: payment-gateway/Dockerfile
+    container_name: payment-gateway
+    restart: unless-stopped
+    env_file:
+      - ./payment-service/.env
+    environment:
+      PORT: 3012
+      PG_HOST: postgres
+      PG_PORT: 5432
+      PG_DATABASE: payment_gateway
+      PG_USER: postgres
+      PG_PASSWORD: postgres
+      KAFKA_BROKER: kafka-e:29092
+      TLS_ENABLED: "true"
+      TLS_REQUEST_CLIENT_CERT: "true"
+      TLS_REJECT_UNAUTHORIZED: "true"
+      TLS_CA_PATH: /certs/ca/ca.crt
+      TLS_CERT_PATH: /certs/payment-gateway/tls.crt
+      TLS_KEY_PATH: /certs/payment-gateway/tls.key
+    volumes:
+      - certs_data:/certs:ro
+    depends_on:
+      certs-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      kafka_e:
+        condition: service_started
+
   api-gateway:
     build:
       context: .
@@ -372,6 +435,8 @@ services:
       CART_SERVICE_URL: https://cart-service:3005
       ORDER_SERVICE_URL: https://order-service:3006
       PAYMENT_SERVICE_URL: https://payment-service:3010
+      WALLET_SERVICE_URL: https://wallet-service:3011
+      PAYMENT_GATEWAY_URL: https://payment-gateway:3012
       REVIEW_SERVICE_URL: https://review-service:3008
       CHAT_SERVICE_URL: https://chat-service:3009
       MTLS_ENABLED: "true"
@@ -401,6 +466,10 @@ services:
       chat-service:
         condition: service_started
       payment-service:
+        condition: service_started
+      wallet-service:
+        condition: service_started
+      payment-gateway:
         condition: service_started
 
   ngrok:

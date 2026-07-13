@@ -27,13 +27,20 @@ function normalizeProducts(order) {
   return [];
 }
 
-const statusSteps = [
+const defaultStatusSteps = [
   { key: 'pending_payment', label: 'Đã đặt' },
   { key: 'payment_processing', label: 'Đang xử lý thanh toán' },
   { key: 'paid', label: 'Đã thanh toán' },
   { key: 'confirmed', label: 'Đã xác nhận' },
   { key: 'shipped', label: 'Đang giao' },
   { key: 'delivered', label: 'Đã giao' }
+];
+
+const codStatusSteps = [
+  { key: 'pending_payment', label: 'Đã đặt' },
+  { key: 'confirmed', label: 'Đã xác nhận' },
+  { key: 'shipped', label: 'Đang giao' },
+  { key: 'paid', label: 'Đã thanh toán' }
 ];
 
 const statusLabels = {
@@ -48,11 +55,19 @@ const statusLabels = {
   cancelled: 'Đã hủy'
 };
 
-function getStatusIndex(status) {
+function isCodOrder(order) {
+  return String(order?.payment_method || '').toLowerCase() === 'cod';
+}
+
+function getStatusSteps(order) {
+  return isCodOrder(order) ? codStatusSteps : defaultStatusSteps;
+}
+
+function getStatusIndex(status, steps) {
   if (!status) return 0;
   const normalized = status.toLowerCase();
-  if (normalized === 'completed') return 5;
-  const index = statusSteps.findIndex((step) => step.key === normalized);
+  if (normalized === 'completed') return steps.length - 1;
+  const index = steps.findIndex((step) => step.key === normalized);
   return index === -1 ? 0 : index;
 }
 
@@ -184,7 +199,8 @@ export default function Orders({ embedded = false }) {
 
         {filteredOrders.map((order) => {
           const orderId = order.id || order._id;
-          const stepIndex = getStatusIndex(order.status);
+          const progressSteps = getStatusSteps(order);
+          const stepIndex = getStatusIndex(order.status, progressSteps);
           return (
             <div key={orderId}>
               <div
@@ -253,7 +269,7 @@ export default function Orders({ embedded = false }) {
                     <div className="order-cancelled">Đơn hàng đã hủy</div>
                   ) : (
                     <div className="order-progress">
-                      {statusSteps.map((step, index) => {
+                      {progressSteps.map((step, index) => {
                         const isCompleted = index < stepIndex;
                         const isActive = index === stepIndex;
                         return (

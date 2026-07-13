@@ -6,9 +6,8 @@ const cors = require('cors');
 const morgan = require('morgan');
 const { initDb } = require('./src/config/db');
 require('./src/models');
-const { initProducer } = require('./src/kafka/producer');
+const { initProducer, initOutboxPublisher } = require('./src/kafka/producer');
 const { initConsumer } = require('./src/kafka/consumer');
-const walletRoutes = require('./src/routes/walletRoutes');
 
 const app = express();
 app.use(cors());
@@ -18,7 +17,6 @@ app.use(morgan('dev'));
 app.get('/payments/health', (req, res) => {
   res.json({ status: 'ok', service: 'payment-service' });
 });
-app.use('/payments', walletRoutes);
 
 const PORT = process.env.PORT || 3010;
 
@@ -55,6 +53,7 @@ function startServer() {
 async function start() {
   await initDb();
   await initProducer();
+  initOutboxPublisher();
   await initConsumer();
   startServer();
 }

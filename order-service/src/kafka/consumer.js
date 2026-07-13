@@ -5,6 +5,52 @@ const {
   handlePaymentFailed,
   handlePaymentTimeout
 } = require('../controllers/orderController');
+const InboxEvent = require('../models/InboxEvent');
+
+function buildMessageId(topic, partition, message, payload) {
+  return String(payload?.eventId || payload?.idempotencyKey || `${topic}:${partition}:${message.offset}`);
+}
+
+async function withInbox(topic, partition, message, handler) {
+  const payload = JSON.parse(message.value.toString());
+  const messageId = buildMessageId(topic, partition, message, payload);
+  const [inbox, created] = await InboxEvent.findOrCreate({
+    where: { message_id: messageId },
+    defaults: {
+      message_id: messageId,
+      topic,
+      payload,
+      status: 'processing',
+      attempts: 1
+    }
+  });
+
+  if (!created && inbox.status === 'processed') {
+    console.log('[order-service] duplicate event skipped', { topic, messageId });
+    return;
+  }
+
+  try {
+    await handler(payload);
+    inbox.status = 'processed';
+    inbox.processed_at = new Date();
+    inbox.error = null;
+    await inbox.save();
+  } catch (err) {
+    inbox.status = 'failed';
+    inbox.attempts += 1;
+    inbox.error = err.message;
+    await inbox.save();
+    console.error('[order-service] consume failed', {
+      topic,
+      messageId,
+      sagaId: payload?.sagaId,
+      correlationId: payload?.correlationId,
+      error: err.message
+    });
+    throw err;
+  }
+}
 
 async function initConsumer() {
   const kafka = new Kafka({
@@ -20,12 +66,13 @@ async function initConsumer() {
   await consumer.subscribe({ topic: 'payment.timeout' });
 
   await consumer.run({
-    eachMessage: async ({ topic, message }) => {
-      const payload = JSON.parse(message.value.toString());
-      if (topic === 'payment.pending') await handlePaymentPending(payload);
-      if (topic === 'payment.succeeded') await handlePaymentSucceeded(payload);
-      if (topic === 'payment.failed') await handlePaymentFailed(payload);
-      if (topic === 'payment.timeout') await handlePaymentTimeout(payload);
+    eachMessage: async ({ topic, partition, message }) => {
+      await withInbox(topic, partition, message, async (payload) => {
+        if (topic === 'payment.pending') await handlePaymentPending(payload);
+        if (topic === 'payment.succeeded') await handlePaymentSucceeded(payload);
+        if (topic === 'payment.failed') await handlePaymentFailed(payload);
+        if (topic === 'payment.timeout') await handlePaymentTimeout(payload);
+      });
     }
   });
 

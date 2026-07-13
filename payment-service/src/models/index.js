@@ -1,20 +1,7 @@
-const Wallet = require('./Wallet');
-const WalletTransaction = require('./WalletTransaction');
-const SepayPaymentRequest = require('./SepayPaymentRequest');
-const SepayWebhookLog = require('./SepayWebhookLog');
-
-Wallet.hasMany(WalletTransaction, {
-  foreignKey: 'user_id',
-  sourceKey: 'user_id'
-});
-WalletTransaction.belongsTo(Wallet, {
-  foreignKey: 'user_id',
-  targetKey: 'user_id'
-});
+const InboxEvent = require('./InboxEvent');
+const OutboxEvent = require('./OutboxEvent');
 
 module.exports = {
-  Wallet,
-  WalletTransaction,
-  SepayPaymentRequest,
-  SepayWebhookLog
+  InboxEvent,
+  OutboxEvent
 };
