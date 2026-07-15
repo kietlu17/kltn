@@ -7,6 +7,7 @@ const {
   topupWallet,
   recordExternalPaymentForOrder
 } = require('../services/walletService');
+const { settleOrderToShop, reverseOrderSettlement } = require('../services/shopFinanceService');
 
 function buildMessageId(topic, partition, message, payload) {
   return String(payload?.eventId || payload?.idempotencyKey || `${topic}:${partition}:${message.offset}`);
@@ -65,6 +66,28 @@ async function handleWalletDebitRequested(payload) {
 }
 
 async function handleWalletRefundRequested(payload) {
+  const orderId = Number(payload.orderId);
+  const settlementByShop = new Map();
+  for (const item of parseOrderItems(payload)) {
+    if (!item?.shopId) continue;
+    const shopId = String(item.shopId);
+    const lineAmount = toMoney(Number(item.price || 0) * Number(item.quantity || 0));
+    settlementByShop.set(shopId, toMoney((settlementByShop.get(shopId) || 0) + lineAmount));
+  }
+
+  for (const [shopId, amount] of settlementByShop.entries()) {
+    if (amount <= 0 || !Number.isFinite(orderId)) continue;
+    await reverseOrderSettlement({
+      shopId,
+      orderId,
+      amount,
+      reason: payload.reason || 'order_cancelled',
+      metadata: { source: 'wallet.refund.requested' },
+      sagaId: payload.sagaId,
+      correlationId: payload.correlationId
+    });
+  }
+
   await refundOrderToWallet({
     orderId: payload.orderId,
     userId: payload.userId,
@@ -113,6 +136,53 @@ async function handleQrPaymentSucceeded(payload) {
   }
 }
 
+function parseOrderItems(payload) {
+  if (Array.isArray(payload?.products)) return payload.products;
+  if (typeof payload?.products === 'string') {
+    try {
+      return JSON.parse(payload.products);
+    } catch (err) {
+      return [];
+    }
+  }
+  return [];
+}
+
+function toMoney(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return 0;
+  return Number(number.toFixed(2));
+}
+
+async function handleOrderPaid(payload) {
+  const orderId = Number(payload?.id || payload?.orderId);
+  if (!Number.isFinite(orderId)) return;
+
+  const settlementByShop = new Map();
+  for (const item of parseOrderItems(payload)) {
+    if (!item?.shopId) continue;
+    const shopId = String(item.shopId);
+    const lineAmount = toMoney(Number(item.price || 0) * Number(item.quantity || 0));
+    settlementByShop.set(shopId, toMoney((settlementByShop.get(shopId) || 0) + lineAmount));
+  }
+
+  for (const [shopId, amount] of settlementByShop.entries()) {
+    if (amount <= 0) continue;
+    await settleOrderToShop({
+      shopId,
+      orderId,
+      amount,
+      referenceId: `order:${orderId}:shop:${shopId}:settlement`,
+      metadata: {
+        paymentMethod: payload.payment_method || payload.paymentMethod,
+        source: 'order.paid'
+      },
+      sagaId: payload.sagaId || `order:${orderId}:settlement`,
+      correlationId: payload.correlationId || `order:${orderId}:settlement`
+    });
+  }
+}
+
 async function initConsumer() {
   const kafka = new Kafka({
     clientId: 'wallet-service-consumer',
@@ -124,6 +194,7 @@ async function initConsumer() {
   await consumer.subscribe({ topic: 'wallet.debit.requested' });
   await consumer.subscribe({ topic: 'wallet.refund.requested' });
   await consumer.subscribe({ topic: 'qr.payment.succeeded' });
+  await consumer.subscribe({ topic: 'order.paid' });
 
   await consumer.run({
     eachMessage: async ({ topic, partition, message }) => {
@@ -131,6 +202,7 @@ async function initConsumer() {
         if (topic === 'wallet.debit.requested') await handleWalletDebitRequested(payload);
         if (topic === 'wallet.refund.requested') await handleWalletRefundRequested(payload);
         if (topic === 'qr.payment.succeeded') await handleQrPaymentSucceeded(payload);
+        if (topic === 'order.paid') await handleOrderPaid(payload);
       });
     }
   });

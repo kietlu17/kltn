@@ -1,6 +1,12 @@
 const { sequelize } = require('../config/db');
 const { Op } = require('sequelize');
 const { Wallet, WalletBalance, WalletLedgerEntry, OutboxEvent } = require('../models');
+const {
+  getBuyerWalletAccount,
+  getSystemAccount,
+  getAccountBalance,
+  transfer
+} = require('./accountLedgerService');
 
 const DEFAULT_WALLET_BALANCE = Number(process.env.WALLET_DEFAULT_BALANCE || 0);
 const DEFAULT_CURRENCY = process.env.WALLET_DEFAULT_CURRENCY || 'VND';
@@ -79,6 +85,27 @@ async function enqueueWalletEvent(transaction, topic, eventType, key, payload) {
   );
 }
 
+async function ensureBuyerOpeningBalance(userId, legacyBalance, transaction) {
+  const buyerAccount = await getBuyerWalletAccount(userId, transaction);
+  const accountBalance = await getAccountBalance(buyerAccount.id, transaction, true);
+  const legacyAvailable = toMoney(legacyBalance.available_balance);
+  const accountAvailable = toMoney(accountBalance.available_balance);
+  if (legacyAvailable <= 0 || accountAvailable !== 0) return buyerAccount;
+
+  const externalAccount = await getSystemAccount('external_bank', transaction);
+  await transfer({
+    fromAccount: externalAccount,
+    toAccount: buyerAccount,
+    amount: legacyAvailable,
+    referenceId: `migration:buyer_wallet:${userId}`,
+    idempotencyKey: `migration:buyer_wallet:${userId}`,
+    type: 'opening_balance',
+    metadata: { source: 'legacy_wallet_balance', userId },
+    transaction
+  });
+  return buyerAccount;
+}
+
 async function getOrCreateWallet(userId, transaction, currency = DEFAULT_CURRENCY) {
   let wallet = await Wallet.findOne({
     where: { user_id: String(userId), currency },
@@ -110,6 +137,7 @@ async function getOrCreateWallet(userId, transaction, currency = DEFAULT_CURRENC
     transaction,
     lock: transaction ? transaction.LOCK.UPDATE : undefined
   });
+  await ensureBuyerOpeningBalance(userId, balance, transaction);
   return { wallet, balance };
 }
 
@@ -193,6 +221,20 @@ async function creditWallet(userId, amount, metadata = {}, options = {}) {
     }
 
     const { wallet, balance } = await getOrCreateWallet(userId, transaction);
+    const buyerAccount = await getBuyerWalletAccount(userId, transaction);
+    const externalAccount = await getSystemAccount('external_bank', transaction);
+    const ledgerResult = await transfer({
+      fromAccount: externalAccount,
+      toAccount: buyerAccount,
+      amount: creditAmount,
+      referenceId: `ledger:${referenceId}`,
+      idempotencyKey: `ledger:${referenceId}`,
+      type,
+      metadata: { ...metadata, reason, userId },
+      sagaId: options.sagaId,
+      correlationId: options.correlationId,
+      transaction
+    });
     const availableAfter = toMoney(balance.available_balance) + creditAmount;
     balance.available_balance = toMoney(availableAfter);
     balance.version += 1;
@@ -225,6 +267,7 @@ async function creditWallet(userId, amount, metadata = {}, options = {}) {
       orderId: options.orderId || null,
       amount: creditAmount,
       transactionId: entry.id,
+      ledgerTransactionId: ledgerResult.transaction.id,
       referenceId,
       reason,
       metadata,
@@ -258,6 +301,20 @@ async function recordExternalPaymentForOrder({ orderId, userId, amount, paymentM
     if (existing) return { ok: true, reason: 'already_recorded', transaction: ledgerToPublic(existing) };
 
     const { wallet, balance } = await getOrCreateWallet(userId, transaction);
+    const platformAccount = await getSystemAccount('platform_clearing', transaction);
+    const externalAccount = await getSystemAccount('external_bank', transaction);
+    const ledgerResult = await transfer({
+      fromAccount: externalAccount,
+      toAccount: platformAccount,
+      amount: paidAmount,
+      referenceId: `ledger:${referenceId}`,
+      idempotencyKey: `ledger:${referenceId}`,
+      type: 'external_payment_order',
+      metadata: { paymentMethod, orderId, userId, ...metadata },
+      sagaId,
+      correlationId,
+      transaction
+    });
     const entry = await createLedgerEntry({
       transaction,
       wallet,
@@ -282,6 +339,7 @@ async function recordExternalPaymentForOrder({ orderId, userId, amount, paymentM
       orderId,
       amount: paidAmount,
       transactionId: entry.id,
+      ledgerTransactionId: ledgerResult.transaction.id,
       referenceId,
       paymentMethod,
       metadata,
@@ -346,6 +404,21 @@ async function debitForOrder({ orderId, userId, amount, paymentMethod, sagaId, c
       return { ok: false, reason: 'insufficient_wallet_balance', transaction: ledgerToPublic(failedEntry) };
     }
 
+    const buyerAccount = await getBuyerWalletAccount(userId, transaction);
+    const platformAccount = await getSystemAccount('platform_clearing', transaction);
+    const ledgerResult = await transfer({
+      fromAccount: buyerAccount,
+      toAccount: platformAccount,
+      amount: debitAmount,
+      referenceId: `ledger:${referenceId}`,
+      idempotencyKey: `ledger:${referenceId}`,
+      type: 'order_payment',
+      metadata: { paymentMethod, orderId, userId },
+      sagaId,
+      correlationId,
+      transaction
+    });
+
     const availableAfter = toMoney(availableBefore - debitAmount);
     balance.available_balance = availableAfter;
     balance.version += 1;
@@ -378,6 +451,7 @@ async function debitForOrder({ orderId, userId, amount, paymentMethod, sagaId, c
       orderId,
       amount: debitAmount,
       transactionId: debitEntry.id,
+      ledgerTransactionId: ledgerResult.transaction.id,
       referenceId,
       paymentMethod,
       sagaId: sagaId || null,
@@ -417,6 +491,20 @@ async function refundOrderToWallet({ orderId, userId, amount, reason, allowWitho
 
     const { wallet, balance } = await getOrCreateWallet(userId, transaction);
     const availableBefore = toMoney(balance.available_balance);
+    const buyerAccount = await getBuyerWalletAccount(userId, transaction);
+    const platformAccount = await getSystemAccount('platform_clearing', transaction);
+    const ledgerResult = await transfer({
+      fromAccount: platformAccount,
+      toAccount: buyerAccount,
+      amount: refundAmount,
+      referenceId: `ledger:${referenceId}`,
+      idempotencyKey: `ledger:${referenceId}`,
+      type: 'order_refund',
+      metadata: { orderId, userId, reason: reason || 'order_cancelled' },
+      sagaId,
+      correlationId,
+      transaction
+    });
     const availableAfter = toMoney(availableBefore + refundAmount);
     balance.available_balance = availableAfter;
     balance.version += 1;
@@ -449,6 +537,7 @@ async function refundOrderToWallet({ orderId, userId, amount, reason, allowWitho
       orderId,
       amount: refundAmount,
       transactionId: refundEntry.id,
+      ledgerTransactionId: ledgerResult.transaction.id,
       referenceId,
       reason: reason || 'order_cancelled',
       sagaId: sagaId || null,

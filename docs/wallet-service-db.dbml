@@ -1,0 +1,225 @@
+Project wallet_service {
+  database_type: "PostgreSQL"
+  Note: '''
+    Wallet Service database schema.
+
+    The legacy wallet tables keep buyer wallet API compatibility.
+    The account/ledger tables implement the financial double-entry model:
+    every completed ledger transaction must have debit_amount = credit_amount = amount
+    and at least two ledger entries.
+  '''
+}
+
+Table wallets {
+  id uuid [pk]
+  user_id varchar(64) [not null]
+  currency varchar(8) [not null, default: 'VND']
+  status varchar(24) [not null, default: 'active']
+  created_at timestamp
+  updated_at timestamp
+
+  indexes {
+    (user_id, currency) [unique]
+  }
+
+  Note: "Legacy buyer wallet identity. Kept for current /payments/wallet API compatibility."
+}
+
+Table wallet_balances {
+  wallet_id uuid [pk, ref: > wallets.id]
+  available_balance decimal(14,2) [not null, default: 0]
+  locked_balance decimal(14,2) [not null, default: 0]
+  version int [not null, default: 0]
+  updated_at timestamp
+
+  Note: "Legacy one-row buyer wallet balance. New financial flows mirror into account_balances."
+}
+
+Table wallet_ledger_entries {
+  id uuid [pk]
+  wallet_id uuid [not null, ref: > wallets.id]
+  user_id varchar(64) [not null]
+  order_id int
+  type varchar(40) [not null]
+  direction varchar(12) [not null, note: "credit | debit | none"]
+  amount decimal(14,2) [not null]
+  status varchar(24) [not null]
+  reason varchar(128)
+  reference_id varchar(160) [not null, unique]
+  available_before decimal(14,2) [not null, default: 0]
+  available_after decimal(14,2) [not null, default: 0]
+  locked_before decimal(14,2) [not null, default: 0]
+  locked_after decimal(14,2) [not null, default: 0]
+  metadata jsonb [not null, default: '{}']
+  saga_id varchar(128)
+  correlation_id varchar(128)
+  created_at timestamp
+
+  indexes {
+    wallet_id
+    user_id
+    order_id
+  }
+
+  Note: "Legacy single-sided ledger. Useful for buyer wallet history, but not the source of truth for double-entry accounting."
+}
+
+Table accounts {
+  id uuid [pk]
+  owner_type varchar(24) [not null, note: "buyer | shop | platform | external | load_test | tps_test"]
+  owner_id varchar(96) [not null]
+  account_type varchar(40) [not null, note: "buyer_wallet | seller_balance | platform_clearing | payout_pending | external_bank | test_wallet"]
+  currency varchar(8) [not null, default: 'VND']
+  status varchar(24) [not null, default: 'active']
+  allow_negative boolean [not null, default: false]
+  metadata jsonb [not null, default: '{}']
+  created_at timestamp
+  updated_at timestamp
+
+  indexes {
+    (owner_type, owner_id, account_type, currency) [unique]
+    (owner_type, owner_id)
+    account_type
+  }
+
+  Note: "General financial account table. This is the identity layer for buyer wallets, shop balances, platform clearing, payout pending, and external bank."
+}
+
+Table account_balances {
+  account_id uuid [pk, ref: > accounts.id]
+  available_balance decimal(18,2) [not null, default: 0]
+  locked_balance decimal(18,2) [not null, default: 0]
+  version int [not null, default: 0]
+  updated_at timestamp
+
+  indexes {
+    available_balance
+  }
+
+  Note: "Current balance snapshot for an account. Rows are locked with SELECT ... FOR UPDATE during money movement."
+}
+
+Table ledger_transactions {
+  id uuid [pk]
+  reference_id varchar(180) [not null, unique]
+  idempotency_key varchar(180) [unique]
+  type varchar(48) [not null, note: "topup | order_payment | shop_settlement | payout_hold | payout_complete | order_refund | ..."]
+  status varchar(24) [not null, default: 'pending']
+  amount decimal(18,2) [not null, default: 0]
+  debit_amount decimal(18,2) [not null, default: 0]
+  credit_amount decimal(18,2) [not null, default: 0]
+  entry_count int [not null, default: 0]
+  currency varchar(8) [not null, default: 'VND']
+  metadata jsonb [not null, default: '{}']
+  saga_id varchar(128)
+  correlation_id varchar(128)
+  completed_at timestamp
+  failed_reason varchar(180)
+  created_at timestamp
+  updated_at timestamp
+
+  indexes {
+    type
+    status
+    saga_id
+    correlation_id
+  }
+
+  Note: '''
+    Parent transaction for double-entry accounting.
+    Completed invariant:
+      entry_count >= 2
+      debit_amount = credit_amount
+      debit_amount = amount
+  '''
+}
+
+Table ledger_entries {
+  id uuid [pk]
+  transaction_id uuid [not null, ref: > ledger_transactions.id]
+  account_id uuid [not null, ref: > accounts.id]
+  direction varchar(12) [not null, note: "debit | credit"]
+  amount decimal(18,2) [not null]
+  currency varchar(8) [not null, default: 'VND']
+  available_before decimal(18,2) [not null, default: 0]
+  available_after decimal(18,2) [not null, default: 0]
+  locked_before decimal(18,2) [not null, default: 0]
+  locked_after decimal(18,2) [not null, default: 0]
+  metadata jsonb [not null, default: '{}']
+  created_at timestamp
+
+  indexes {
+    transaction_id
+    account_id
+    direction
+  }
+
+  Note: "Atomic debit/credit lines. A valid completed ledger transaction contains balanced debit and credit entries."
+}
+
+Table payout_requests {
+  id uuid [pk]
+  shop_id varchar(96) [not null]
+  account_id uuid [not null, ref: > accounts.id]
+  amount decimal(18,2) [not null]
+  currency varchar(8) [not null, default: 'VND']
+  status varchar(24) [not null, default: 'requested']
+  reference_id varchar(180) [not null, unique]
+  bank_account_snapshot jsonb [not null, default: '{}']
+  failure_reason varchar(180)
+  completed_at timestamp
+  metadata jsonb [not null, default: '{}']
+  saga_id varchar(128)
+  correlation_id varchar(128)
+  created_at timestamp
+  updated_at timestamp
+
+  indexes {
+    shop_id
+    account_id
+    status
+  }
+
+  Note: "Shop withdrawal request. Money moves seller_balance -> payout_pending, then payout_pending -> external_bank when completed."
+}
+
+Table inbox_events {
+  id int [pk, increment]
+  message_id varchar(160) [not null, unique]
+  topic varchar(120) [not null]
+  payload jsonb [not null, default: '{}']
+  status varchar(24) [not null, default: 'processing']
+  attempts int [not null, default: 0]
+  error text
+  processed_at timestamp
+  created_at timestamp
+  updated_at timestamp
+
+  Note: "Idempotent Kafka consumer inbox. Prevents duplicate event processing."
+}
+
+Table outbox_events {
+  id uuid [pk]
+  aggregate_type varchar(80) [not null]
+  aggregate_id varchar(128) [not null]
+  event_type varchar(120) [not null]
+  topic varchar(120) [not null]
+  event_key varchar(128) [not null]
+  payload jsonb [not null, default: '{}']
+  headers jsonb [not null, default: '{}']
+  status varchar(24) [not null, default: 'pending']
+  attempts int [not null, default: 0]
+  next_attempt_at timestamp
+  published_at timestamp
+  error text
+  saga_id varchar(128)
+  correlation_id varchar(128)
+  created_at timestamp
+  updated_at timestamp
+
+  indexes {
+    (status, next_attempt_at)
+  }
+
+  Note: "Transactional outbox. Events are inserted in the same DB transaction as money movements, then published asynchronously."
+}

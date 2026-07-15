@@ -1,6 +1,11 @@
 const Wallet = require('./Wallet');
 const WalletBalance = require('./WalletBalance');
 const WalletLedgerEntry = require('./WalletLedgerEntry');
+const Account = require('./Account');
+const AccountBalance = require('./AccountBalance');
+const LedgerTransaction = require('./LedgerTransaction');
+const LedgerEntry = require('./LedgerEntry');
+const PayoutRequest = require('./PayoutRequest');
 const InboxEvent = require('./InboxEvent');
 const OutboxEvent = require('./OutboxEvent');
 
@@ -23,10 +28,53 @@ WalletLedgerEntry.belongsTo(Wallet, {
   targetKey: 'id'
 });
 
+Account.hasOne(AccountBalance, {
+  foreignKey: 'account_id',
+  sourceKey: 'id',
+  onDelete: 'CASCADE'
+});
+AccountBalance.belongsTo(Account, {
+  foreignKey: 'account_id',
+  targetKey: 'id'
+});
+
+LedgerTransaction.hasMany(LedgerEntry, {
+  foreignKey: 'transaction_id',
+  sourceKey: 'id',
+  onDelete: 'CASCADE'
+});
+LedgerEntry.belongsTo(LedgerTransaction, {
+  foreignKey: 'transaction_id',
+  targetKey: 'id'
+});
+
+Account.hasMany(LedgerEntry, {
+  foreignKey: 'account_id',
+  sourceKey: 'id'
+});
+LedgerEntry.belongsTo(Account, {
+  foreignKey: 'account_id',
+  targetKey: 'id'
+});
+
+Account.hasMany(PayoutRequest, {
+  foreignKey: 'account_id',
+  sourceKey: 'id'
+});
+PayoutRequest.belongsTo(Account, {
+  foreignKey: 'account_id',
+  targetKey: 'id'
+});
+
 module.exports = {
   Wallet,
   WalletBalance,
   WalletLedgerEntry,
+  Account,
+  AccountBalance,
+  LedgerTransaction,
+  LedgerEntry,
+  PayoutRequest,
   InboxEvent,
   OutboxEvent
 };

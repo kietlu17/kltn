@@ -5,7 +5,7 @@ const https = require('https');
 const fetchImpl = require('node-fetch');
 const Order = require('../models/Order');
 const Dispute = require('../models/Dispute');
-const { publishOrderCreated, publishOrderCancelled } = require('../kafka/producer');
+const { publishOrderCreated, publishOrderCancelled, publishOrderPaid } = require('../kafka/producer');
 
 const PRODUCT_SERVICE_URL = process.env.PRODUCT_SERVICE_URL || 'http://localhost:3004';
 
@@ -561,6 +561,7 @@ async function handlePaymentSucceeded(event) {
   }
   order.status = 'paid';
   await order.save();
+  await publishOrderPaid(order.toJSON());
 }
 
 async function handlePaymentFailed(event) {

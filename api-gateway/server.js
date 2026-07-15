@@ -127,6 +127,9 @@ function getRequiredRoles(req) {
   if (path.startsWith('/cart')) return ['buyer', 'admin'];
   if (path.startsWith('/chat')) return ['buyer', 'seller', 'admin'];
   if (path.startsWith('/reviews')) return ['buyer', 'admin'];
+  if (method === 'POST' && /^\/payments\/wallet\/shop\/[^/]+\/settlements$/.test(path)) return ['admin'];
+  if (path.startsWith('/payments/wallet/shop/')) return ['seller', 'admin'];
+  if (path.startsWith('/payments/wallet/payouts/')) return ['admin'];
   if (path.startsWith('/payments/wallet')) return ['buyer', 'admin'];
   if (path.startsWith('/payments/sepay')) return ['buyer', 'admin'];
 
@@ -213,6 +216,12 @@ app.use(async (req, res, next) => {
     if (/^\/payments\/wallet\/[^/]+/.test(req.path) && user.role === 'buyer') {
       const targetUserId = req.path.split('/')[3];
       if (targetUserId !== user.id) {
+        return res.status(403).json({ message: 'Forbidden' });
+      }
+    }
+    if (/^\/payments\/wallet\/shop\/[^/]+/.test(req.path) && user.role === 'seller') {
+      const targetShopId = req.path.split('/')[4];
+      if (String(targetShopId) !== String(user.shopId || '')) {
         return res.status(403).json({ message: 'Forbidden' });
       }
     }

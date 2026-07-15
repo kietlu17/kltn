@@ -38,4 +38,17 @@ async function publishOrderCancelled(order) {
   });
 }
 
-module.exports = { initProducer, publishOrderCreated, publishOrderCancelled };
+async function publishOrderPaid(order) {
+  if (!producer) throw new Error('Kafka producer not initialized');
+  await producer.send({
+    topic: 'order.paid',
+    messages: [
+      {
+        key: String(order.id),
+        value: JSON.stringify(order)
+      }
+    ]
+  });
+}
+
+module.exports = { initProducer, publishOrderCreated, publishOrderCancelled, publishOrderPaid };

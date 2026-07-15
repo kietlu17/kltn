@@ -239,6 +239,7 @@ async function handleOrderCancelled(payload) {
         amount: normalized.totalPrice,
         totalPrice: normalized.totalPrice,
         paymentMethod: normalized.paymentMethod,
+        products: payload.products || [],
         reason: cancelReason,
         allowWithoutDebit: normalized.paymentMethod === 'bank_transfer',
         sagaId: normalized.sagaId,

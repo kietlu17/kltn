@@ -4,7 +4,10 @@
   "main": "server.js",
   "type": "commonjs",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "ledger:load-test": "node scripts/ledgerLoadTest.js",
+    "ledger:tps": "node scripts/ledgerTpsBenchmark.js",
+    "ledger:reconcile": "node scripts/ledgerReconcile.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
