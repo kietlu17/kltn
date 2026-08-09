@@ -3,8 +3,10 @@ import { useLocation, useNavigate, Link } from 'react-router-dom';
 import api from '../services/api';
 import ProductGrid from '../components/ProductGrid.jsx';
 import { useCart } from '../context/CartContext.jsx';
+import { useAuth } from '../context/AuthContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import useShopMap from '../hooks/useShopMap';
+import useInventoryMap, { getAvailableStock } from '../hooks/useInventoryMap';
 
 const defaultCategories = [
   'Khuyến mãi sốc',
@@ -21,11 +23,13 @@ export default function Home() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const { addItem } = useCart();
+  const { user } = useAuth();
   const { showToast } = useToast();
   const location = useLocation();
   const navigate = useNavigate();
   const query = useMemo(() => new URLSearchParams(location.search).get('q') || '', [location.search]);
   const shopMap = useShopMap();
+  const inventoryMap = useInventoryMap(products);
 
   useEffect(() => {
     const url = query ? `/products?q=${encodeURIComponent(query)}` : '/products';
@@ -38,9 +42,18 @@ export default function Home() {
 
   async function addToCart(product) {
     if (!product) return;
+    if (!user?.id || user.role !== 'buyer') {
+      showToast('Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng', 'error');
+      navigate('/login');
+      return;
+    }
     if (Array.isArray(product.variants) && product.variants.length > 0) {
       showToast('Vui lòng chọn biến thể trước khi thêm vào giỏ');
       navigate(`/product/${product._id || product.id}`);
+      return;
+    }
+    if (Number(product.availableStock ?? product.quantity ?? 0) <= 0) {
+      showToast('Hết hàng', 'error');
       return;
     }
     await addItem(product._id || product.id, 1);
@@ -57,10 +70,11 @@ export default function Home() {
     () =>
       products.map((product) => ({
         ...product,
+        availableStock: getAvailableStock(product, null, inventoryMap),
         categoryName: categoryMap.get(product.categoryId)?.name || product.categoryName,
         shopName: shopMap.get(product.shopId)?.name || product.shopName
       })),
-    [products, categoryMap, shopMap]
+    [products, categoryMap, shopMap, inventoryMap]
   );
 
   const matchingShops = useMemo(() => {

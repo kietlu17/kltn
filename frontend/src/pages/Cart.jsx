@@ -6,6 +6,7 @@ import { useCart } from '../context/CartContext.jsx';
 import useShopMap from '../hooks/useShopMap';
 import { useToast } from '../context/ToastContext.jsx';
 import Orders from './Orders.jsx';
+import useInventoryMap, { getAvailableStock } from '../hooks/useInventoryMap';
 
 function formatPrice(value) {
   const number = Number(value || 0);
@@ -59,6 +60,7 @@ export default function Cart() {
     products.forEach((p) => map.set(p._id || p.id, p));
     return map;
   }, [products]);
+  const inventoryMap = useInventoryMap(products);
 
   const enrichedProducts = cartProducts.map((item) => {
     const product = productMap.get(item.productId);
@@ -66,7 +68,7 @@ export default function Cart() {
     const selectedVariant = variants.find((variant) => String(variant._id) === String(item.variantId || ''));
     const hasVariants = variants.length > 0;
     const unitPrice = selectedVariant ? selectedVariant.price : product?.price;
-    const availableQty = selectedVariant ? selectedVariant.quantity : (product?.quantity ?? 0);
+    const availableQty = getAvailableStock(product, selectedVariant, inventoryMap);
     return {
       ...item,
       lineId: getLineId(item),
@@ -77,7 +79,7 @@ export default function Cart() {
       shopName: shopMap.get(product?.shopId)?.name || product?.shopName,
       variantName: selectedVariant?.name || (hasVariants ? 'Biến thể không khả dụng' : ''),
       availableQty,
-      inStock: Number(availableQty) > 0
+      inStock: Number(availableQty) >= Number(item.quantity || 0)
     };
   });
 
@@ -119,6 +121,11 @@ export default function Cart() {
   const handleCheckout = () => {
     if (selectedIds.length === 0) {
       showToast('Vui lòng chọn ít nhất một sản phẩm để thanh toán', 'error');
+      return;
+    }
+    const insufficient = selectedProducts.find((item) => Number(item.availableQty) < Number(item.quantity || 0));
+    if (insufficient) {
+      showToast(`"${insufficient.name || 'Sản phẩm'}" không đủ số lượng tồn kho`, 'error');
       return;
     }
     navigate('/checkout', { state: { selectedProductIds: selectedIds } });

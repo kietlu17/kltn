@@ -2,12 +2,21 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../services/api';
 import { useToast } from '../context/ToastContext.jsx';
+import { formatDisputeStatus, formatOrderStatus } from '../utils/statusLabels';
 
 const orderStatuses = ['pending_payment', 'payment_processing', 'paid', 'confirmed', 'shipped', 'delivered', 'payment_failed', 'cancelled'];
 const codOrderStatuses = ['pending_payment', 'confirmed', 'shipped', 'paid', 'payment_failed', 'cancelled'];
 
 function isCodOrder(order) {
   return String(order?.payment_method || '').toLowerCase() === 'cod';
+}
+
+function getSelectableOrderStatuses(order) {
+  const statuses = isCodOrder(order) ? codOrderStatuses : orderStatuses;
+  if (order?.status === 'delivered') {
+    return statuses.filter((status) => status !== 'cancelled');
+  }
+  return statuses;
 }
 
 function SectionHeader({ title, subtitle }) {
@@ -98,7 +107,12 @@ export default function AdminDashboard() {
       showToast('Đã cập nhật trạng thái đơn hàng');
       loadOrders();
     } catch (err) {
-      showToast(err?.response?.data?.message || 'Cập nhật thất bại', 'error');
+      const data = err?.response?.data || {};
+      if (data.refundRequired) {
+        showToast('Đơn đã giao không thể hủy. Vui lòng xử lý yêu cầu trả hàng/hoàn tiền.', 'error');
+        return;
+      }
+      showToast(data.message || 'Cập nhật thất bại', 'error');
     }
   }
 
@@ -108,17 +122,28 @@ export default function AdminDashboard() {
       showToast('Đã hủy đơn hàng');
       loadOrders();
     } catch (err) {
-      showToast(err?.response?.data?.message || 'Hủy cưỡng bức thất bại', 'error');
+      const data = err?.response?.data || {};
+      if (data.refundRequired) {
+        showToast('Đơn đã giao không thể hủy. Vui lòng xử lý yêu cầu trả hàng/hoàn tiền.', 'error');
+        return;
+      }
+      showToast(data.message || 'Hủy cưỡng bức thất bại', 'error');
     }
   }
 
   async function updateDispute(disputeId, status) {
     try {
-      await api.patch(`/orders/admin/disputes/${disputeId}`, { status });
-      showToast(`Đã cập nhật khiếu nại: ${status}`);
+      const response = await api.patch(`/orders/admin/disputes/${disputeId}`, { status });
+      if (status === 'resolved' && response.data?.refundQueued) {
+        showToast('Đã duyệt yêu cầu và gửi hoàn tiền');
+      } else if (status === 'resolved' && response.data?.refundRequired) {
+        showToast(response.data?.refundMessage || 'Đã duyệt yêu cầu, cần hoàn tiền thủ công');
+      } else {
+        showToast(`Đã cập nhật yêu cầu: ${formatDisputeStatus(status)}`);
+      }
       loadDisputes();
     } catch (err) {
-      showToast(err?.response?.data?.message || 'Cập nhật khiếu nại thất bại', 'error');
+      showToast(err?.response?.data?.message || 'Cập nhật yêu cầu thất bại', 'error');
     }
   }
 
@@ -228,16 +253,22 @@ export default function AdminDashboard() {
               <div key={order.id} className="seller-table-row">
                 <div>#{order.id}</div>
                 <div>{order.user_id}</div>
-                <div>{order.status}</div>
+                <div>{formatOrderStatus(order.status)}</div>
                 <div className="admin-actions">
                   <select value={order.status} onChange={(event) => updateOrderStatus(order.id, event.target.value)}>
-                    {(isCodOrder(order) ? codOrderStatuses : orderStatuses).map((status) => (
-                      <option key={status} value={status}>{status}</option>
+                    {getSelectableOrderStatuses(order).map((status) => (
+                      <option key={status} value={status}>{formatOrderStatus(status)}</option>
                     ))}
                   </select>
-                  <button type="button" className="btn btn-ghost" onClick={() => forceCancelOrder(order.id)}>
-                    Hủy cưỡng bức
-                  </button>
+                  {order.status === 'delivered' ? (
+                    <button type="button" className="btn btn-outline" onClick={() => navigate('/admin/dashboard/disputes')}>
+                      Xử lý hoàn tiền
+                    </button>
+                  ) : (
+                    <button type="button" className="btn btn-ghost" onClick={() => forceCancelOrder(order.id)}>
+                      Hủy cưỡng bức
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
@@ -247,7 +278,7 @@ export default function AdminDashboard() {
 
       {activeTab === 'disputes' && (
         <>
-          <SectionHeader title="Quản lý khiếu nại" subtitle={`${activeCounts.disputes} phiếu`} />
+          <SectionHeader title="Quản lý trả hàng/hoàn tiền" subtitle={`${activeCounts.disputes} phiếu`} />
           <div className="seller-table admin-table admin-disputes-table">
             <div className="seller-table-row seller-table-head">
               <div>ID</div>
@@ -261,7 +292,7 @@ export default function AdminDashboard() {
                 <div>#{dispute.id}</div>
                 <div>#{dispute.order_id}</div>
                 <div>{dispute.reason}</div>
-                <div>{dispute.status}</div>
+                <div>{formatDisputeStatus(dispute.status)}</div>
                 <div className="admin-actions">
                   <button type="button" className="btn btn-primary" onClick={() => updateDispute(dispute.id, 'resolved')}>Giải quyết</button>
                   <button type="button" className="btn btn-outline" onClick={() => updateDispute(dispute.id, 'rejected')}>Từ chối</button>

@@ -1205,7 +1205,9 @@ img {
 .auth-card textarea,
 .form-card input,
 .form-card textarea,
-.form-card select {
+.form-card select,
+.voucher-form input,
+.voucher-form select {
   width: 100%;
   padding: 10px 12px;
   border-radius: 10px;
@@ -1675,6 +1677,53 @@ img {
   justify-content: space-between;
   font-size: 18px;
   font-weight: 600;
+}
+
+.checkout-discount {
+  color: #0f766e;
+}
+
+.voucher-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.voucher-picker-head,
+.voucher-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.voucher-option {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 10px;
+  background: #ffffff;
+}
+
+.voucher-option.disabled {
+  opacity: 0.58;
+}
+
+.voucher-option span {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.voucher-option small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.voucher-option b {
+  color: #0f766e;
+  white-space: nowrap;
 }
 
 .sepay-qr-box {
@@ -2227,6 +2276,42 @@ img {
     minmax(300px, 2fr)
     minmax(260px, 1.5fr)
     minmax(170px, 1fr);
+}
+
+.voucher-table .seller-table-row {
+  min-width: 980px;
+  grid-template-columns:
+    minmax(170px, 1.1fr)
+    minmax(90px, 0.6fr)
+    minmax(190px, 1.2fr)
+    minmax(150px, 0.9fr)
+    minmax(110px, 0.7fr)
+    minmax(190px, 1.2fr)
+    minmax(110px, 0.7fr)
+    minmax(130px, 0.8fr);
+}
+
+.voucher-table .seller-table-row > div:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.voucher-table {
+  overflow-x: auto;
+}
+
+.voucher-table .admin-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.voucher-table .admin-actions .btn {
+  width: 100%;
+  min-width: 0;
+  padding: 8px 10px;
 }
 
 .admin-table input,

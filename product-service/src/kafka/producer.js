@@ -2,6 +2,24 @@ const { Kafka } = require('kafkajs');
 
 let producer;
 
+function toProductInventoryPayload(product) {
+  const variants = Array.isArray(product.variants)
+    ? product.variants.map((variant) => ({
+        id: String(variant._id || variant.id || ''),
+        name: variant.name,
+        sku: variant.sku || '',
+        quantity: Number(variant.quantity || 0)
+      }))
+    : [];
+  return {
+    id: String(product._id),
+    name: product.name,
+    shopId: product.shopId,
+    quantity: Number(product.quantity || 0),
+    variants
+  };
+}
+
 async function initProducer() {
   const kafka = new Kafka({
     clientId: 'product-service',
@@ -21,14 +39,25 @@ async function publishProductCreated(product) {
     messages: [
       {
         key: String(product._id),
-        value: JSON.stringify({
-          id: String(product._id),
-          name: product.name,
-          shopId: product.shopId
-        })
+        value: JSON.stringify(toProductInventoryPayload(product))
       }
     ]
   });
 }
 
-module.exports = { initProducer, publishProductCreated };
+async function publishProductUpdated(product) {
+  if (!producer) {
+    throw new Error('Kafka producer not initialized');
+  }
+  await producer.send({
+    topic: 'product.updated',
+    messages: [
+      {
+        key: String(product._id),
+        value: JSON.stringify(toProductInventoryPayload(product))
+      }
+    ]
+  });
+}
+
+module.exports = { initProducer, publishProductCreated, publishProductUpdated };

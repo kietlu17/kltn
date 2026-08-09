@@ -2,6 +2,7 @@
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
+import { formatOrderStatus, formatPaymentMethod } from '../utils/statusLabels';
 
 function formatPrice(value) {
   const number = Number(value || 0);
@@ -42,18 +43,6 @@ const codStatusSteps = [
   { key: 'shipped', label: 'Đang giao' },
   { key: 'paid', label: 'Đã thanh toán' }
 ];
-
-const statusLabels = {
-  all: 'Tất cả',
-  pending_payment: 'Chờ thanh toán',
-  payment_processing: 'Đang xử lý thanh toán',
-  paid: 'Đã thanh toán',
-  confirmed: 'Đã xác nhận',
-  shipped: 'Đang giao',
-  delivered: 'Đã giao',
-  payment_failed: 'Thanh toán thất bại',
-  cancelled: 'Đã hủy'
-};
 
 function isCodOrder(order) {
   return String(order?.payment_method || '').toLowerCase() === 'cod';
@@ -100,20 +89,26 @@ export default function Orders({ embedded = false }) {
       showToast('Đã hủy đơn hàng. Hoàn tiền sẽ được trả về ví nếu đủ điều kiện.');
       load();
     } catch (err) {
-      showToast(err?.response?.data?.message || 'Hủy đơn hàng thất bại', 'error');
+      const data = err?.response?.data || {};
+      if (data.refundRequired) {
+        showToast('Đơn đã giao không thể hủy. Vui lòng gửi yêu cầu trả hàng/hoàn tiền.', 'error');
+        setExpandedOrderId(id);
+        return;
+      }
+      showToast(data.message || 'Hủy đơn hàng thất bại', 'error');
     }
   }
 
   async function createDispute(orderId) {
     const selectedOrder = orders.find((order) => String(order.id || order._id) === String(orderId));
     if (selectedOrder?.status !== 'delivered') {
-      showToast('Chỉ có thể yêu cầu trả hàng khi đơn đã giao', 'error');
+      showToast('Chỉ có thể yêu cầu trả hàng/hoàn tiền khi đơn đã giao', 'error');
       return;
     }
 
     const current = disputeForm[orderId] || {};
     if (!current.reason) {
-      showToast('Vui lòng chọn lý do khiếu nại', 'error');
+      showToast('Vui lòng chọn lý do trả hàng/hoàn tiền', 'error');
       return;
     }
 
@@ -123,10 +118,10 @@ export default function Orders({ embedded = false }) {
         note: current.note || '',
         evidenceText: current.evidenceText || ''
       });
-      showToast('Đã gửi yêu cầu khiếu nại');
+      showToast('Đã gửi yêu cầu trả hàng/hoàn tiền');
       setDisputeForm((prev) => ({ ...prev, [orderId]: { reason: '', note: '', evidenceText: '' } }));
     } catch (err) {
-      showToast(err?.response?.data?.message || 'Không thể gửi khiếu nại', 'error');
+      showToast(err?.response?.data?.message || 'Không thể gửi yêu cầu trả hàng/hoàn tiền', 'error');
     }
   }
 
@@ -181,7 +176,7 @@ export default function Orders({ embedded = false }) {
             className={`btn ${activeStatus === status ? 'btn-primary' : 'btn-ghost'}`}
             onClick={() => setActiveStatus(status)}
           >
-            {statusLabels[status] || status}
+            {formatOrderStatus(status)}
           </button>
         ))}
       </div>
@@ -201,6 +196,7 @@ export default function Orders({ embedded = false }) {
           const orderId = order.id || order._id;
           const progressSteps = getStatusSteps(order);
           const stepIndex = getStatusIndex(order.status, progressSteps);
+          const isDelivered = order.status === 'delivered';
           return (
             <div key={orderId}>
               <div
@@ -210,11 +206,11 @@ export default function Orders({ embedded = false }) {
                 <div>#{orderId}</div>
                 <div>{order.items?.length || 0} sản phẩm</div>
                 <div>{formatPrice(order.total_price || order.total)}</div>
-                <div>{order.payment_method || 'Không có'}</div>
+                <div>{formatPaymentMethod(order.payment_method)}</div>
                 <div className="muted">{order.shipping_address?.line1 || order.shippingAddress?.line1 || 'Không có'}</div>
-                <div className={`status ${order.status}`}>{statusLabels[order.status] || order.status}</div>
+                <div className={`status ${order.status}`}>{formatOrderStatus(order.status)}</div>
                 <div>
-                  {order.status !== 'cancelled' && order.status !== 'delivered' ? (
+                  {order.status !== 'cancelled' && !isDelivered ? (
                     <button
                       type="button"
                       className="btn btn-ghost"
@@ -224,6 +220,17 @@ export default function Orders({ embedded = false }) {
                       }}
                     >
                       Hủy đơn
+                    </button>
+                  ) : isDelivered ? (
+                    <button
+                      type="button"
+                      className="btn btn-outline"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setExpandedOrderId(orderId);
+                      }}
+                    >
+                      Yêu cầu hoàn tiền
                     </button>
                   ) : (
                     <span className="muted">-</span>
@@ -253,7 +260,7 @@ export default function Orders({ embedded = false }) {
                     </div>
                     <div>
                       <span className="muted">Thanh toán</span>
-                      <strong>{order.payment_method || 'Không có'}</strong>
+                      <strong>{formatPaymentMethod(order.payment_method)}</strong>
                     </div>
                     <div>
                       <span className="muted">Giao đến</span>
@@ -319,7 +326,7 @@ export default function Orders({ embedded = false }) {
 
                   {order.status === 'delivered' && (
                     <div className="order-dispute-box">
-                      <div className="order-detail-head">Yêu cầu trả hàng</div>
+                      <div className="order-detail-head">Yêu cầu trả hàng/hoàn tiền</div>
                       <div className="form-grid">
                         <div>
                           <label>Lý do</label>
@@ -365,7 +372,7 @@ export default function Orders({ embedded = false }) {
                       />
                       <div className="form-actions">
                         <button type="button" className="btn btn-outline" onClick={() => createDispute(orderId)}>
-                          Gửi khiếu nại
+                          Gửi yêu cầu
                         </button>
                       </div>
                     </div>

@@ -5,9 +5,15 @@ const https = require('https');
 const fetchImpl = require('node-fetch');
 const Order = require('../models/Order');
 const Dispute = require('../models/Dispute');
-const { publishOrderCreated, publishOrderCancelled, publishOrderPaid } = require('../kafka/producer');
+const {
+  publishOrderCreated,
+  publishOrderCancelled,
+  publishOrderRefundRequested,
+  publishOrderPaid
+} = require('../kafka/producer');
 
-const PRODUCT_SERVICE_URL = process.env.PRODUCT_SERVICE_URL || 'http://localhost:3004';
+const INVENTORY_SERVICE_URL = process.env.INVENTORY_SERVICE_URL || 'http://localhost:3007';
+const VOUCHER_SERVICE_URL = process.env.VOUCHER_SERVICE_URL || 'http://localhost:3013';
 
 function createMtlsAgent() {
   if (process.env.MTLS_ENABLED !== 'true') return null;
@@ -44,6 +50,7 @@ const ALLOWED_ORDER_STATUSES = new Set([
   'delivered',
   'cancelled'
 ]);
+const AUTO_REFUND_PAYMENT_METHODS = new Set(['wallet', 'bank_transfer']);
 
 function calcTotal(products) {
   return products.reduce((sum, p) => {
@@ -74,6 +81,17 @@ function isCodPaymentMethod(paymentMethod) {
   return String(paymentMethod || '').toLowerCase() === 'cod';
 }
 
+function isAutoRefundPaymentMethod(paymentMethod) {
+  return AUTO_REFUND_PAYMENT_METHODS.has(String(paymentMethod || '').toLowerCase());
+}
+
+function shouldCommitStockTransition(currentStatus, nextStatus) {
+  return (
+    ['pending_payment', 'payment_processing'].includes(currentStatus) &&
+    ['paid', 'confirmed', 'shipped', 'delivered'].includes(nextStatus)
+  );
+}
+
 function normalizeIdempotencyKey(value) {
   if (!value) return '';
   return String(value).trim().slice(0, 128);
@@ -94,17 +112,17 @@ function buildIdempotencyHash(payload) {
   return crypto.createHash('sha256').update(serialized).digest('hex');
 }
 
-async function decrementStock(products) {
+function toInventoryItems(products) {
   const items = Array.isArray(products) ? products : [];
-  if (!items.length) return;
-  const payload = {
-    items: items.map((item) => ({
-      productId: item.productId,
-      variantId: item.variantId || null,
-      quantity: item.quantity
-    }))
-  };
-  const url = `${PRODUCT_SERVICE_URL}/products/stock/decrement`;
+  return items.map((item) => ({
+    productId: item.productId,
+    variantId: item.variantId || null,
+    quantity: item.quantity
+  }));
+}
+
+async function sendInventoryCommand(path, payload) {
+  const url = `${INVENTORY_SERVICE_URL}${path}`;
   const response = await fetchImpl(url, buildRequestOptions(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -112,34 +130,83 @@ async function decrementStock(products) {
   }));
   if (!response.ok) {
     const text = await response.text();
-    const error = new Error(text || `Stock update failed with status ${response.status}`);
+    let message = text || `Inventory update failed with status ${response.status}`;
+    try {
+      message = JSON.parse(text).message || message;
+    } catch {
+      // keep raw response text
+    }
+    const error = new Error(message);
     error.status = response.status;
     throw error;
   }
 }
 
-async function incrementStock(products) {
-  const items = Array.isArray(products) ? products : [];
-  if (!items.length) return;
-  const payload = {
-    items: items.map((item) => ({
-      productId: item.productId,
-      variantId: item.variantId || null,
-      quantity: item.quantity
-    }))
-  };
-  const url = `${PRODUCT_SERVICE_URL}/products/stock/increment`;
+async function sendVoucherCommand(path, payload) {
+  const url = `${VOUCHER_SERVICE_URL}${path}`;
   const response = await fetchImpl(url, buildRequestOptions(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
   }));
+  const text = await response.text();
+  let data = null;
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { message: text };
+    }
+  }
   if (!response.ok) {
-    const text = await response.text();
-    const error = new Error(text || `Stock compensate failed with status ${response.status}`);
+    const error = new Error(data?.message || `Voucher update failed with status ${response.status}`);
     error.status = response.status;
+    error.payload = data;
     throw error;
   }
+  return data;
+}
+
+async function reserveStock(orderId, products) {
+  const items = toInventoryItems(products);
+  if (!items.length) return;
+  await sendInventoryCommand('/inventory/reserve', { orderId, items });
+}
+
+async function releaseStock(orderId, options = {}) {
+  if (!orderId) return;
+  await sendInventoryCommand('/inventory/release', {
+    orderId,
+    restoreCommitted: Boolean(options.restoreCommitted)
+  });
+}
+
+async function commitStock(orderId) {
+  if (!orderId) return;
+  await sendInventoryCommand('/inventory/commit', { orderId });
+}
+
+async function reserveVoucher(orderId, userId, code, products) {
+  if (!code) return null;
+  return sendVoucherCommand('/vouchers/reserve', {
+    orderId,
+    userId,
+    code,
+    items: products
+  });
+}
+
+async function releaseVoucher(orderId, options = {}) {
+  if (!orderId) return;
+  await sendVoucherCommand('/vouchers/release', {
+    orderId,
+    restoreCommitted: Boolean(options.restoreCommitted)
+  });
+}
+
+async function commitVoucher(orderId) {
+  if (!orderId) return;
+  await sendVoucherCommand('/vouchers/commit', { orderId });
 }
 
 async function cancelOrderWithCompensation(order, options = {}) {
@@ -163,7 +230,8 @@ async function cancelOrderWithCompensation(order, options = {}) {
     await order.save();
   }
   const items = parseOrderItems(order.toJSON ? order.toJSON() : order);
-  await incrementStock(items);
+  await releaseStock(order.id, { restoreCommitted: true });
+  await releaseVoucher(order.id, { restoreCommitted: true });
   const cancelledPayload = {
     ...(order.toJSON ? order.toJSON() : order),
     cancel_reason: options.reason || null,
@@ -177,10 +245,15 @@ async function cancelOrderWithCompensation(order, options = {}) {
 
 async function createOrder(req, res) {
   try {
-    const { userId, products, shippingAddress, paymentMethod } = req.body;
+    const { userId, products, shippingAddress, paymentMethod, voucherCode } = req.body;
     const idempotencyKey = normalizeIdempotencyKey(req.headers['idempotency-key']);
+    const actorRole = req.headers['x-user-role'] || '';
+    const actorUserId = req.headers['x-user-id'] || '';
     if (!userId || !Array.isArray(products)) {
       return res.status(400).json({ message: 'userId and products are required' });
+    }
+    if (actorRole === 'buyer' && String(userId) !== String(actorUserId)) {
+      return res.status(403).json({ message: 'Forbidden' });
     }
     if (!shippingAddress) {
       return res.status(400).json({ message: 'shippingAddress is required' });
@@ -197,7 +270,7 @@ async function createOrder(req, res) {
     }
 
     const idempotencyHash = idempotencyKey
-      ? buildIdempotencyHash({ userId, products, shippingAddress, paymentMethod })
+      ? buildIdempotencyHash({ userId, products, shippingAddress, paymentMethod, voucherCode: voucherCode || null })
       : null;
 
     if (idempotencyKey) {
@@ -210,13 +283,17 @@ async function createOrder(req, res) {
       }
     }
 
-    const totalPrice = calcTotal(products);
+    const subtotalPrice = calcTotal(products);
     let order;
     try {
       order = await Order.create({
         user_id: userId,
         products,
-        total_price: totalPrice,
+        subtotal_price: subtotalPrice,
+        discount_amount: 0,
+        total_price: subtotalPrice,
+        voucher_code: voucherCode || null,
+        voucher_snapshot: null,
         status: 'pending_payment',
         idempotency_key: idempotencyKey || null,
         idempotency_request_hash: idempotencyHash,
@@ -237,13 +314,30 @@ async function createOrder(req, res) {
     }
 
     try {
-      await decrementStock(products);
+      await reserveStock(order.id, products);
     } catch (err) {
       if (err?.status === 409) {
         await Order.destroy({ where: { id: order.id } });
         return res.status(409).json({ message: 'Out of stock' });
       }
       throw err;
+    }
+    try {
+      const voucherResult = await reserveVoucher(order.id, userId, voucherCode, products);
+      if (voucherResult) {
+        const discountAmount = Math.min(toNumber(voucherResult.discountAmount), subtotalPrice);
+        order.discount_amount = discountAmount;
+        order.total_price = Math.max(subtotalPrice - discountAmount, 0);
+        order.voucher_snapshot = voucherResult.voucher || null;
+        await order.save();
+      }
+    } catch (err) {
+      await cancelOrderWithCompensation(order, {
+        reason: 'voucher_reserve_failed',
+        shouldRefundToWallet: false
+      });
+      const status = err?.status === 409 || err?.status === 404 ? err.status : 502;
+      return res.status(status).json({ message: err.message || 'Voucher is not available' });
     }
     try {
       await publishOrderCreated(order.toJSON());
@@ -275,6 +369,13 @@ async function cancelOrder(req, res) {
     if (order.status === 'cancelled') {
       return res.json(order.toJSON());
     }
+    if (order.status === 'delivered') {
+      return res.status(400).json({
+        message: 'Delivered order cannot be cancelled. Please create a return/refund request.',
+        refundRequired: true,
+        status: order.status
+      });
+    }
     await cancelOrderWithCompensation(order, { reason: 'manual_cancel' });
     return res.json(order.toJSON());
   } catch (err) {
@@ -298,6 +399,8 @@ async function confirmOrder(req, res) {
     const isCodOrder = isCodPaymentMethod(order.payment_method);
     if (isCodOrder) {
       if (['pending_payment', 'payment_processing'].includes(order.status)) {
+        await commitStock(order.id);
+        await commitVoucher(order.id);
         order.status = 'confirmed';
         await order.save();
       }
@@ -427,6 +530,13 @@ async function updateAdminOrderStatus(req, res) {
       return res.status(404).json({ message: 'Order not found' });
     }
     const currentStatus = String(order.status || '').toLowerCase();
+    if (currentStatus === 'delivered' && nextStatus === 'cancelled') {
+      return res.status(400).json({
+        message: 'Delivered order cannot be cancelled. Please resolve a return/refund request instead.',
+        refundRequired: true,
+        status: order.status
+      });
+    }
     if (isCodPaymentMethod(order.payment_method)) {
       const allowedCodNextByCurrent = {
         pending_payment: new Set(['pending_payment', 'confirmed', 'cancelled', 'payment_failed']),
@@ -444,6 +554,10 @@ async function updateAdminOrderStatus(req, res) {
         });
       }
     }
+    if (shouldCommitStockTransition(currentStatus, nextStatus)) {
+      await commitStock(order.id);
+      await commitVoucher(order.id);
+    }
     order.status = nextStatus;
     await order.save();
     return res.json(order.toJSON());
@@ -458,6 +572,13 @@ async function forceCancelOrder(req, res) {
     const order = await Order.findByPk(id);
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
+    }
+    if (order.status === 'delivered') {
+      return res.status(400).json({
+        message: 'Delivered order cannot be cancelled. Please resolve a return/refund request instead.',
+        refundRequired: true,
+        status: order.status
+      });
     }
     if (order.status !== 'cancelled') {
       await cancelOrderWithCompensation(order, { reason: 'admin_force_cancel' });
@@ -479,6 +600,9 @@ async function createDispute(req, res) {
     const actorRole = req.headers['x-user-role'] || '';
     if (actorRole === 'buyer' && String(order.user_id) !== String(actorUserId)) {
       return res.status(403).json({ message: 'Forbidden' });
+    }
+    if (order.status !== 'delivered') {
+      return res.status(400).json({ message: 'Return/refund requests are only available for delivered orders' });
     }
     const { reason, note, evidenceText } = req.body || {};
     if (!reason || !String(reason).trim()) {
@@ -518,12 +642,51 @@ async function updateAdminDispute(req, res) {
     if (!dispute) {
       return res.status(404).json({ message: 'Dispute not found' });
     }
+    const wasResolved = dispute.status === 'resolved';
+    const shouldQueueRefund = status === 'resolved' && !wasResolved;
+    let refundOrder = null;
+    let refundQueued = false;
+    let refundRequired = false;
+    let refundMessage = null;
+
+    if (shouldQueueRefund) {
+      refundOrder = await Order.findByPk(dispute.order_id);
+      if (!refundOrder) {
+        return res.status(404).json({ message: 'Order not found for dispute' });
+      }
+      if (refundOrder.status !== 'delivered') {
+        return res.status(400).json({ message: 'Only delivered orders can be resolved as return/refund requests' });
+      }
+    }
+
     dispute.status = status;
     dispute.handled_by = req.headers['x-user-id'] || null;
     dispute.handled_note = typeof note === 'string' ? note : '';
     dispute.handled_at = new Date();
     await dispute.save();
-    return res.json(dispute.toJSON());
+
+    if (shouldQueueRefund) {
+      refundRequired = true;
+      if (isAutoRefundPaymentMethod(refundOrder.payment_method)) {
+        await publishOrderRefundRequested({
+          ...refundOrder.toJSON(),
+          dispute_id: dispute.id,
+          refund_reason: dispute.reason,
+          refund_note: dispute.handled_note || dispute.note || null,
+          shouldRefundToWallet: true
+        });
+        refundQueued = true;
+      } else {
+        refundMessage = 'Manual refund is required for this payment method';
+      }
+    }
+
+    return res.json({
+      ...dispute.toJSON(),
+      refundRequired,
+      refundQueued,
+      refundMessage
+    });
   } catch (err) {
     return res.status(500).json({ message: 'Update dispute failed', error: err.message });
   }
@@ -559,6 +722,8 @@ async function handlePaymentSucceeded(event) {
     });
     return;
   }
+  await commitStock(order.id);
+  await commitVoucher(order.id);
   order.status = 'paid';
   await order.save();
   await publishOrderPaid(order.toJSON());

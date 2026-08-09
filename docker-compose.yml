@@ -216,7 +216,8 @@ services:
       PG_DATABASE: order_service
       PG_USER: postgres
       PG_PASSWORD: postgres
-      PRODUCT_SERVICE_URL: https://product-service:3004
+      INVENTORY_SERVICE_URL: https://inventory-service:3007
+      VOUCHER_SERVICE_URL: https://voucher-service:3013
       KAFKA_BROKER: kafka-e:29092
       TLS_ENABLED: "true"
       TLS_REQUEST_CLIENT_CERT: "true"
@@ -237,6 +238,10 @@ services:
       postgres:
         condition: service_healthy
       kafka_e:
+        condition: service_started
+      inventory-service:
+        condition: service_started
+      voucher-service:
         condition: service_started
 
   inventory-service:
@@ -268,6 +273,33 @@ services:
         condition: service_healthy
       kafka_e:
         condition: service_started
+
+  voucher-service:
+    build:
+      context: .
+      dockerfile: voucher-service/Dockerfile
+    container_name: voucher-service
+    restart: unless-stopped
+    environment:
+      PORT: 3013
+      PG_HOST: postgres
+      PG_PORT: 5432
+      PG_DATABASE: voucher_service
+      PG_USER: postgres
+      PG_PASSWORD: postgres
+      TLS_ENABLED: "true"
+      TLS_REQUEST_CLIENT_CERT: "true"
+      TLS_REJECT_UNAUTHORIZED: "true"
+      TLS_CA_PATH: /certs/ca/ca.crt
+      TLS_CERT_PATH: /certs/voucher-service/tls.crt
+      TLS_KEY_PATH: /certs/voucher-service/tls.key
+    volumes:
+      - certs_data:/certs:ro
+    depends_on:
+      certs-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
 
   review-service:
     build:
@@ -432,6 +464,8 @@ services:
       USER_SERVICE_URL: https://user-service:3002
       SHOP_SERVICE_URL: https://shop-service:3003
       PRODUCT_SERVICE_URL: https://product-service:3004
+      INVENTORY_SERVICE_URL: https://inventory-service:3007
+      VOUCHER_SERVICE_URL: https://voucher-service:3013
       CART_SERVICE_URL: https://cart-service:3005
       ORDER_SERVICE_URL: https://order-service:3006
       PAYMENT_SERVICE_URL: https://payment-service:3010
@@ -456,6 +490,10 @@ services:
       shop-service:
         condition: service_started
       product-service:
+        condition: service_started
+      inventory-service:
+        condition: service_started
+      voucher-service:
         condition: service_started
       cart-service:
         condition: service_started

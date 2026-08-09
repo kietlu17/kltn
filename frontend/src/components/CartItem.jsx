@@ -9,6 +9,9 @@ export default function CartItem({ item, onRemove, onUpdate, selected, onSelect 
   const subtotal = Number(item?.price || 0) * Number(item?.quantity || 0);
   const image = resolveImageUrl(item?.image || item?.imageUrl || item?.product?.imageUrl || '');
   const lineId = item?.lineId || `${item?.productId || item?.id}::${item?.variantId || ''}`;
+  const availableQty = Number(item?.availableQty ?? 0);
+  const quantity = Number(item?.quantity || 1);
+  const hasEnoughStock = availableQty >= quantity;
 
   return (
     <div className="cart-row">
@@ -21,7 +24,7 @@ export default function CartItem({ item, onRemove, onUpdate, selected, onSelect 
           <div className="cart-name">{item?.name || item?.productName || 'Sản phẩm chưa đặt tên'}</div>
           <div className="cart-shop">{item?.shopName || 'Shop'}</div>
           {item?.variantName && <div className="muted">Biến thể: {item.variantName}</div>}
-          {!item?.inStock && <div className="stock-inline">Hết hàng</div>}
+          {!hasEnoughStock && <div className="stock-inline">Không đủ tồn kho</div>}
         </div>
       </div>
       <div className="cart-cell">{formatPrice(item?.price)}</div>
@@ -30,9 +33,10 @@ export default function CartItem({ item, onRemove, onUpdate, selected, onSelect 
           className="qty-input"
           type="number"
           min="1"
+          max={availableQty || undefined}
           value={item?.quantity || 1}
           onChange={(event) => onUpdate?.(item?.productId || item?.id, event.target.value, item?.variantId || null)}
-          disabled={!item?.inStock}
+          disabled={availableQty <= 0}
         />
       </div>
       <div className="cart-cell">{formatPrice(subtotal)}</div>

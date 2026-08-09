@@ -249,6 +249,37 @@ async function handleOrderCancelled(payload) {
   });
 }
 
+async function handleOrderRefundRequested(payload) {
+  const normalized = normalizeOrder(payload);
+  if (!Number.isFinite(normalized.orderId) || !normalized.userId) return;
+  const shouldRefundToWallet = Boolean(payload?.shouldRefundToWallet);
+  if (!shouldRefundToWallet) return;
+  const refundReason = String(payload?.refund_reason || payload?.reason || 'return_refund_approved');
+
+  await sequelize.transaction(async (transaction) => {
+    await enqueueEvent({
+      transaction,
+      topic: 'wallet.refund.requested',
+      eventType: 'WalletRefundRequested',
+      key: normalized.orderId,
+      aggregateId: normalized.orderId,
+      payload: {
+        orderId: normalized.orderId,
+        userId: normalized.userId,
+        amount: normalized.totalPrice,
+        totalPrice: normalized.totalPrice,
+        paymentMethod: normalized.paymentMethod,
+        products: payload.products || [],
+        disputeId: payload.dispute_id || payload.disputeId || null,
+        reason: refundReason,
+        allowWithoutDebit: normalized.paymentMethod === 'bank_transfer',
+        sagaId: normalized.sagaId,
+        correlationId: normalized.correlationId
+      }
+    });
+  });
+}
+
 async function handleWalletDebited(payload) {
   await sequelize.transaction(async (transaction) => {
     await publishPaymentEvent(
@@ -400,6 +431,7 @@ async function initConsumer() {
   await consumer.connect();
   await consumer.subscribe({ topic: 'order.created' });
   await consumer.subscribe({ topic: 'order.cancelled' });
+  await consumer.subscribe({ topic: 'order.refund_requested' });
   await consumer.subscribe({ topic: 'wallet.debited' });
   await consumer.subscribe({ topic: 'wallet.debit_failed' });
   await consumer.subscribe({ topic: 'wallet.refunded' });
@@ -412,6 +444,7 @@ async function initConsumer() {
       await withInbox(topic, partition, message, async (payload) => {
         if (topic === 'order.created') await handleOrderCreated(payload);
         if (topic === 'order.cancelled') await handleOrderCancelled(payload);
+        if (topic === 'order.refund_requested') await handleOrderRefundRequested(payload);
         if (topic === 'wallet.debited') await handleWalletDebited(payload);
         if (topic === 'wallet.debit_failed') await handleWalletDebitFailed(payload);
         if (topic === 'wallet.refunded') await handleWalletRefunded(payload);

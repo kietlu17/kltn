@@ -24,6 +24,8 @@ const targets = {
   users: process.env.USER_SERVICE_URL || 'http://localhost:3002',
   shops: process.env.SHOP_SERVICE_URL || 'http://localhost:3003',
   products: process.env.PRODUCT_SERVICE_URL || 'http://localhost:3004',
+  inventory: process.env.INVENTORY_SERVICE_URL || 'http://localhost:3007',
+  vouchers: process.env.VOUCHER_SERVICE_URL || 'http://localhost:3013',
   cart: process.env.CART_SERVICE_URL || 'http://localhost:3005',
   orders: process.env.ORDER_SERVICE_URL || 'http://localhost:3006',
   payments: process.env.PAYMENT_SERVICE_URL || 'http://localhost:3010',
@@ -118,6 +120,18 @@ function getRequiredRoles(req) {
   if (path.startsWith('/auth/admin/')) return ['admin'];
   if (path.startsWith('/orders/admin/')) return ['admin'];
   if (path.startsWith('/products/admin/')) return ['admin'];
+  if (path.startsWith('/inventory')) {
+    if (method === 'GET') return null;
+    return ['seller', 'admin'];
+  }
+  if (path.startsWith('/vouchers')) {
+    if (method === 'POST' && path === '/vouchers/checkout') return ['buyer', 'admin'];
+    if (method === 'POST' && /^\/vouchers\/(reserve|release|commit)$/.test(path)) return ['admin'];
+    if (method === 'GET') return ['seller', 'admin'];
+    if (method === 'POST' && path === '/vouchers') return ['seller', 'admin'];
+    if (method === 'PUT') return ['seller', 'admin'];
+    return ['buyer', 'seller', 'admin'];
+  }
   if (path.startsWith('/categories/admin/')) return ['admin'];
   if (path.startsWith('/users/admin/')) return ['admin'];
 
@@ -242,6 +256,8 @@ app.use('/auth', buildProxy(targets.auth));
 app.use('/users', buildProxy(targets.users));
 app.use('/shops', buildProxy(targets.shops));
 app.use('/products', buildProxy(targets.products));
+app.use('/inventory', buildProxy(targets.inventory));
+app.use('/vouchers', buildProxy(targets.vouchers));
 app.use('/uploads', buildProxy(targets.products));
 app.use('/categories', buildProxy(targets.products));
 app.use('/cart', buildProxy(targets.cart));

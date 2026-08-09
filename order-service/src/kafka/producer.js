@@ -38,6 +38,19 @@ async function publishOrderCancelled(order) {
   });
 }
 
+async function publishOrderRefundRequested(order) {
+  if (!producer) throw new Error('Kafka producer not initialized');
+  await producer.send({
+    topic: 'order.refund_requested',
+    messages: [
+      {
+        key: String(order.id),
+        value: JSON.stringify(order)
+      }
+    ]
+  });
+}
+
 async function publishOrderPaid(order) {
   if (!producer) throw new Error('Kafka producer not initialized');
   await producer.send({
@@ -51,4 +64,10 @@ async function publishOrderPaid(order) {
   });
 }
 
-module.exports = { initProducer, publishOrderCreated, publishOrderCancelled, publishOrderPaid };
+module.exports = {
+  initProducer,
+  publishOrderCreated,
+  publishOrderCancelled,
+  publishOrderRefundRequested,
+  publishOrderPaid
+};

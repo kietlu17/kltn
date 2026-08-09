@@ -3,11 +3,14 @@ import { useNavigate, useParams } from 'react-router-dom';
 import api from '../services/api';
 import ProductGrid from '../components/ProductGrid.jsx';
 import { useCart } from '../context/CartContext.jsx';
+import { useAuth } from '../context/AuthContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
+import useInventoryMap, { getAvailableStock } from '../hooks/useInventoryMap';
 
 export default function ShopDetail() {
   const { id } = useParams();
   const { addItem } = useCart();
+  const { user } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
   const [shop, setShop] = useState(null);
@@ -15,6 +18,7 @@ export default function ShopDetail() {
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState('all');
+  const inventoryMap = useInventoryMap(products);
 
   useEffect(() => {
     if (!id) return;
@@ -44,12 +48,17 @@ export default function ShopDetail() {
 
   async function addToCart(product) {
     if (!product) return;
+    if (!user?.id || user.role !== 'buyer') {
+      showToast('Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng', 'error');
+      navigate('/login');
+      return;
+    }
     if (Array.isArray(product.variants) && product.variants.length > 0) {
       showToast('Vui lòng chọn biến thể trước khi thêm vào giỏ');
       navigate(`/product/${product._id || product.id}`);
       return;
     }
-    if (Number(product.quantity ?? 0) <= 0) {
+    if (Number(product.availableStock ?? product.quantity ?? 0) <= 0) {
       showToast('Hết hàng', 'error');
       return;
     }
@@ -71,10 +80,11 @@ export default function ShopDetail() {
     () =>
       products.map((product) => ({
         ...product,
+        availableStock: getAvailableStock(product, null, inventoryMap),
         categoryName: categoryMap.get(product.categoryId)?.name || product.categoryName,
         shopName: shop?.name || product.shopName
       })),
-    [products, categoryMap, shop]
+    [products, categoryMap, shop, inventoryMap]
   );
 
   const filteredProducts = useMemo(() => {

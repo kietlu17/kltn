@@ -6,6 +6,8 @@ const proxiedRoutes = [
   '/users',
   '/shops',
   '/products',
+  '/inventory',
+  '/vouchers',
   '/uploads',
   '/categories',
   '/cart',

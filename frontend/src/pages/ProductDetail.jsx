@@ -5,6 +5,7 @@ import { useCart } from '../context/CartContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import useShopMap from '../hooks/useShopMap';
+import useInventoryMap, { getAvailableStock } from '../hooks/useInventoryMap';
 import ChatWidget from '../components/ChatWidget.jsx';
 
 function formatPrice(value) {
@@ -88,9 +89,10 @@ export default function ProductDetail() {
     if (!Array.isArray(product?.variants) || product.variants.length === 0) return null;
     return product.variants.find((item) => String(item._id) === String(selectedVariantId)) || null;
   }, [product, selectedVariantId]);
+  const inventoryMap = useInventoryMap(product ? [product] : []);
 
   const effectivePrice = selectedVariant ? selectedVariant.price : product?.price;
-  const effectiveStock = selectedVariant ? selectedVariant.quantity : product?.quantity;
+  const effectiveStock = getAvailableStock(product, selectedVariant, inventoryMap);
 
   const categoryMap = useMemo(() => {
     const map = new Map();
@@ -126,9 +128,9 @@ export default function ProductDetail() {
       setSelectedVariantId('');
       return;
     }
-    const preferred = product.variants.find((item) => Number(item.quantity || 0) > 0) || product.variants[0];
+    const preferred = product.variants.find((item) => getAvailableStock(product, item, inventoryMap) > 0) || product.variants[0];
     setSelectedVariantId(String(preferred?._id || ''));
-  }, [product]);
+  }, [product, inventoryMap]);
 
   useEffect(() => {
     if (!isZoomOpen) return;
@@ -141,6 +143,11 @@ export default function ProductDetail() {
 
   async function addToCart() {
     if (!product) return;
+    if (!user?.id || user.role !== 'buyer') {
+      showToast('Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng', 'error');
+      navigate('/login');
+      return;
+    }
     if (Array.isArray(product.variants) && product.variants.length > 0 && !selectedVariant) {
       showToast('Vui lòng chọn biến thể', 'error');
       return;
@@ -155,7 +162,7 @@ export default function ProductDetail() {
 
   async function buyNow() {
     if (!product) return;
-    if (!user?.id) {
+    if (!user?.id || user.role !== 'buyer') {
       showToast('Vui lòng đăng nhập để tiếp tục thanh toán', 'error');
       navigate('/login');
       return;
@@ -275,7 +282,7 @@ export default function ProductDetail() {
               <select value={selectedVariantId} onChange={(event) => setSelectedVariantId(event.target.value)}>
                 {product.variants.map((variant) => (
                   <option key={variant._id} value={variant._id}>
-                    {variant.name} - {formatPrice(variant.price)} - Tồn kho: {variant.quantity}
+                    {variant.name} - {formatPrice(variant.price)} - Tồn kho: {getAvailableStock(product, variant, inventoryMap)}
                   </option>
                 ))}
               </select>

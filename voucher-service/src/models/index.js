@@ -1,0 +1,2 @@
+require('./Voucher');
+require('./VoucherReservation');

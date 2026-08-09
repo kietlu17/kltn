@@ -12,7 +12,8 @@ export default function ProductCard({ product, onAdd, detailBasePath = '/product
   const shop = product?.shopName || product?.shop?.name || 'Cửa hàng chính thức';
   const shopId = product?.shopId || product?.shop?._id || product?.shop?.id;
   const category = product?.categoryName || product?.category || '';
-  const isOutOfStock = Number(product?.quantity ?? 0) <= 0;
+  const availableStock = Number(product?.availableStock ?? product?.quantity ?? 0);
+  const isOutOfStock = availableStock <= 0;
   const sold = Number(product?.sold ?? 0);
   const variantPrices = Array.isArray(product?.variants)
     ? product.variants

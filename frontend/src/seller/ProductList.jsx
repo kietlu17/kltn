@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import api, { resolveImageUrl } from '../services/api';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
+import useInventoryMap, { getAvailableStock } from '../hooks/useInventoryMap';
 
 function formatPrice(value) {
   const number = Number(value || 0);
@@ -14,6 +15,7 @@ export default function SellerProductList() {
   const { showToast } = useToast();
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
+  const inventoryMap = useInventoryMap(products);
 
   const loadProducts = () => {
     const shopKey = user?.shopId || user?.id;
@@ -43,10 +45,12 @@ export default function SellerProductList() {
     if (!products.length) return [];
     const shopKey = user?.shopId || user?.id;
     if (shopKey) {
-      return products.filter((p) => p.shopId === shopKey);
+      return products
+        .filter((p) => p.shopId === shopKey)
+        .map((product) => ({ ...product, availableStock: getAvailableStock(product, null, inventoryMap) }));
     }
-    return products;
-  }, [products, user]);
+    return products.map((product) => ({ ...product, availableStock: getAvailableStock(product, null, inventoryMap) }));
+  }, [products, user, inventoryMap]);
 
   const handleDelete = async (id) => {
     const shopKey = user?.shopId || user?.id;
@@ -86,7 +90,7 @@ export default function SellerProductList() {
             <div>{product.name}</div>
             <div>{formatPrice(product.price)}</div>
             <div>{Number(product.sold ?? 0)}</div>
-            <div>{product.quantity ?? 0}</div>
+            <div>{product.availableStock ?? product.quantity ?? 0}</div>
             <div>{categoryMap.get(product.categoryId)?.name || '-'}</div>
             <div>{product.moderationStatus || 'pending'}</div>
             <div>

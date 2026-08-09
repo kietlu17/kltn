@@ -94,7 +94,25 @@ export default function EditProduct() {
       }
     });
 
-    await api.put(`/products/${id}`, payload, { headers: { 'Content-Type': 'multipart/form-data' } });
+    const response = await api.put(`/products/${id}`, payload, { headers: { 'Content-Type': 'multipart/form-data' } });
+    const saved = response.data || {};
+    const savedVariants = Array.isArray(saved.variants) ? saved.variants : [];
+    if (savedVariants.length > 0) {
+      await Promise.all(
+        savedVariants.map((variant) =>
+          api.patch(`/inventory/products/${saved._id || saved.id}/variants/${variant._id}`, {
+            shopId: shopKey,
+            sku: variant.sku || '',
+            stockOnHand: variant.quantity ?? 0
+          })
+        )
+      );
+    } else {
+      await api.patch(`/inventory/products/${saved._id || saved.id}`, {
+        shopId: shopKey,
+        stockOnHand: saved.quantity ?? form.quantity ?? 0
+      });
+    }
     showToast('Đã cập nhật sản phẩm');
     navigate('/seller/products');
   };

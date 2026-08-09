@@ -96,6 +96,13 @@ export default function Navbar() {
     navigate(`/product/${productId}`);
   };
 
+  const handleCartClick = (event) => {
+    if (user) return;
+    event.preventDefault();
+    showToast('Vui lòng đăng nhập để xem giỏ hàng', 'error');
+    navigate('/login');
+  };
+
   const searchParams = new URLSearchParams(location.search);
   const initialQuery = searchParams.get('q') || '';
 
@@ -117,7 +124,7 @@ export default function Navbar() {
 
         <div className="navbar-actions">
           {!isSeller && !isAdmin && (
-            <Link to="/cart" className="cart-link">
+            <Link to="/cart" className="cart-link" onClick={handleCartClick}>
               <span className="cart-icon">Giỏ hàng</span>
               <CartBadge count={cartCount} />
             </Link>

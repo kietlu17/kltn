@@ -30,6 +30,32 @@ async function initDb() {
         allowNull: true
       });
     }
+    if (!table.subtotal_price) {
+      await queryInterface.addColumn('orders', 'subtotal_price', {
+        type: Sequelize.DECIMAL(12, 2),
+        allowNull: false,
+        defaultValue: 0
+      });
+    }
+    if (!table.discount_amount) {
+      await queryInterface.addColumn('orders', 'discount_amount', {
+        type: Sequelize.DECIMAL(12, 2),
+        allowNull: false,
+        defaultValue: 0
+      });
+    }
+    if (!table.voucher_code) {
+      await queryInterface.addColumn('orders', 'voucher_code', {
+        type: Sequelize.STRING(40),
+        allowNull: true
+      });
+    }
+    if (!table.voucher_snapshot) {
+      await queryInterface.addColumn('orders', 'voucher_snapshot', {
+        type: Sequelize.JSONB,
+        allowNull: true
+      });
+    }
 
     const indexes = await queryInterface.showIndex('orders');
     const hasUniqueIdempotencyIndex = indexes.some((index) => {
@@ -47,6 +73,11 @@ async function initDb() {
   }
 
   await sequelize.sync();
+  try {
+    await sequelize.query('UPDATE orders SET subtotal_price = total_price WHERE subtotal_price = 0 AND total_price IS NOT NULL');
+  } catch {
+    // first boot tables are created by sync
+  }
   console.log('Order Service connected to PostgreSQL');
 }
 

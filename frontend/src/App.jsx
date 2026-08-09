@@ -24,6 +24,7 @@ import SellerOrders from './seller/SellerOrders.jsx';
 import SellerChat from './seller/SellerChat.jsx';
 import AdminLayout from './admin/AdminLayout.jsx';
 import AdminDashboard from './admin/AdminDashboard.jsx';
+import VoucherManager from './components/VoucherManager.jsx';
 
 export default function App() {
   function LegacyProductRedirect() {
@@ -39,35 +40,19 @@ export default function App() {
         <Routes>
           <Route
             path="/"
-            element={
-              <ProtectedRoute allowedRoles={['buyer']}>
-                <Home />
-              </ProtectedRoute>
-            }
+            element={<Home />}
           />
           <Route
             path="/products"
-            element={
-              <ProtectedRoute allowedRoles={['buyer']}>
-                <ProductList />
-              </ProtectedRoute>
-            }
+            element={<ProductList />}
           />
           <Route
             path="/product/:id"
-            element={
-              <ProtectedRoute allowedRoles={['buyer']}>
-                <ProductDetail />
-              </ProtectedRoute>
-            }
+            element={<ProductDetail />}
           />
           <Route
             path="/shop/:id"
-            element={
-              <ProtectedRoute allowedRoles={['buyer']}>
-                <ShopDetail />
-              </ProtectedRoute>
-            }
+            element={<ShopDetail />}
           />
           <Route
             path="/cart"
@@ -129,6 +114,7 @@ export default function App() {
             <Route path="categories" element={<SellerCategories />} />
             <Route path="orders" element={<SellerOrders />} />
             <Route path="chat" element={<SellerChat />} />
+            <Route path="vouchers" element={<VoucherManager title="Mã giảm giá của shop" />} />
             <Route path="products/create" element={<CreateProduct />} />
             <Route path="products/edit/:id" element={<EditProduct />} />
           </Route>
@@ -143,6 +129,7 @@ export default function App() {
             <Route index element={<Navigate to="dashboard/users" replace />} />
             <Route path="dashboard" element={<AdminDashboard />} />
             <Route path="dashboard/:tab" element={<AdminDashboard />} />
+            <Route path="vouchers" element={<VoucherManager title="Mã giảm giá của sàn" />} />
           </Route>
           <Route path="/products/:id" element={<LegacyProductRedirect />} />
         </Routes>

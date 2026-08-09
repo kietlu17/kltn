@@ -5,6 +5,8 @@ import { useCart } from '../context/CartContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import useShopMap from '../hooks/useShopMap';
+import useInventoryMap, { getAvailableStock } from '../hooks/useInventoryMap';
+import { formatOrderStatus } from '../utils/statusLabels';
 
 function formatPrice(value) {
   const number = Number(value || 0);
@@ -41,6 +43,9 @@ export default function Checkout() {
   const [walletBalance, setWalletBalance] = useState(0);
   const [walletLoading, setWalletLoading] = useState(false);
   const [bankQrRequests, setBankQrRequests] = useState([]);
+  const [vouchers, setVouchers] = useState([]);
+  const [selectedVoucherCode, setSelectedVoucherCode] = useState('');
+  const [voucherLoading, setVoucherLoading] = useState(false);
 
   useEffect(() => {
     refreshCart();
@@ -91,26 +96,34 @@ export default function Checkout() {
     products.forEach((p) => map.set(p._id || p.id, p));
     return map;
   }, [products]);
+  const inventoryMap = useInventoryMap(products);
 
-  const filteredCartProducts = selectedIds.length
-    ? cartProducts.filter((item) => selectedIds.includes(getLineId(item)))
-    : [];
+  const filteredCartProducts = useMemo(
+    () => (selectedIds.length ? cartProducts.filter((item) => selectedIds.includes(getLineId(item))) : []),
+    [cartProducts, selectedIds]
+  );
 
-  const enrichedProducts = filteredCartProducts.map((item) => {
-    const product = productMap.get(item.productId);
-    const selectedVariant = (product?.variants || []).find((variant) => String(variant._id) === String(item.variantId || ''));
-    const effectivePrice = selectedVariant ? selectedVariant.price : product?.price;
-    const effectiveStock = selectedVariant ? selectedVariant.quantity : product?.quantity;
-    return {
-      ...item,
-      lineId: getLineId(item),
-      name: product?.name,
-      price: effectivePrice,
-      variantName: selectedVariant?.name || '',
-      shopName: shopMap.get(product?.shopId)?.name || product?.shopName,
-      inStock: Number(effectiveStock ?? 0) > 0
-    };
-  });
+  const enrichedProducts = useMemo(
+    () =>
+      filteredCartProducts.map((item) => {
+        const product = productMap.get(item.productId);
+        const selectedVariant = (product?.variants || []).find((variant) => String(variant._id) === String(item.variantId || ''));
+        const effectivePrice = selectedVariant ? selectedVariant.price : product?.price;
+        const effectiveStock = getAvailableStock(product, selectedVariant, inventoryMap);
+        return {
+          ...item,
+          lineId: getLineId(item),
+          name: product?.name,
+          price: effectivePrice,
+          variantName: selectedVariant?.name || '',
+          shopId: product?.shopId,
+          shopName: shopMap.get(product?.shopId)?.name || product?.shopName,
+          availableQty: effectiveStock,
+          inStock: Number(effectiveStock ?? 0) >= Number(item.quantity || 0)
+        };
+      }),
+    [filteredCartProducts, productMap, shopMap, inventoryMap]
+  );
 
   const hasOutOfStock = enrichedProducts.some((item) => !item.inStock);
 
@@ -124,6 +137,21 @@ export default function Checkout() {
     (sum, item) => sum + Number(item?.price || 0) * Number(item?.quantity || 0),
     0
   );
+  const voucherItems = useMemo(
+    () =>
+      enrichedProducts
+        .filter((item) => item.productId && item.shopId)
+        .map((item) => ({
+          productId: item.productId,
+          shopId: item.shopId,
+          quantity: item.quantity,
+          price: item.price
+        })),
+    [enrichedProducts]
+  );
+  const selectedVoucher = vouchers.find((voucher) => voucher.code === selectedVoucherCode && voucher.eligible);
+  const discountAmount = selectedVoucher ? Math.min(Number(selectedVoucher.discountAmount || 0), total) : 0;
+  const payableTotal = Math.max(total - discountAmount, 0);
 
   function isPaidStatus(status) {
     return ['paid', 'confirmed', 'shipped', 'delivered'].includes(String(status || '').toLowerCase());
@@ -165,6 +193,36 @@ export default function Checkout() {
     };
   }, [bankQrRequests.length, user?.id, showToast, navigate]);
 
+  useEffect(() => {
+    if (!user?.id || voucherItems.length === 0) {
+      setVouchers([]);
+      setSelectedVoucherCode('');
+      return;
+    }
+    let cancelled = false;
+    setVoucherLoading(true);
+    api
+      .post('/vouchers/checkout', { userId: user.id, items: voucherItems })
+      .then((res) => {
+        if (cancelled) return;
+        const rows = Array.isArray(res.data) ? res.data : [];
+        setVouchers(rows);
+        setSelectedVoucherCode((current) => {
+          if (current && rows.some((voucher) => voucher.code === current && voucher.eligible)) return current;
+          return '';
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setVouchers([]);
+      })
+      .finally(() => {
+        if (!cancelled) setVoucherLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, voucherItems]);
+
   async function checkout() {
     if (!user?.id) {
       showToast('Vui lòng đăng nhập để tiếp tục thanh toán', 'error');
@@ -187,7 +245,7 @@ export default function Checkout() {
       showToast('Vui lòng chọn phương thức thanh toán', 'error');
       return;
     }
-    if (paymentMethod === 'wallet' && total > walletBalance) {
+    if (paymentMethod === 'wallet' && payableTotal > walletBalance) {
       showToast('Số dư ví không đủ. Vui lòng nạp thêm tiền.', 'error');
       return;
     }
@@ -212,6 +270,11 @@ export default function Checkout() {
       }
 
       const linePrice = selectedVariant ? selectedVariant.price : (product?.price || 0);
+      const availableQty = getAvailableStock(product, selectedVariant, inventoryMap);
+      if (Number(availableQty) < Number(p.quantity || 0)) {
+        showToast(`"${product?.name || 'Sản phẩm'}" không đủ số lượng tồn kho`, 'error');
+        return;
+      }
       orderProducts.push({
         productId: p.productId,
         variantId: p.variantId || null,
@@ -235,6 +298,10 @@ export default function Checkout() {
       if (!ordersByShop.has(key)) ordersByShop.set(key, []);
       ordersByShop.get(key).push(item);
     });
+    if (selectedVoucher?.type === 'platform' && ordersByShop.size > 1) {
+      showToast('Mã của sàn hiện chỉ áp dụng khi các sản phẩm được tạo trong cùng một đơn hàng', 'error');
+      return;
+    }
 
     const userId = user.id;
     const selectedAddress = addresses.find(
@@ -243,12 +310,19 @@ export default function Checkout() {
 
     const createdOrders = [];
     try {
-      for (const [, items] of ordersByShop.entries()) {
+      for (const [shopId, items] of ordersByShop.entries()) {
+        const shouldApplyVoucher =
+          selectedVoucher &&
+          (
+            selectedVoucher.type === 'platform' ||
+            String(selectedVoucher.shopId) === String(shopId)
+          );
         const created = await api.post('/orders', {
           userId,
           products: items,
           shippingAddress: selectedAddress,
-          paymentMethod
+          paymentMethod,
+          voucherCode: shouldApplyVoucher ? selectedVoucher.code : null
         });
         createdOrders.push(created.data);
       }
@@ -281,7 +355,7 @@ export default function Checkout() {
         const qrResponses = [];
         for (const order of createdOrders) {
           const orderId = Number(order?.id || order?._id);
-          const amount = Number(order?.total_price || order?.totalPrice || 0);
+        const amount = Number(order?.total_price || order?.totalPrice || 0);
           if (!Number.isFinite(orderId) || !Number.isFinite(amount) || amount <= 0) continue;
           const qr = await api.post(`/payments/sepay/orders/${orderId}/qr`, {
             userId,
@@ -355,6 +429,18 @@ export default function Checkout() {
           <span>Tổng cộng</span>
           <strong>{formatPrice(total)}</strong>
         </div>
+        {discountAmount > 0 && (
+          <>
+            <div className="checkout-total checkout-discount">
+              <span>Mã giảm giá</span>
+              <strong>-{formatPrice(discountAmount)}</strong>
+            </div>
+            <div className="checkout-total">
+              <span>Cần thanh toán</span>
+              <strong>{formatPrice(payableTotal)}</strong>
+            </div>
+          </>
+        )}
 
         <button className="btn btn-primary btn-full" onClick={checkout} disabled={hasOutOfStock || selectedIds.length === 0}>
           Đặt hàng
@@ -399,7 +485,42 @@ export default function Checkout() {
             Ví
           </label>
         </div>
-        <button className="btn btn-outline btn-full">Áp dụng mã giảm giá</button>
+        <div className="voucher-picker">
+          <div className="voucher-picker-head">
+            <strong>Mã giảm giá</strong>
+            <span className="muted">{voucherLoading ? 'Đang tải...' : `${vouchers.length} mã`}</span>
+          </div>
+          {vouchers.length === 0 ? (
+            <div className="muted">Chưa có mã phù hợp với giỏ hàng.</div>
+          ) : (
+            vouchers.map((voucher) => (
+              <label key={voucher.id} className={`voucher-option ${!voucher.eligible ? 'disabled' : ''}`}>
+                <input
+                  type="radio"
+                  name="voucher"
+                  value={voucher.code}
+                  checked={selectedVoucherCode === voucher.code}
+                  disabled={!voucher.eligible}
+                  onChange={(event) => setSelectedVoucherCode(event.target.value)}
+                />
+                <span>
+                  <strong>{voucher.code}</strong>
+                  <small>
+                    {voucher.type === 'shop' ? 'Shop' : 'Sàn'} - giảm {Number(voucher.discountValue || 0)}%
+                    {Number(voucher.maxDiscountAmount || 0) > 0 ? ` tối đa ${formatPrice(voucher.maxDiscountAmount)}` : ''}
+                  </small>
+                  {!voucher.eligible && <small>{voucher.reason}</small>}
+                </span>
+                <b>{voucher.eligible ? `-${formatPrice(voucher.discountAmount)}` : 'Không áp dụng'}</b>
+              </label>
+            ))
+          )}
+          {selectedVoucherCode && (
+            <button type="button" className="btn btn-ghost btn-full" onClick={() => setSelectedVoucherCode('')}>
+              Bỏ chọn mã
+            </button>
+          )}
+        </div>
 
         {bankQrRequests.length > 0 && (
           <div className="sepay-qr-box">
@@ -421,7 +542,7 @@ export default function Checkout() {
                     <div><span className="muted">Nội dung</span><strong>{item.requestCode}</strong></div>
                     <div>
                       <span className="muted">Trạng thái đơn</span>
-                      <strong>{item.orderStatus || 'pending_payment'}</strong>
+                      <strong>{formatOrderStatus(item.orderStatus || 'pending_payment')}</strong>
                     </div>
                   </div>
                 </div>

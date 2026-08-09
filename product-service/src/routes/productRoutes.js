@@ -7,8 +7,6 @@ const {
   getProductById,
   updateProduct,
   deleteProduct,
-  decrementStock,
-  incrementStock,
   getPendingProducts,
   moderateProduct,
   deleteProductByAdmin
@@ -30,8 +28,6 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 router.post('/', upload.any(), createProduct);
-router.post('/stock/decrement', decrementStock);
-router.post('/stock/increment', incrementStock);
 router.get('/admin/pending', getPendingProducts);
 router.patch('/admin/:id/moderate', moderateProduct);
 router.delete('/admin/:id', deleteProductByAdmin);

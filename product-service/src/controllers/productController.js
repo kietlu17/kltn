@@ -1,6 +1,6 @@
 const Product = require('../models/Product');
 const Category = require('../models/Category');
-const { publishProductCreated } = require('../kafka/producer');
+const { publishProductCreated, publishProductUpdated } = require('../kafka/producer');
 const { evaluateProductContent } = require('../moderation/keywordRules');
 
 function parseNumber(value, fallback = 0) {
@@ -364,6 +364,11 @@ async function updateProduct(req, res) {
 
     recalcProductSummary(product);
     await product.save();
+    try {
+      await publishProductUpdated(product);
+    } catch (eventErr) {
+      console.error('Publish product.updated failed', eventErr.message);
+    }
 
     return res.json({
       ...product.toObject(),
@@ -396,111 +401,6 @@ async function deleteProduct(req, res) {
     return res.json({ message: 'Product deleted' });
   } catch (err) {
     return res.status(500).json({ message: 'Delete product failed', error: err.message });
-  }
-}
-
-function normalizeStockItems(items) {
-  return items.map((item) => ({
-    productId: item.productId,
-    variantId: item.variantId || null,
-    quantity: Number(item.quantity || 0)
-  }));
-}
-
-async function applyStockChange(items, direction) {
-  const ids = [...new Set(items.map((item) => String(item.productId)))];
-  const products = await Product.find({ _id: { $in: ids } });
-  if (products.length !== ids.length) {
-    throw new Error('One or more products not found');
-  }
-
-  const productMap = new Map(products.map((product) => [String(product._id), product]));
-
-  for (const item of items) {
-    if (!item.productId || Number.isNaN(item.quantity) || item.quantity <= 0) {
-      throw new Error('invalid item data');
-    }
-    const product = productMap.get(String(item.productId));
-    if (!product) throw new Error('One or more products not found');
-
-    const hasVariants = Array.isArray(product.variants) && product.variants.length > 0;
-    if (hasVariants) {
-      if (!item.variantId) {
-        throw new Error('variantId is required for variant products');
-      }
-      const variant = product.variants.find((entry) => String(entry._id) === String(item.variantId));
-      if (!variant) {
-        throw new Error('Variant not found');
-      }
-      if (direction < 0 && Number(variant.quantity || 0) < item.quantity) {
-        throw new Error('Insufficient stock');
-      }
-      variant.quantity = Number(variant.quantity || 0) + direction * item.quantity;
-      recalcProductSummary(product);
-    } else {
-      if (direction < 0 && Number(product.quantity || 0) < item.quantity) {
-        throw new Error('Insufficient stock');
-      }
-      product.quantity = Number(product.quantity || 0) + direction * item.quantity;
-    }
-
-    const currentSold = Number(product.sold || 0);
-    if (direction < 0) {
-      product.sold = currentSold + item.quantity;
-    } else if (direction > 0) {
-      product.sold = Math.max(0, currentSold - item.quantity);
-    }
-  }
-
-  await Promise.all(products.map((product) => product.save()));
-}
-
-async function decrementStock(req, res) {
-  try {
-    const { items } = req.body;
-    if (!Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ message: 'items are required' });
-    }
-
-    const normalized = normalizeStockItems(items);
-    try {
-      await applyStockChange(normalized, -1);
-    } catch (err) {
-      if (err.message === 'One or more products not found' || err.message === 'Variant not found') {
-        return res.status(404).json({ message: err.message });
-      }
-      if (err.message === 'Insufficient stock') {
-        return res.status(409).json({ message: err.message });
-      }
-      return res.status(400).json({ message: err.message });
-    }
-
-    return res.json({ message: 'Stock updated' });
-  } catch (err) {
-    return res.status(500).json({ message: 'Update stock failed', error: err.message });
-  }
-}
-
-async function incrementStock(req, res) {
-  try {
-    const { items } = req.body;
-    if (!Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ message: 'items are required' });
-    }
-
-    const normalized = normalizeStockItems(items);
-    try {
-      await applyStockChange(normalized, 1);
-    } catch (err) {
-      if (err.message === 'One or more products not found' || err.message === 'Variant not found') {
-        return res.status(404).json({ message: err.message });
-      }
-      return res.status(400).json({ message: err.message });
-    }
-
-    return res.json({ message: 'Stock compensated' });
-  } catch (err) {
-    return res.status(500).json({ message: 'Increment stock failed', error: err.message });
   }
 }
 
@@ -573,8 +473,6 @@ module.exports = {
   getProductById,
   updateProduct,
   deleteProduct,
-  decrementStock,
-  incrementStock,
   getPendingProducts,
   moderateProduct,
   deleteProductByAdmin

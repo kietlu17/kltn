@@ -3,6 +3,7 @@ import api from '../services/api';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import useShopMap from '../hooks/useShopMap';
+import { formatOrderStatus, formatPaymentMethod } from '../utils/statusLabels';
 
 function formatPrice(value) {
   const number = Number(value || 0);
@@ -217,9 +218,9 @@ export default function SellerOrders() {
                 <div className="muted">{order.items.map((item) => `${item.productName || item.productId} x${item.quantity}`).join(', ')}</div>
                 <div>{formatPrice(order.total_price || order.total)}</div>
                 <div>{getRecipient(order)}</div>
-                <div>{order.payment_method || 'Không có'}</div>
+                <div>{formatPaymentMethod(order.payment_method)}</div>
                 <div className="muted">{order.shipping_address?.line1 || order.shippingAddress?.line1 || 'Không có'}</div>
-                <div className={`status ${order.status}`}>{order.status}</div>
+                <div className={`status ${order.status}`}>{formatOrderStatus(order.status)}</div>
                 <div>
                   {canSellerConfirmOrder(order) ? (
                     <button
@@ -375,7 +376,7 @@ export default function SellerOrders() {
                 </div>
                 <div>
                   <strong>Thanh toán</strong>
-                  <div>{order.payment_method || 'Không có'}</div>
+                  <div>{formatPaymentMethod(order.payment_method)}</div>
                 </div>
               </div>
               <div className="print-section">

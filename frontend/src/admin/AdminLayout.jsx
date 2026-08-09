@@ -7,8 +7,9 @@ const links = [
   { key: 'users', label: 'Người dùng' },
   { key: 'products', label: 'Sản phẩm' },
   { key: 'orders', label: 'Đơn hàng' },
-  { key: 'disputes', label: 'Khiếu nại' },
-  { key: 'categories', label: 'Danh mục' }
+  { key: 'disputes', label: 'Trả hàng/hoàn tiền' },
+  { key: 'categories', label: 'Danh mục' },
+  { key: 'vouchers', label: 'Mã giảm giá', to: '/admin/vouchers' }
 ];
 
 export default function AdminLayout() {
@@ -25,7 +26,7 @@ export default function AdminLayout() {
     navigate('/admin/login');
   };
 
-  const isActive = (key) => location.pathname.includes(`/admin/dashboard/${key}`);
+  const isActive = (item) => (item.to ? location.pathname === item.to : location.pathname.includes(`/admin/dashboard/${item.key}`));
 
   return (
     <div className="seller-layout admin-layout">
@@ -34,7 +35,7 @@ export default function AdminLayout() {
         <nav>
           <Link to="/admin/dashboard">Bảng điều khiển</Link>
           {links.map((item) => (
-            <Link key={item.key} to={`/admin/dashboard/${item.key}`} className={isActive(item.key) ? 'active' : ''}>
+            <Link key={item.key} to={item.to || `/admin/dashboard/${item.key}`} className={isActive(item) ? 'active' : ''}>
               {item.label}
             </Link>
           ))}

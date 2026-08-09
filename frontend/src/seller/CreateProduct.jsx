@@ -62,7 +62,12 @@ export default function CreateProduct() {
       }
     });
 
-    await api.post('/products', form, { headers: { 'Content-Type': 'multipart/form-data' } });
+    const response = await api.post('/products', form, { headers: { 'Content-Type': 'multipart/form-data' } });
+    try {
+      await api.post('/inventory/sync-product', response.data);
+    } catch {
+      // Kafka product.created will also seed inventory; this keeps create flow responsive when available.
+    }
     showToast('Đã tạo sản phẩm');
     navigate('/seller/products');
   }
