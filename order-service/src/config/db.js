@@ -56,6 +56,37 @@ async function initDb() {
         allowNull: true
       });
     }
+    if (!table.shipment_tracking_code) {
+      await queryInterface.addColumn('orders', 'shipment_tracking_code', {
+        type: Sequelize.STRING(64),
+        allowNull: true
+      });
+    }
+    if (!table.delivered_at) {
+      await queryInterface.addColumn('orders', 'delivered_at', {
+        type: Sequelize.DATE,
+        allowNull: true
+      });
+    }
+    if (!table.settlement_status) {
+      await queryInterface.addColumn('orders', 'settlement_status', {
+        type: Sequelize.STRING(32),
+        allowNull: false,
+        defaultValue: 'not_eligible'
+      });
+    }
+    if (!table.settlement_eligible_at) {
+      await queryInterface.addColumn('orders', 'settlement_eligible_at', {
+        type: Sequelize.DATE,
+        allowNull: true
+      });
+    }
+    if (!table.settled_at) {
+      await queryInterface.addColumn('orders', 'settled_at', {
+        type: Sequelize.DATE,
+        allowNull: true
+      });
+    }
 
     const indexes = await queryInterface.showIndex('orders');
     const hasUniqueIdempotencyIndex = indexes.some((index) => {

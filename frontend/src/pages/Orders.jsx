@@ -1,4 +1,5 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
@@ -67,21 +68,22 @@ export default function Orders({ embedded = false }) {
   const [disputeForm, setDisputeForm] = useState({});
   const [sepayQrByOrder, setSepayQrByOrder] = useState({});
   const [loadingQrOrderId, setLoadingQrOrderId] = useState(null);
-  const { user } = useAuth();
+  const { user, authReady } = useAuth();
   const { showToast } = useToast();
-  const userId = user?.id || '';
+  const userId = user?.id || user?.userId || user?._id || '';
 
   const load = () => {
-    if (!userId) {
+    if (!authReady) return;
+    if (user?.role !== 'buyer') {
       setOrders([]);
       return;
     }
-    api.get(`/orders/${userId}`).then((res) => setOrders(res.data)).catch(() => setOrders([]));
+    api.get('/orders/user').then((res) => setOrders(res.data)).catch(() => setOrders([]));
   };
 
   useEffect(() => {
     load();
-  }, [userId]);
+  }, [authReady, user?.role]);
 
   async function cancel(id) {
     try {
@@ -127,7 +129,7 @@ export default function Orders({ embedded = false }) {
 
   async function continueBankTransferPayment(order) {
     const orderId = Number(order?.id || order?._id);
-    const userId = user?.id;
+    const userId = user?.id || user?.userId || user?._id;
     const amount = Number(order?.total_price || order?.total || 0);
     if (!Number.isFinite(orderId) || !userId || !Number.isFinite(amount) || amount <= 0) {
       showToast('Không đủ thông tin để tạo QR thanh toán', 'error');
@@ -147,7 +149,7 @@ export default function Orders({ embedded = false }) {
     }
   }
 
-  const statusFilters = ['all', 'pending_payment', 'payment_processing', 'paid', 'confirmed', 'shipped', 'delivered', 'payment_failed', 'cancelled'];
+  const statusFilters = ['all', 'pending_payment', 'payment_processing', 'paid', 'confirmed', 'shipped', 'delivered', 'refund_processing', 'refunded', 'payment_failed', 'cancelled'];
   const normalizedOrders = useMemo(
     () =>
       orders.map((order) => ({
@@ -269,6 +271,14 @@ export default function Orders({ embedded = false }) {
                     <div>
                       <span className="muted">Tổng tiền</span>
                       <strong>{formatPrice(order.total_price || order.total)}</strong>
+                    </div>
+                    <div>
+                      <span className="muted">Vận đơn</span>
+                      <strong>{order.shipment_tracking_code || 'Chưa bàn giao'}</strong>
+                    </div>
+                    <div>
+                      <span className="muted">Ví shop</span>
+                      <strong>{order.settlement_status === 'settled' ? 'Đã chuyển' : order.settlement_status === 'pending' ? 'Chờ đối soát' : 'Chưa đủ điều kiện'}</strong>
                     </div>
                   </div>
 

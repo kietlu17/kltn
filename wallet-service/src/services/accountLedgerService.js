@@ -205,6 +205,17 @@ async function getShopPayoutPendingAccount(shopId, transaction) {
   );
 }
 
+async function getUserWithdrawalPendingAccount(userId, transaction) {
+  return findOrCreateAccount(
+    {
+      ownerType: 'buyer',
+      ownerId: userId,
+      accountType: 'user_withdrawal_pending'
+    },
+    transaction
+  );
+}
+
 async function getAccountBalance(accountId, transaction, lock = false) {
   return AccountBalance.findOne({
     where: { account_id: accountId },
@@ -462,6 +473,7 @@ module.exports = {
   getBuyerWalletAccount,
   getShopBalanceAccount,
   getShopPayoutPendingAccount,
+  getUserWithdrawalPendingAccount,
   getAccountBalance,
   getAccountSnapshot,
   getAccountByOwner,

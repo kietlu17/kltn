@@ -1,12 +1,13 @@
 const { sequelize } = require('../config/db');
 const { Op } = require('sequelize');
-const { Wallet, WalletBalance, WalletLedgerEntry, OutboxEvent } = require('../models');
+const { Wallet, WalletBalance, WalletLedgerEntry, AccountBalance, OutboxEvent } = require('../models');
 const {
   getBuyerWalletAccount,
   getSystemAccount,
   getAccountBalance,
   transfer
 } = require('./accountLedgerService');
+const { fundPlatformClearingFromCapital } = require('./platformFinanceService');
 
 const DEFAULT_WALLET_BALANCE = Number(process.env.WALLET_DEFAULT_BALANCE || 0);
 const DEFAULT_CURRENCY = process.env.WALLET_DEFAULT_CURRENCY || 'VND';
@@ -493,6 +494,24 @@ async function refundOrderToWallet({ orderId, userId, amount, reason, allowWitho
     const availableBefore = toMoney(balance.available_balance);
     const buyerAccount = await getBuyerWalletAccount(userId, transaction);
     const platformAccount = await getSystemAccount('platform_clearing', transaction);
+    const platformBalance = await AccountBalance.findOne({
+      where: { account_id: platformAccount.id },
+      transaction,
+      lock: transaction.LOCK.UPDATE
+    });
+    const platformAvailable = toMoney(platformBalance?.available_balance || 0);
+    if (platformAvailable < refundAmount) {
+      const fundingAmount = toMoney(refundAmount - platformAvailable);
+      await fundPlatformClearingFromCapital({
+        amount: fundingAmount,
+        orderId,
+        userId,
+        reason,
+        sagaId,
+        correlationId,
+        transaction
+      });
+    }
     const ledgerResult = await transfer({
       fromAccount: platformAccount,
       toAccount: buyerAccount,

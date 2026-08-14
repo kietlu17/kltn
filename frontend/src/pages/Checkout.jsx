@@ -46,6 +46,7 @@ export default function Checkout() {
   const [vouchers, setVouchers] = useState([]);
   const [selectedVoucherCode, setSelectedVoucherCode] = useState('');
   const [voucherLoading, setVoucherLoading] = useState(false);
+  const [checkoutProgress, setCheckoutProgress] = useState(null);
 
   useEffect(() => {
     refreshCart();
@@ -157,6 +158,22 @@ export default function Checkout() {
     return ['paid', 'confirmed', 'shipped', 'delivered'].includes(String(status || '').toLowerCase());
   }
 
+  function delay(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  async function waitForPaidOrders(orderIds) {
+    for (let attempt = 0; attempt < 15; attempt += 1) {
+      const res = await api.get(`/orders/${user.id}`);
+      const rows = Array.isArray(res.data) ? res.data : [];
+      const statusById = new Map(rows.map((row) => [Number(row.id || row._id), row.status]));
+      const allPaid = orderIds.every((id) => isPaidStatus(statusById.get(Number(id))));
+      if (allPaid) return true;
+      await delay(1000);
+    }
+    return false;
+  }
+
   useEffect(() => {
     if (!user?.id || bankQrRequests.length === 0) return undefined;
     const orderIds = bankQrRequests.map((item) => Number(item.orderId)).filter((id) => Number.isFinite(id));
@@ -178,7 +195,7 @@ export default function Checkout() {
         if (allPaid) {
           setBankQrRequests([]);
           showToast('Thanh toán SePay thành công. Đơn hàng đã được ghi nhận.');
-          navigate('/cart?tab=orders');
+          navigate('/orders');
           return;
         }
       } catch {
@@ -308,6 +325,7 @@ export default function Checkout() {
       (address) => String(address._id || address.id) === String(selectedAddressId)
     );
 
+    setCheckoutProgress({ step: 'creating', label: 'Đang tạo đơn hàng' });
     const createdOrders = [];
     try {
       for (const [shopId, items] of ordersByShop.entries()) {
@@ -329,9 +347,11 @@ export default function Checkout() {
     } catch (err) {
       const message = err?.response?.data?.message || 'Đặt hàng thất bại';
       showToast(message, 'error');
+      setCheckoutProgress(null);
       return;
     }
 
+    setCheckoutProgress({ step: 'cleaning', label: 'Đang cập nhật giỏ hàng' });
     await Promise.all(
       checkoutProducts.map((item) =>
         api.post('/cart/remove', { userId, productId: item.productId, variantId: item.variantId || null })
@@ -369,25 +389,51 @@ export default function Checkout() {
         }
         if (qrResponses.length === 0) {
           showToast('Không thể tạo mã QR thanh toán cho đơn hàng', 'error');
-          navigate('/cart?tab=orders');
+          navigate('/orders');
           return;
         }
         setBankQrRequests(qrResponses);
         showToast('Đơn hàng đã tạo. Vui lòng quét QR SePay để thanh toán.');
+        setCheckoutProgress(null);
         return;
       } catch (err) {
         showToast(err?.response?.data?.message || 'Không thể tạo QR SePay cho đơn hàng', 'error');
-        navigate('/cart?tab=orders');
+        navigate('/orders');
+        setCheckoutProgress(null);
         return;
       }
     }
 
-    showToast(paymentMethod === 'wallet' ? 'Đặt hàng thành công. Đã thanh toán bằng ví.' : 'Đặt hàng thành công');
-    navigate('/cart?tab=orders');
+    if (paymentMethod === 'wallet') {
+      setCheckoutProgress({ step: 'wallet', label: 'Đang xác nhận thanh toán ví' });
+      try {
+        const orderIds = createdOrders.map((order) => Number(order?.id || order?._id)).filter((id) => Number.isFinite(id));
+        const paid = await waitForPaidOrders(orderIds);
+        showToast(paid ? 'Thanh toán ví thành công. Đơn hàng đã được ghi nhận.' : 'Đơn hàng đang xử lý thanh toán ví.');
+      } catch {
+        showToast('Đơn hàng đang xử lý thanh toán ví.');
+      }
+      setCheckoutProgress(null);
+      navigate('/orders');
+      return;
+    }
+
+    setCheckoutProgress(null);
+    showToast('Đặt hàng thành công');
+    navigate('/orders');
   }
 
   return (
     <div className="container page-section checkout-page">
+      {checkoutProgress && (
+        <div className="checkout-processing" role="status" aria-live="polite">
+          <div className="checkout-spinner" />
+          <div>
+            <strong>{checkoutProgress.label}</strong>
+            <span>Vui lòng giữ trang trong giây lát.</span>
+          </div>
+        </div>
+      )}
       <div className="card checkout-card">
         <h2>Thanh toán</h2>
         <div className="checkout-section">
@@ -442,8 +488,8 @@ export default function Checkout() {
           </>
         )}
 
-        <button className="btn btn-primary btn-full" onClick={checkout} disabled={hasOutOfStock || selectedIds.length === 0}>
-          Đặt hàng
+        <button className="btn btn-primary btn-full" onClick={checkout} disabled={hasOutOfStock || selectedIds.length === 0 || Boolean(checkoutProgress)}>
+          {checkoutProgress ? 'Đang xử lý...' : 'Đặt hàng'}
         </button>
       </div>
 
@@ -526,7 +572,7 @@ export default function Checkout() {
           <div className="sepay-qr-box">
             <div className="sepay-qr-head">
               <strong>Thanh toán đơn hàng bằng SePay</strong>
-              <button className="btn btn-ghost" onClick={() => navigate('/cart?tab=orders')}>
+              <button className="btn btn-ghost" onClick={() => navigate('/orders')}>
                 Xem đơn hàng
               </button>
             </div>

@@ -7,7 +7,9 @@ const {
   topupWallet,
   recordExternalPaymentForOrder
 } = require('../services/walletService');
-const { settleOrderToShop, reverseOrderSettlement } = require('../services/shopFinanceService');
+const { reverseOrderSettlement } = require('../services/shopFinanceService');
+const { createSettlementJobsForDeliveredOrder } = require('../services/settlementService');
+const { publishOutboxBatch } = require('./producer');
 
 function buildMessageId(topic, partition, message, payload) {
   return String(payload?.eventId || payload?.idempotencyKey || `${topic}:${partition}:${message.offset}`);
@@ -63,6 +65,7 @@ async function handleWalletDebitRequested(payload) {
     sagaId: payload.sagaId,
     correlationId: payload.correlationId
   });
+  await publishOutboxBatch();
 }
 
 async function handleWalletRefundRequested(payload) {
@@ -97,6 +100,7 @@ async function handleWalletRefundRequested(payload) {
     sagaId: payload.sagaId,
     correlationId: payload.correlationId
   });
+  await publishOutboxBatch();
 }
 
 async function handleQrPaymentSucceeded(payload) {
@@ -155,32 +159,12 @@ function toMoney(value) {
 }
 
 async function handleOrderPaid(payload) {
-  const orderId = Number(payload?.id || payload?.orderId);
-  if (!Number.isFinite(orderId)) return;
+  // Funds remain in platform_clearing until order.delivered creates a settlement job.
+  return payload;
+}
 
-  const settlementByShop = new Map();
-  for (const item of parseOrderItems(payload)) {
-    if (!item?.shopId) continue;
-    const shopId = String(item.shopId);
-    const lineAmount = toMoney(Number(item.price || 0) * Number(item.quantity || 0));
-    settlementByShop.set(shopId, toMoney((settlementByShop.get(shopId) || 0) + lineAmount));
-  }
-
-  for (const [shopId, amount] of settlementByShop.entries()) {
-    if (amount <= 0) continue;
-    await settleOrderToShop({
-      shopId,
-      orderId,
-      amount,
-      referenceId: `order:${orderId}:shop:${shopId}:settlement`,
-      metadata: {
-        paymentMethod: payload.payment_method || payload.paymentMethod,
-        source: 'order.paid'
-      },
-      sagaId: payload.sagaId || `order:${orderId}:settlement`,
-      correlationId: payload.correlationId || `order:${orderId}:settlement`
-    });
-  }
+async function handleOrderDelivered(payload) {
+  await createSettlementJobsForDeliveredOrder(payload);
 }
 
 async function initConsumer() {
@@ -195,6 +179,7 @@ async function initConsumer() {
   await consumer.subscribe({ topic: 'wallet.refund.requested' });
   await consumer.subscribe({ topic: 'qr.payment.succeeded' });
   await consumer.subscribe({ topic: 'order.paid' });
+  await consumer.subscribe({ topic: 'order.delivered' });
 
   await consumer.run({
     eachMessage: async ({ topic, partition, message }) => {
@@ -203,6 +188,7 @@ async function initConsumer() {
         if (topic === 'wallet.refund.requested') await handleWalletRefundRequested(payload);
         if (topic === 'qr.payment.succeeded') await handleQrPaymentSucceeded(payload);
         if (topic === 'order.paid') await handleOrderPaid(payload);
+        if (topic === 'order.delivered') await handleOrderDelivered(payload);
       });
     }
   });

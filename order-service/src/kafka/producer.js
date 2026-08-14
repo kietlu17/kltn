@@ -64,10 +64,24 @@ async function publishOrderPaid(order) {
   });
 }
 
+async function publishOrderDelivered(order) {
+  if (!producer) throw new Error('Kafka producer not initialized');
+  await producer.send({
+    topic: 'order.delivered',
+    messages: [
+      {
+        key: String(order.id),
+        value: JSON.stringify(order)
+      }
+    ]
+  });
+}
+
 module.exports = {
   initProducer,
   publishOrderCreated,
   publishOrderCancelled,
   publishOrderRefundRequested,
-  publishOrderPaid
+  publishOrderPaid,
+  publishOrderDelivered
 };

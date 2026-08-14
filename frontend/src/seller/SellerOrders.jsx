@@ -29,11 +29,15 @@ function getOrderId(order) {
 function canSellerConfirmOrder(order) {
   const method = String(order?.payment_method || '').toLowerCase();
   const status = String(order?.status || '').toLowerCase();
-  if (['cancelled', 'payment_failed', 'confirmed', 'shipped', 'delivered'].includes(status)) return false;
+  if (['cancelled', 'payment_failed', 'confirmed', 'shipped', 'delivered', 'refund_processing', 'refunded'].includes(status)) return false;
   if (method === 'cod') {
     return ['pending_payment', 'payment_processing', 'paid'].includes(status);
   }
   return status === 'paid';
+}
+
+function canSellerHandoffOrder(order) {
+  return String(order?.status || '').toLowerCase() === 'confirmed' && !order?.shipment_tracking_code;
 }
 
 function toLocalDateKey(date) {
@@ -138,10 +142,40 @@ export default function SellerOrders() {
   async function confirmOrder(orderId) {
     try {
       const response = await api.post(`/orders/${orderId}/confirm`);
-      setOrders((prev) => prev.map((order) => (order.id === orderId ? { ...order, status: response.data?.status || 'confirmed' } : order)));
-      showToast('Đã xác nhận đơn');
+      setOrders((prev) =>
+        prev.map((order) =>
+          (String(getOrderId(order)) === String(orderId)
+            ? {
+                ...order,
+                status: response.data?.status || 'confirmed',
+                shipment_tracking_code: response.data?.shipment_tracking_code || response.data?.shipment?.tracking_code || order.shipment_tracking_code
+              }
+            : order)
+        )
+      );
+      showToast('Đã xác nhận đơn và gửi yêu cầu vận chuyển');
     } catch (err) {
       showToast(err?.response?.data?.message || 'Không thể xác nhận đơn', 'error');
+    }
+  }
+
+  async function handoffShipment(orderId) {
+    try {
+      const response = await api.post(`/orders/${orderId}/shipments`, { carrier: 'mock_carrier' });
+      setOrders((prev) =>
+        prev.map((order) =>
+          (String(getOrderId(order)) === String(orderId)
+            ? {
+                ...order,
+                status: response.data?.order?.status || 'shipped',
+                shipment_tracking_code: response.data?.shipment?.tracking_code
+              }
+            : order)
+        )
+      );
+      showToast('Đã gửi yêu cầu vận chuyển');
+    } catch (err) {
+      showToast(err?.response?.data?.message || 'Không thể bàn giao vận chuyển', 'error');
     }
   }
 
@@ -233,6 +267,17 @@ export default function SellerOrders() {
                     >
                       Xác nhận
                     </button>
+                  ) : canSellerHandoffOrder(order) ? (
+                    <button
+                      type="button"
+                      className="btn btn-outline"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        handoffShipment(orderId);
+                      }}
+                    >
+                      Tạo vận đơn
+                    </button>
                   ) : (
                     <span className="muted">-</span>
                   )}
@@ -257,6 +302,10 @@ export default function SellerOrders() {
                     <div>
                       <span className="muted">Sàn thương mại</span>
                       <strong>{marketplaceName}</strong>
+                    </div>
+                    <div>
+                      <span className="muted">Vận đơn</span>
+                      <strong>{order.shipment_tracking_code || 'Chưa tạo vận đơn'}</strong>
                     </div>
                   </div>
 

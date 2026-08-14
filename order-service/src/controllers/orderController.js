@@ -4,16 +4,20 @@ const fs = require('fs');
 const https = require('https');
 const fetchImpl = require('node-fetch');
 const Order = require('../models/Order');
+const Shipment = require('../models/Shipment');
 const Dispute = require('../models/Dispute');
 const {
   publishOrderCreated,
   publishOrderCancelled,
   publishOrderRefundRequested,
-  publishOrderPaid
+  publishOrderPaid,
+  publishOrderDelivered
 } = require('../kafka/producer');
 
 const INVENTORY_SERVICE_URL = process.env.INVENTORY_SERVICE_URL || 'http://localhost:3007';
 const VOUCHER_SERVICE_URL = process.env.VOUCHER_SERVICE_URL || 'http://localhost:3013';
+const SETTLEMENT_DELAY_DAYS = Number(process.env.SETTLEMENT_DELAY_DAYS || 15);
+const SHIPMENT_STATUSES = new Set(['requested', 'handed_over', 'picked_up', 'in_transit', 'delivered', 'failed']);
 
 function createMtlsAgent() {
   if (process.env.MTLS_ENABLED !== 'true') return null;
@@ -48,6 +52,8 @@ const ALLOWED_ORDER_STATUSES = new Set([
   'confirmed',
   'shipped',
   'delivered',
+  'refund_processing',
+  'refunded',
   'cancelled'
 ]);
 const AUTO_REFUND_PAYMENT_METHODS = new Set(['wallet', 'bank_transfer']);
@@ -72,6 +78,12 @@ function parseOrderItems(order) {
   return [];
 }
 
+function getPrimaryShopId(order) {
+  const items = parseOrderItems(order);
+  const firstShopId = items.find((item) => item?.shopId)?.shopId;
+  return firstShopId ? String(firstShopId) : '';
+}
+
 function toNumber(value) {
   const number = Number(value);
   return Number.isFinite(number) ? number : 0;
@@ -90,6 +102,66 @@ function shouldCommitStockTransition(currentStatus, nextStatus) {
     ['pending_payment', 'payment_processing'].includes(currentStatus) &&
     ['paid', 'confirmed', 'shipped', 'delivered'].includes(nextStatus)
   );
+}
+
+function buildSettlementEligibleAt(deliveredAt) {
+  const base = deliveredAt instanceof Date ? deliveredAt : new Date(deliveredAt || Date.now());
+  return new Date(base.getTime() + SETTLEMENT_DELAY_DAYS * 24 * 60 * 60 * 1000);
+}
+
+function buildTrackingCode(orderId) {
+  const suffix = crypto.randomBytes(3).toString('hex').toUpperCase();
+  return `MOCK-${orderId}-${suffix}`;
+}
+
+async function ensureShipmentForOrder(order, options = {}) {
+  const orderId = Number(order?.id);
+  if (!Number.isFinite(orderId)) return null;
+  const shopId = getPrimaryShopId(order.toJSON ? order.toJSON() : order);
+  let shipment = await Shipment.findOne({ where: { order_id: orderId } });
+  if (shipment) {
+    if (!order.shipment_tracking_code) {
+      order.shipment_tracking_code = shipment.tracking_code;
+      await order.save();
+    }
+    return shipment;
+  }
+
+  const now = new Date();
+  shipment = await Shipment.create({
+    order_id: orderId,
+    shop_id: shopId,
+    tracking_code: buildTrackingCode(orderId),
+    carrier: options.carrier || 'mock_carrier',
+    status: 'requested',
+    callback_url: options.callbackUrl || '/orders/shipping/callback',
+    handed_over_at: null,
+    metadata: {
+      source: 'marketplace_shipping_request',
+      requestedAt: now.toISOString(),
+      ...(options.metadata || {})
+    }
+  });
+  order.shipment_tracking_code = shipment.tracking_code;
+  await order.save();
+  return shipment;
+}
+
+async function markOrderDelivered(order, deliveredAt = new Date()) {
+  const wasDelivered = order.status === 'delivered';
+  const paymentMethod = String(order.payment_method || '').toLowerCase();
+  const hasPlatformHeldFunds = ['wallet', 'bank_transfer', 'sepay'].includes(paymentMethod);
+  order.status = 'delivered';
+  order.delivered_at = order.delivered_at || deliveredAt;
+  order.settlement_status = order.settlement_status === 'settled' ? 'settled' : (hasPlatformHeldFunds ? 'pending' : 'not_eligible');
+  order.settlement_eligible_at = hasPlatformHeldFunds
+    ? (order.settlement_eligible_at || buildSettlementEligibleAt(order.delivered_at))
+    : null;
+  await order.save();
+  if (!wasDelivered) {
+    await publishOrderDelivered(order.toJSON());
+  }
+  return order;
 }
 
 function normalizeIdempotencyKey(value) {
@@ -396,6 +468,12 @@ async function confirmOrder(req, res) {
     if (order.status === 'payment_failed') {
       return res.status(400).json({ message: 'Payment failed for this order' });
     }
+    const shopId = getPrimaryShopId(order.toJSON ? order.toJSON() : order);
+    const actorShopId = req.headers['x-user-shop-id'] || req.headers['x-user-id'] || '';
+    const actorRole = req.headers['x-user-role'] || '';
+    if (actorRole === 'seller' && String(shopId) !== String(actorShopId)) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
     const isCodOrder = isCodPaymentMethod(order.payment_method);
     if (isCodOrder) {
       if (['pending_payment', 'payment_processing'].includes(order.status)) {
@@ -404,28 +482,166 @@ async function confirmOrder(req, res) {
         order.status = 'confirmed';
         await order.save();
       }
-      return res.json(order.toJSON());
+      const shipment = await ensureShipmentForOrder(order, req.body || {});
+      return res.json({ ...order.toJSON(), shipment: shipment?.toJSON ? shipment.toJSON() : shipment });
     }
     if (order.status === 'pending_payment' || order.status === 'payment_processing') {
       return res.status(400).json({ message: 'Order payment is not completed yet' });
     }
     if (['confirmed', 'shipped', 'delivered'].includes(order.status)) {
-      return res.json(order.toJSON());
+      const shipment = order.status === 'confirmed' ? await ensureShipmentForOrder(order, req.body || {}) : null;
+      return res.json({ ...order.toJSON(), shipment: shipment?.toJSON ? shipment.toJSON() : shipment });
     }
     if (order.status !== 'paid') {
       return res.status(400).json({ message: 'Order payment is not completed yet' });
     }
     order.status = 'confirmed';
     await order.save();
-    return res.json(order.toJSON());
+    const shipment = await ensureShipmentForOrder(order, req.body || {});
+    return res.json({ ...order.toJSON(), shipment: shipment?.toJSON ? shipment.toJSON() : shipment });
   } catch (err) {
     return res.status(500).json({ message: 'Confirm order failed', error: err.message });
   }
 }
 
+async function createShipment(req, res) {
+  try {
+    const id = Number(req.params.id);
+    const order = await Order.findByPk(id);
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+    if (['cancelled', 'payment_failed'].includes(order.status)) {
+      return res.status(400).json({ message: 'Order cannot be shipped' });
+    }
+    if (!['confirmed', 'shipped'].includes(order.status)) {
+      return res.status(400).json({ message: 'Order must be confirmed before shipping handoff' });
+    }
+
+    const shopId = getPrimaryShopId(order.toJSON ? order.toJSON() : order);
+    const actorShopId = req.headers['x-user-shop-id'] || req.headers['x-user-id'] || '';
+    const actorRole = req.headers['x-user-role'] || '';
+    if (actorRole === 'seller' && String(shopId) !== String(actorShopId)) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+
+    const existingShipment = await Shipment.findOne({ where: { order_id: id } });
+    const shipment = await ensureShipmentForOrder(order, req.body || {});
+    const created = !existingShipment;
+    return res.status(created ? 201 : 200).json({
+      order: order.toJSON(),
+      shipment: shipment.toJSON()
+    });
+  } catch (err) {
+    return res.status(500).json({ message: 'Create shipment failed', error: err.message });
+  }
+}
+
+async function getOrderShipment(req, res) {
+  try {
+    const orderId = Number(req.params.orderId);
+    const order = await Order.findByPk(orderId);
+    if (!order) return res.status(404).json({ message: 'Order not found' });
+
+    const actorRole = req.headers['x-user-role'] || '';
+    const actorUserId = req.headers['x-user-id'] || '';
+    const actorShopId = req.headers['x-user-shop-id'] || actorUserId;
+    const shopId = getPrimaryShopId(order.toJSON ? order.toJSON() : order);
+    if (actorRole === 'buyer' && String(order.user_id) !== String(actorUserId)) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+    if (actorRole === 'seller' && String(shopId) !== String(actorShopId)) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+
+    const shipment = await Shipment.findOne({ where: { order_id: orderId } });
+    if (!shipment) return res.status(404).json({ message: 'Shipment not found' });
+    return res.json(shipment.toJSON());
+  } catch (err) {
+    return res.status(500).json({ message: 'Get shipment failed', error: err.message });
+  }
+}
+
+async function applyShipmentStatus({ trackingCode, orderId, status, metadata = {}, deliveredAt = null }) {
+  const nextStatus = String(status || '').toLowerCase();
+  if (!SHIPMENT_STATUSES.has(nextStatus)) {
+    const error = new Error('Invalid shipment status');
+    error.status = 400;
+    throw error;
+  }
+
+  const where = trackingCode ? { tracking_code: String(trackingCode) } : { order_id: Number(orderId) };
+  const shipment = await Shipment.findOne({ where });
+  if (!shipment) {
+    const error = new Error('Shipment not found');
+    error.status = 404;
+    throw error;
+  }
+
+  const order = await Order.findByPk(shipment.order_id);
+  if (!order) {
+    const error = new Error('Order not found');
+    error.status = 404;
+    throw error;
+  }
+
+  shipment.status = nextStatus;
+  shipment.metadata = { ...(shipment.metadata || {}), ...metadata };
+  shipment.updated_at = new Date();
+  if (nextStatus === 'handed_over') shipment.handed_over_at = shipment.handed_over_at || new Date();
+  if (['picked_up', 'in_transit'].includes(nextStatus)) shipment.in_transit_at = shipment.in_transit_at || new Date();
+  if (nextStatus === 'delivered') shipment.delivered_at = shipment.delivered_at || deliveredAt || new Date();
+  await shipment.save();
+
+  if (nextStatus === 'delivered') {
+    await markOrderDelivered(order, shipment.delivered_at);
+  } else if (['picked_up', 'in_transit'].includes(nextStatus) && order.status === 'confirmed') {
+    order.status = 'shipped';
+    order.shipment_tracking_code = shipment.tracking_code;
+    await order.save();
+  }
+
+  return { order: order.toJSON(), shipment: shipment.toJSON() };
+}
+
+async function simulateShipmentStatus(req, res) {
+  try {
+    const result = await applyShipmentStatus({
+      trackingCode: req.params.trackingCode,
+      status: req.body?.status,
+      metadata: { source: 'mock_carrier_simulation', ...(req.body?.metadata || {}) },
+      deliveredAt: req.body?.deliveredAt ? new Date(req.body.deliveredAt) : null
+    });
+    return res.json(result);
+  } catch (err) {
+    return res.status(err.status || 500).json({ message: err.message || 'Simulate shipment failed' });
+  }
+}
+
+async function receiveShippingCallback(req, res) {
+  try {
+    const result = await applyShipmentStatus({
+      trackingCode: req.body?.trackingCode,
+      orderId: req.body?.orderId,
+      status: req.body?.status,
+      metadata: {
+        source: 'mock_carrier_callback',
+        carrierPayload: req.body || {}
+      },
+      deliveredAt: req.body?.deliveredAt ? new Date(req.body.deliveredAt) : null
+    });
+    return res.json({ ok: true, ...result });
+  } catch (err) {
+    return res.status(err.status || 500).json({ message: err.message || 'Shipping callback failed' });
+  }
+}
+
 async function getUserOrders(req, res) {
   try {
-    const userId = req.params.userId;
+    const userId = req.params.userId || req.headers['x-user-id'];
+    if (!userId) {
+      return res.status(400).json({ message: 'userId is required' });
+    }
     const orders = await Order.findAll({
       where: { user_id: userId },
       order: [['created_at', 'DESC']]
@@ -555,11 +771,14 @@ async function updateAdminOrderStatus(req, res) {
       }
     }
     if (shouldCommitStockTransition(currentStatus, nextStatus)) {
-      await commitStock(order.id);
-      await commitVoucher(order.id);
+      await Promise.all([commitStock(order.id), commitVoucher(order.id)]);
     }
-    order.status = nextStatus;
-    await order.save();
+    if (nextStatus === 'delivered') {
+      await markOrderDelivered(order);
+    } else {
+      order.status = nextStatus;
+      await order.save();
+    }
     return res.json(order.toJSON());
   } catch (err) {
     return res.status(500).json({ message: 'Update order status failed', error: err.message });
@@ -642,8 +861,7 @@ async function updateAdminDispute(req, res) {
     if (!dispute) {
       return res.status(404).json({ message: 'Dispute not found' });
     }
-    const wasResolved = dispute.status === 'resolved';
-    const shouldQueueRefund = status === 'resolved' && !wasResolved;
+    const shouldQueueRefund = status === 'resolved';
     let refundOrder = null;
     let refundQueued = false;
     let refundRequired = false;
@@ -654,7 +872,15 @@ async function updateAdminDispute(req, res) {
       if (!refundOrder) {
         return res.status(404).json({ message: 'Order not found for dispute' });
       }
-      if (refundOrder.status !== 'delivered') {
+      if (refundOrder.status === 'refunded') {
+        return res.json({
+          ...dispute.toJSON(),
+          refundRequired: false,
+          refundQueued: false,
+          refundMessage: 'Order is already refunded'
+        });
+      }
+      if (!['delivered', 'refund_processing'].includes(refundOrder.status)) {
         return res.status(400).json({ message: 'Only delivered orders can be resolved as return/refund requests' });
       }
     }
@@ -675,6 +901,8 @@ async function updateAdminDispute(req, res) {
           refund_note: dispute.handled_note || dispute.note || null,
           shouldRefundToWallet: true
         });
+        refundOrder.status = 'refund_processing';
+        await refundOrder.save();
         refundQueued = true;
       } else {
         refundMessage = 'Manual refund is required for this payment method';
@@ -690,6 +918,16 @@ async function updateAdminDispute(req, res) {
   } catch (err) {
     return res.status(500).json({ message: 'Update dispute failed', error: err.message });
   }
+}
+
+async function handlePaymentRefunded(event) {
+  const orderId = Number(event?.orderId);
+  if (!Number.isFinite(orderId)) return;
+  const order = await Order.findByPk(orderId);
+  if (!order || order.status === 'cancelled') return;
+  order.status = 'refunded';
+  order.settlement_status = order.settlement_status === 'settled' ? 'settled' : 'not_eligible';
+  await order.save();
 }
 
 async function handlePaymentPending(event) {
@@ -722,8 +960,7 @@ async function handlePaymentSucceeded(event) {
     });
     return;
   }
-  await commitStock(order.id);
-  await commitVoucher(order.id);
+  await Promise.all([commitStock(order.id), commitVoucher(order.id)]);
   order.status = 'paid';
   await order.save();
   await publishOrderPaid(order.toJSON());
@@ -734,7 +971,7 @@ async function handlePaymentFailed(event) {
   if (!Number.isFinite(orderId)) return;
   const order = await Order.findByPk(orderId);
   if (!order || order.status === 'cancelled') return;
-  if (['paid', 'confirmed', 'shipped', 'delivered'].includes(order.status)) return;
+  if (['paid', 'confirmed', 'shipped', 'delivered', 'refund_processing', 'refunded'].includes(order.status)) return;
   order.status = 'payment_failed';
   await order.save();
   const reason = event?.reason || 'payment_failed';
@@ -751,13 +988,23 @@ async function handlePaymentTimeout(event) {
   if (!Number.isFinite(orderId)) return;
   const order = await Order.findByPk(orderId);
   if (!order || order.status === 'cancelled') return;
-  if (['paid', 'confirmed', 'shipped', 'delivered'].includes(order.status)) return;
+  if (['paid', 'confirmed', 'shipped', 'delivered', 'refund_processing', 'refunded'].includes(order.status)) return;
   order.status = 'payment_failed';
   await order.save();
   await cancelOrderWithCompensation(order, {
     reason: event?.reason || 'payment_timeout',
     shouldRefundToWallet: String(order.payment_method || '').toLowerCase() === 'wallet'
   });
+}
+
+async function handleShopSettlementCompleted(event) {
+  const orderId = Number(event?.orderId);
+  if (!Number.isFinite(orderId)) return;
+  const order = await Order.findByPk(orderId);
+  if (!order) return;
+  order.settlement_status = 'settled';
+  order.settled_at = event?.settledAt ? new Date(event.settledAt) : new Date();
+  await order.save();
 }
 
 module.exports = {
@@ -770,11 +1017,17 @@ module.exports = {
   getAdminOrders,
   updateAdminOrderStatus,
   forceCancelOrder,
+  createShipment,
+  getOrderShipment,
+  simulateShipmentStatus,
+  receiveShippingCallback,
   createDispute,
   getAdminDisputes,
   updateAdminDispute,
   handlePaymentPending,
   handlePaymentSucceeded,
   handlePaymentFailed,
-  handlePaymentTimeout
+  handlePaymentTimeout,
+  handlePaymentRefunded,
+  handleShopSettlementCompleted
 };

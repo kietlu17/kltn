@@ -71,6 +71,7 @@ const PUBLIC_PATHS = [
   { method: 'POST', path: '/auth/register' },
   { method: 'POST', path: '/auth/session' },
   { method: 'GET', path: '/shops' },
+  { method: 'POST', path: '/orders/shipping/callback' },
   { method: 'POST', path: '/payments/sepay/webhook' }
 ];
 
@@ -141,7 +142,10 @@ function getRequiredRoles(req) {
   if (path.startsWith('/cart')) return ['buyer', 'admin'];
   if (path.startsWith('/chat')) return ['buyer', 'seller', 'admin'];
   if (path.startsWith('/reviews')) return ['buyer', 'admin'];
+  if (path.startsWith('/payments/wallet/platform-wallet')) return ['admin'];
   if (method === 'POST' && /^\/payments\/wallet\/shop\/[^/]+\/settlements$/.test(path)) return ['admin'];
+  if (path.startsWith('/payments/wallet/settlements')) return ['admin'];
+  if (path.startsWith('/payments/wallet/user-withdrawals/')) return ['admin'];
   if (path.startsWith('/payments/wallet/shop/')) return ['seller', 'admin'];
   if (path.startsWith('/payments/wallet/payouts/')) return ['admin'];
   if (path.startsWith('/payments/wallet')) return ['buyer', 'admin'];
@@ -149,6 +153,10 @@ function getRequiredRoles(req) {
 
   if (path.startsWith('/orders')) {
     if (method === 'POST' && /^\/orders\/\d+\/confirm$/.test(path)) return ['seller', 'admin'];
+    if (method === 'POST' && /^\/orders\/\d+\/shipments$/.test(path)) return ['seller', 'admin'];
+    if (method === 'GET' && /^\/orders\/shipments\/order\/\d+$/.test(path)) return ['buyer', 'seller', 'admin'];
+    if (method === 'POST' && /^\/orders\/shipments\/[^/]+\/simulate$/.test(path)) return ['admin'];
+    if (method === 'POST' && path === '/orders/shipping/callback') return ['admin'];
     if (method === 'GET' && /^\/orders\/seller\//.test(path)) return ['seller', 'admin'];
     if (method === 'POST' && /^\/orders\/\d+\/cancel$/.test(path)) return ['buyer', 'admin'];
     if (method === 'POST' && /^\/orders\/\d+\/disputes$/.test(path)) return ['buyer', 'admin'];
@@ -223,7 +231,7 @@ app.use(async (req, res, next) => {
 
     if (req.method === 'GET' && /^\/orders\/[^/]+$/.test(req.path) && user.role === 'buyer') {
       const targetUserId = req.path.split('/')[2];
-      if (targetUserId !== user.id) {
+      if (targetUserId !== 'user' && targetUserId !== user.id) {
         return res.status(403).json({ message: 'Forbidden' });
       }
     }

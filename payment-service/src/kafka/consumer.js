@@ -1,7 +1,7 @@
 const { Kafka } = require('kafkajs');
 const { sequelize } = require('../config/db');
 const { InboxEvent } = require('../models');
-const { publishPaymentEvent, enqueueEvent } = require('./producer');
+const { publishPaymentEvent, enqueueEvent, publishOutboxBatch } = require('./producer');
 
 const BANK_TRANSFER_DELAY_MS = Number(process.env.BANK_TRANSFER_DELAY_MS || 3000);
 const BANK_TRANSFER_TIMEOUT_MS = Number(process.env.BANK_TRANSFER_TIMEOUT_MS || 10000);
@@ -114,6 +114,7 @@ async function handleOrderCreated(payload) {
         }
       });
     });
+    await publishOutboxBatch();
     return;
   }
 
@@ -303,6 +304,7 @@ async function handleWalletDebited(payload) {
       }
     );
   });
+  await publishOutboxBatch();
 }
 
 async function handleWalletDebitFailed(payload) {
@@ -350,6 +352,7 @@ async function handleWalletRefunded(payload) {
       }
     );
   });
+  await publishOutboxBatch();
 }
 
 async function handleQrPaymentSucceeded(payload) {

@@ -4,8 +4,8 @@ import api from '../services/api';
 import { useToast } from '../context/ToastContext.jsx';
 import { formatDisputeStatus, formatOrderStatus } from '../utils/statusLabels';
 
-const orderStatuses = ['pending_payment', 'payment_processing', 'paid', 'confirmed', 'shipped', 'delivered', 'payment_failed', 'cancelled'];
-const codOrderStatuses = ['pending_payment', 'confirmed', 'shipped', 'paid', 'payment_failed', 'cancelled'];
+const orderStatuses = ['pending_payment', 'payment_processing', 'paid', 'confirmed', 'shipped', 'delivered', 'refund_processing', 'refunded', 'payment_failed', 'cancelled'];
+const codOrderStatuses = ['pending_payment', 'confirmed', 'shipped', 'paid', 'refund_processing', 'refunded', 'payment_failed', 'cancelled'];
 
 function isCodOrder(order) {
   return String(order?.payment_method || '').toLowerCase() === 'cod';
@@ -28,6 +28,10 @@ function SectionHeader({ title, subtitle }) {
   );
 }
 
+function formatCurrency(value) {
+  return Number(value || 0).toLocaleString('vi-VN', { style: 'currency', currency: 'VND' });
+}
+
 export default function AdminDashboard() {
   const { tab } = useParams();
   const navigate = useNavigate();
@@ -40,12 +44,23 @@ export default function AdminDashboard() {
   const [disputes, setDisputes] = useState([]);
   const [categories, setCategories] = useState([]);
   const [categoryForm, setCategoryForm] = useState({});
+  const [platformWallet, setPlatformWallet] = useState(null);
+  const [platformWalletError, setPlatformWalletError] = useState('');
 
   const loadUsers = () => api.get('/auth/admin/users').then((res) => setUsers(res.data || [])).catch(() => setUsers([]));
   const loadPendingProducts = () => api.get('/products/admin/pending').then((res) => setPendingProducts(res.data || [])).catch(() => setPendingProducts([]));
   const loadOrders = () => api.get('/orders/admin/orders').then((res) => setOrders(res.data || [])).catch(() => setOrders([]));
   const loadDisputes = () => api.get('/orders/admin/disputes').then((res) => setDisputes(res.data || [])).catch(() => setDisputes([]));
   const loadCategories = () => api.get('/categories/admin/all').then((res) => setCategories(res.data || [])).catch(() => setCategories([]));
+  const loadPlatformWallet = () => api.get('/payments/wallet/platform-wallet')
+    .then((res) => {
+      setPlatformWallet(res.data || null);
+      setPlatformWalletError('');
+    })
+    .catch((err) => {
+      setPlatformWallet(null);
+      setPlatformWalletError(err?.response?.data?.message || 'Không lấy được ví sàn');
+    });
 
   useEffect(() => {
     if (!tab) navigate('/admin/dashboard/users', { replace: true });
@@ -56,6 +71,7 @@ export default function AdminDashboard() {
     if (activeTab === 'products') loadPendingProducts();
     if (activeTab === 'orders') loadOrders();
     if (activeTab === 'disputes') loadDisputes();
+    if (activeTab === 'finance') loadPlatformWallet();
     if (activeTab === 'categories') loadCategories();
   }, [activeTab]);
 
@@ -65,9 +81,10 @@ export default function AdminDashboard() {
       products: pendingProducts.length,
       orders: orders.length,
       disputes: disputes.length,
+      finance: platformWallet ? 1 : 0,
       categories: categories.length
     }),
-    [users, pendingProducts, orders, disputes, categories]
+    [users, pendingProducts, orders, disputes, platformWallet, categories]
   );
 
   async function setUserLock(user, isActive) {
@@ -247,6 +264,8 @@ export default function AdminDashboard() {
               <div>ID</div>
               <div>Người dùng</div>
               <div>Trạng thái</div>
+              <div>Vận đơn</div>
+              <div>Ví shop</div>
               <div>Cập nhật</div>
             </div>
             {orders.map((order) => (
@@ -254,6 +273,8 @@ export default function AdminDashboard() {
                 <div>#{order.id}</div>
                 <div>{order.user_id}</div>
                 <div>{formatOrderStatus(order.status)}</div>
+                <div>{order.shipment_tracking_code || '-'}</div>
+                <div>{order.settlement_status === 'settled' ? 'Đã chuyển' : order.settlement_status === 'pending' ? 'Chờ đối soát' : '-'}</div>
                 <div className="admin-actions">
                   <select value={order.status} onChange={(event) => updateOrderStatus(order.id, event.target.value)}>
                     {getSelectableOrderStatuses(order).map((status) => (
@@ -300,6 +321,38 @@ export default function AdminDashboard() {
               </div>
             ))}
           </div>
+        </>
+      )}
+
+      {activeTab === 'finance' && (
+        <>
+          <SectionHeader title="Ví sàn" subtitle={platformWallet ? `Cập nhật ${new Date(platformWallet.updatedAt).toLocaleString('vi-VN')}` : 'Số dư vận hành'} />
+          {platformWalletError && <div className="empty-state">{platformWalletError}</div>}
+          {platformWallet && (
+            <>
+              <div className="admin-finance-grid">
+                <div className="admin-finance-tile">
+                  <span>Vốn sàn ban đầu</span>
+                  <strong>{formatCurrency(platformWallet.initialCapital)}</strong>
+                </div>
+                <div className="admin-finance-tile">
+                  <span>Vốn sàn còn lại</span>
+                  <strong>{formatCurrency(platformWallet.capital?.availableBalance)}</strong>
+                </div>
+                <div className="admin-finance-tile">
+                  <span>Ví clearing</span>
+                  <strong>{formatCurrency(platformWallet.clearing?.availableBalance)}</strong>
+                </div>
+                <div className="admin-finance-tile">
+                  <span>Tổng khả dụng</span>
+                  <strong>{formatCurrency(platformWallet.totalAvailable)}</strong>
+                </div>
+              </div>
+              <button type="button" className="btn btn-outline" onClick={loadPlatformWallet}>
+                Làm mới
+              </button>
+            </>
+          )}
         </>
       )}
 

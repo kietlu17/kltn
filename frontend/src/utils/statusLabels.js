@@ -32,6 +32,8 @@ export const DISPUTE_STATUS_LABELS = {
 
 export function formatOrderStatus(status) {
   const key = String(status || '').toLowerCase();
+  if (key === 'refund_processing') return 'Đang hoàn tiền';
+  if (key === 'refunded') return 'Đã hoàn tiền';
   return ORDER_STATUS_LABELS[key] || 'Không rõ';
 }
 

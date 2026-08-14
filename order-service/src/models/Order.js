@@ -17,6 +17,11 @@ const Order = sequelize.define(
     idempotency_request_hash: { type: DataTypes.STRING(64), allowNull: true },
     shipping_address: { type: DataTypes.JSONB, allowNull: true },
     payment_method: { type: DataTypes.STRING(40), allowNull: true },
+    shipment_tracking_code: { type: DataTypes.STRING(64), allowNull: true },
+    delivered_at: { type: DataTypes.DATE, allowNull: true },
+    settlement_status: { type: DataTypes.STRING(32), allowNull: false, defaultValue: 'not_eligible' },
+    settlement_eligible_at: { type: DataTypes.DATE, allowNull: true },
+    settled_at: { type: DataTypes.DATE, allowNull: true },
     created_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW }
   },
   {

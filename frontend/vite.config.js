@@ -17,6 +17,10 @@ const proxiedRoutes = [
   '/chat'
 ];
 
+function shouldServeSpa(req) {
+  return req.method === 'GET' && String(req.headers.accept || '').includes('text/html');
+}
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const gatewayTarget = env.VITE_API_GATEWAY_URL || 'http://localhost:3000';
@@ -26,7 +30,8 @@ export default defineConfig(({ mode }) => {
       {
         target: gatewayTarget,
         changeOrigin: true,
-        secure: false
+        secure: false,
+        bypass: (req) => (shouldServeSpa(req) ? req.url : undefined)
       }
     ])
   );

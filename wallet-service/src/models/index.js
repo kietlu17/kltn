@@ -6,6 +6,8 @@ const AccountBalance = require('./AccountBalance');
 const LedgerTransaction = require('./LedgerTransaction');
 const LedgerEntry = require('./LedgerEntry');
 const PayoutRequest = require('./PayoutRequest');
+const SettlementJob = require('./SettlementJob');
+const UserWithdrawalRequest = require('./UserWithdrawalRequest');
 const InboxEvent = require('./InboxEvent');
 const OutboxEvent = require('./OutboxEvent');
 
@@ -66,6 +68,15 @@ PayoutRequest.belongsTo(Account, {
   targetKey: 'id'
 });
 
+Account.hasMany(UserWithdrawalRequest, {
+  foreignKey: 'account_id',
+  sourceKey: 'id'
+});
+UserWithdrawalRequest.belongsTo(Account, {
+  foreignKey: 'account_id',
+  targetKey: 'id'
+});
+
 module.exports = {
   Wallet,
   WalletBalance,
@@ -75,6 +86,8 @@ module.exports = {
   LedgerTransaction,
   LedgerEntry,
   PayoutRequest,
+  SettlementJob,
+  UserWithdrawalRequest,
   InboxEvent,
   OutboxEvent
 };

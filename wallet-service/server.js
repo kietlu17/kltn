@@ -8,6 +8,7 @@ const { initDb } = require('./src/config/db');
 require('./src/models');
 const { initProducer, initOutboxPublisher } = require('./src/kafka/producer');
 const { initConsumer } = require('./src/kafka/consumer');
+const { initSettlementWorker } = require('./src/services/settlementService');
 const walletRoutes = require('./src/routes/walletRoutes');
 
 const app = express();
@@ -55,6 +56,7 @@ async function start() {
   await initDb();
   await initProducer();
   initOutboxPublisher();
+  initSettlementWorker();
   await initConsumer();
   startServer();
 }

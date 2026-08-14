@@ -20,6 +20,9 @@ export default function Profile() {
   const [walletTxs, setWalletTxs] = useState([]);
   const [topupAmount, setTopupAmount] = useState('50');
   const [topupLoading, setTopupLoading] = useState(false);
+  const [withdrawAmount, setWithdrawAmount] = useState('50');
+  const [withdrawLoading, setWithdrawLoading] = useState(false);
+  const [withdrawals, setWithdrawals] = useState([]);
   const [sepayTopupRequest, setSepayTopupRequest] = useState(null);
   const [sepayLoading, setSepayLoading] = useState(false);
 
@@ -31,6 +34,7 @@ export default function Profile() {
     if (!user?.id) return;
     api.get(`/payments/wallet/${user.id}`).then((res) => setWallet(res.data)).catch(() => setWallet(null));
     api.get(`/payments/wallet/${user.id}/transactions?limit=8`).then((res) => setWalletTxs(res.data || [])).catch(() => setWalletTxs([]));
+    api.get(`/payments/wallet/${user.id}/withdrawals?limit=5`).then((res) => setWithdrawals(res.data || [])).catch(() => setWithdrawals([]));
   }
 
   useEffect(() => {
@@ -127,6 +131,28 @@ export default function Profile() {
       showToast(err?.response?.data?.message || 'Không thể tạo mã QR SePay', 'error');
     } finally {
       setSepayLoading(false);
+    }
+  }
+
+  async function withdrawWallet() {
+    if (!user?.id) return;
+    const amount = Number(withdrawAmount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      showToast('Số tiền rút phải lớn hơn 0', 'error');
+      return;
+    }
+    setWithdrawLoading(true);
+    try {
+      await api.post(`/payments/wallet/${user.id}/withdrawals`, {
+        amount,
+        bankAccount: { provider: 'mock_bank', accountName: name || user.email || user.id }
+      });
+      showToast('Đã tạo lệnh rút tiền');
+      loadWallet();
+    } catch (err) {
+      showToast(err?.response?.data?.message || 'Rút tiền thất bại', 'error');
+    } finally {
+      setWithdrawLoading(false);
     }
   }
 
@@ -230,6 +256,19 @@ export default function Profile() {
               {sepayLoading ? 'Đang tạo QR...' : 'Nạp qua SePay QR'}
             </button>
           </div>
+          <div className="form-actions">
+            <input
+              type="number"
+              min="1"
+              step="1"
+              value={withdrawAmount}
+              onChange={(event) => setWithdrawAmount(event.target.value)}
+              placeholder="Số tiền rút"
+            />
+            <button className="btn btn-outline" onClick={withdrawWallet} disabled={withdrawLoading}>
+              {withdrawLoading ? 'Đang tạo lệnh...' : 'Rút tiền'}
+            </button>
+          </div>
 
           {sepayTopupRequest && (
             <div className="sepay-qr-box">
@@ -250,6 +289,20 @@ export default function Profile() {
               </div>
             </div>
           )}
+
+          <div>
+            <label>Lệnh rút tiền</label>
+            {withdrawals.length === 0 ? (
+              <div className="muted">Chưa có lệnh rút tiền.</div>
+            ) : (
+              withdrawals.map((item) => (
+                <div key={item.id} className="checkout-row">
+                  <span>{item.status}</span>
+                  <strong>{formatMoney(item.amount)}</strong>
+                </div>
+              ))
+            )}
+          </div>
 
           <div>
             <label>Giao dịch gần đây</label>

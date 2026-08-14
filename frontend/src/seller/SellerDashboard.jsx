@@ -2,6 +2,7 @@
 import { Link } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useToast } from '../context/ToastContext.jsx';
 
 function formatPrice(value) {
   const number = Number(value || 0);
@@ -10,11 +11,16 @@ function formatPrice(value) {
 
 export default function SellerDashboard() {
   const { user } = useAuth();
+  const { showToast } = useToast();
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
   const [orders, setOrders] = useState([]);
   const [stats, setStats] = useState({ totalOrders: 0, totalProducts: 0, totalRevenue: 0 });
+  const [finance, setFinance] = useState(null);
+  const [payouts, setPayouts] = useState([]);
+  const [withdrawAmount, setWithdrawAmount] = useState('100');
+  const [withdrawLoading, setWithdrawLoading] = useState(false);
 
   const years = useMemo(() => {
     const current = now.getFullYear();
@@ -40,6 +46,8 @@ export default function SellerDashboard() {
       return;
     }
     api.get(`/orders/seller/${shopId}`).then((res) => setOrders(res.data)).catch(() => setOrders([]));
+    api.get(`/payments/wallet/shop/${shopId}/balance`).then((res) => setFinance(res.data)).catch(() => setFinance(null));
+    api.get(`/payments/wallet/shop/${shopId}/payouts?limit=5`).then((res) => setPayouts(res.data || [])).catch(() => setPayouts([]));
   }, [user]);
 
   const daysInMonth = useMemo(() => new Date(year, month, 0).getDate(), [month, year]);
@@ -89,6 +97,30 @@ export default function SellerDashboard() {
   const totalOrders = useMemo(() => dailyOrders.reduce((sum, value) => sum + value, 0), [dailyOrders]);
   const avgRevenue = useMemo(() => (daysInMonth ? totalRevenue / daysInMonth : 0), [totalRevenue, daysInMonth]);
   const avgOrders = useMemo(() => (daysInMonth ? totalOrders / daysInMonth : 0), [totalOrders, daysInMonth]);
+
+  async function withdrawShopBalance() {
+    const shopId = user?.shopId || user?.id;
+    const amount = Number(withdrawAmount);
+    if (!shopId || !Number.isFinite(amount) || amount <= 0) return;
+    setWithdrawLoading(true);
+    try {
+      await api.post(`/payments/wallet/shop/${shopId}/withdrawals`, {
+        amount,
+        bankAccount: { provider: 'mock_bank', accountName: user?.shopName || user?.email || shopId }
+      });
+      const [balanceRes, payoutsRes] = await Promise.all([
+        api.get(`/payments/wallet/shop/${shopId}/balance`),
+        api.get(`/payments/wallet/shop/${shopId}/payouts?limit=5`)
+      ]);
+      setFinance(balanceRes.data);
+      setPayouts(payoutsRes.data || []);
+      showToast('Đã tạo lệnh rút tiền shop');
+    } catch (err) {
+      showToast(err?.response?.data?.message || 'Rút tiền shop thất bại', 'error');
+    } finally {
+      setWithdrawLoading(false);
+    }
+  }
 
   return (
     <div className="container page-section seller-dashboard">
@@ -146,6 +178,39 @@ export default function SellerDashboard() {
           <h3>Đơn hàng</h3>
           <p className="muted">Xem đơn hàng mới và thông tin khách hàng.</p>
           <Link to="/seller/orders" className="btn btn-outline">Xem đơn hàng</Link>
+        </div>
+
+        <div className="card">
+          <h3>Ví shop</h3>
+          <p className="muted">Số dư khả dụng nhận từ settlement sau khi đơn đã giao.</p>
+          <div className="seller-stats">
+            <div>
+              <span className="muted">Khả dụng</span>
+              <strong>{formatPrice(finance?.sellerBalance?.availableBalance || 0)}</strong>
+            </div>
+            <div>
+              <span className="muted">Đang rút</span>
+              <strong>{formatPrice(finance?.payoutPending?.availableBalance || 0)}</strong>
+            </div>
+          </div>
+          <div className="form-actions">
+            <input
+              type="number"
+              min="1"
+              value={withdrawAmount}
+              onChange={(event) => setWithdrawAmount(event.target.value)}
+              placeholder="Số tiền rút"
+            />
+            <button className="btn btn-outline" onClick={withdrawShopBalance} disabled={withdrawLoading}>
+              {withdrawLoading ? 'Đang tạo lệnh...' : 'Rút tiền'}
+            </button>
+          </div>
+          {payouts.slice(0, 3).map((payout) => (
+            <div key={payout.id} className="checkout-row">
+              <span>{payout.status}</span>
+              <strong>{formatPrice(payout.amount)}</strong>
+            </div>
+          ))}
         </div>
 
         <div className="card">

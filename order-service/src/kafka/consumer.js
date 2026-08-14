@@ -3,7 +3,9 @@ const {
   handlePaymentPending,
   handlePaymentSucceeded,
   handlePaymentFailed,
-  handlePaymentTimeout
+  handlePaymentTimeout,
+  handlePaymentRefunded,
+  handleShopSettlementCompleted
 } = require('../controllers/orderController');
 const InboxEvent = require('../models/InboxEvent');
 
@@ -64,6 +66,8 @@ async function initConsumer() {
   await consumer.subscribe({ topic: 'payment.succeeded' });
   await consumer.subscribe({ topic: 'payment.failed' });
   await consumer.subscribe({ topic: 'payment.timeout' });
+  await consumer.subscribe({ topic: 'payment.refunded' });
+  await consumer.subscribe({ topic: 'shop.settlement.completed' });
 
   await consumer.run({
     eachMessage: async ({ topic, partition, message }) => {
@@ -72,6 +76,8 @@ async function initConsumer() {
         if (topic === 'payment.succeeded') await handlePaymentSucceeded(payload);
         if (topic === 'payment.failed') await handlePaymentFailed(payload);
         if (topic === 'payment.timeout') await handlePaymentTimeout(payload);
+        if (topic === 'payment.refunded') await handlePaymentRefunded(payload);
+        if (topic === 'shop.settlement.completed') await handleShopSettlementCompleted(payload);
       });
     }
   });

@@ -5,23 +5,24 @@ import { useAuth } from './AuthContext.jsx';
 const CartContext = createContext(null);
 
 export function CartProvider({ children }) {
-  const { user, role } = useAuth();
+  const { user, role, authReady } = useAuth();
   const [cartProducts, setCartProducts] = useState([]);
-  const userId = user?.id;
-  const canUseCart = role === 'buyer';
+  const userId = user?.id || user?.userId || user?._id;
+  const canUseCart = authReady && role === 'buyer';
 
   const loadCart = useCallback(async () => {
-    if (!userId || !canUseCart) {
+    if (!authReady) return;
+    if (!canUseCart) {
       setCartProducts([]);
       return;
     }
     try {
-      const res = await api.get(`/cart/${userId}`);
+      const res = await api.get('/cart/user');
       setCartProducts(res.data?.products || []);
     } catch {
       setCartProducts([]);
     }
-  }, [userId, canUseCart]);
+  }, [authReady, userId, canUseCart]);
 
   useEffect(() => {
     loadCart();

@@ -14,6 +14,7 @@ import Login from './pages/Login.jsx';
 import Register from './pages/Register.jsx';
 import Help from './pages/Help.jsx';
 import Addresses from './pages/Addresses.jsx';
+import CarrierSimulator from './pages/CarrierSimulator.jsx';
 import SellerLayout from './seller/SellerLayout.jsx';
 import SellerDashboard from './seller/SellerDashboard.jsx';
 import SellerProductList from './seller/ProductList.jsx';
@@ -97,6 +98,7 @@ export default function App() {
           <Route path="/login" element={<Login expectedRole="buyer" />} />
           <Route path="/register" element={<Register forcedRole="buyer" />} />
           <Route path="/help" element={<Help />} />
+          <Route path="/carrier" element={<CarrierSimulator />} />
           <Route path="/seller/login" element={<Login expectedRole="seller" />} />
           <Route path="/seller/register" element={<Register forcedRole="seller" />} />
           <Route path="/admin/login" element={<Login expectedRole="admin" />} />

@@ -70,9 +70,13 @@ async function updateQuantity(req, res) {
 
 async function getCart(req, res) {
   try {
-    const cart = await Cart.findOne({ userId: req.params.userId });
+    const userId = req.params.userId || req.headers['x-user-id'];
+    if (!userId) {
+      return res.status(400).json({ message: 'userId is required' });
+    }
+    const cart = await Cart.findOne({ userId });
     if (!cart) {
-      return res.json({ userId: req.params.userId, products: [] });
+      return res.json({ userId, products: [] });
     }
     return res.json(cart);
   } catch (err) {
