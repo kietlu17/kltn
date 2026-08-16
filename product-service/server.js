@@ -9,6 +9,7 @@ const { connectMongo } = require('./src/config/db');
 const productRoutes = require('./src/routes/productRoutes');
 const categoryRoutes = require('./src/routes/categoryRoutes');
 const { initProducer } = require('./src/kafka/producer');
+const { initConsumer } = require('./src/kafka/consumer');
 const { backfillModerationStatus } = require('./src/services/moderationBackfill');
 
 const app = express();
@@ -60,5 +61,6 @@ function startServer() {
 connectMongo().then(async () => {
   await backfillModerationStatus();
   await initProducer();
+  await initConsumer();
   startServer();
 });

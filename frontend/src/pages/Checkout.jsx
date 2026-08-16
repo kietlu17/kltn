@@ -40,8 +40,10 @@ export default function Checkout() {
   const [addresses, setAddresses] = useState([]);
   const [selectedAddressId, setSelectedAddressId] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('cod');
-  const [walletBalance, setWalletBalance] = useState(0);
+  const [walletBalance, setWalletBalance] = useState(null);
+  const [walletAvailable, setWalletAvailable] = useState(false);
   const [walletLoading, setWalletLoading] = useState(false);
+  const [walletError, setWalletError] = useState('');
   const [bankQrRequests, setBankQrRequests] = useState([]);
   const [vouchers, setVouchers] = useState([]);
   const [selectedVoucherCode, setSelectedVoucherCode] = useState('');
@@ -79,18 +81,41 @@ export default function Checkout() {
       .catch(() => setAddresses([]));
   }, [user]);
 
-  useEffect(() => {
+  async function loadWallet({ silent = false } = {}) {
     if (!user?.id) {
-      setWalletBalance(0);
-      return;
+      setWalletBalance(null);
+      setWalletAvailable(false);
+      setWalletError('');
+      return { available: false, balance: null };
     }
-    setWalletLoading(true);
-    api
-      .get(`/payments/wallet/${user.id}`)
-      .then((res) => setWalletBalance(Number(res.data?.balance || 0)))
-      .catch(() => setWalletBalance(0))
-      .finally(() => setWalletLoading(false));
+    if (!silent) setWalletLoading(true);
+    try {
+      const res = await api.get(`/payments/wallet/${user.id}`);
+      const balance = Number(res.data?.balance || 0);
+      setWalletBalance(balance);
+      setWalletAvailable(true);
+      setWalletError('');
+      return { available: true, balance };
+    } catch {
+      setWalletBalance(null);
+      setWalletAvailable(false);
+      setWalletError('Ví đang không khả dụng. Vui lòng chọn COD hoặc SePay QR.');
+      return { available: false, balance: null };
+    } finally {
+      if (!silent) setWalletLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadWallet();
   }, [user?.id]);
+
+  useEffect(() => {
+    if (paymentMethod === 'wallet' && walletError) {
+      setPaymentMethod('cod');
+      showToast('Ví đang không khả dụng. Vui lòng chọn phương thức khác.', 'error');
+    }
+  }, [paymentMethod, walletError, showToast]);
 
   const productMap = useMemo(() => {
     const map = new Map();
@@ -262,9 +287,20 @@ export default function Checkout() {
       showToast('Vui lòng chọn phương thức thanh toán', 'error');
       return;
     }
-    if (paymentMethod === 'wallet' && payableTotal > walletBalance) {
-      showToast('Số dư ví không đủ. Vui lòng nạp thêm tiền.', 'error');
-      return;
+    if (paymentMethod === 'wallet') {
+      if (!walletAvailable) {
+        showToast('Ví đang không khả dụng. Vui lòng chọn COD hoặc SePay QR.', 'error');
+        return;
+      }
+      const walletState = await loadWallet({ silent: true });
+      if (!walletState.available) {
+        showToast('Ví đang không khả dụng. Đơn hàng chưa được tạo, vui lòng chọn phương thức khác.', 'error');
+        return;
+      }
+      if (payableTotal > Number(walletState.balance || 0)) {
+        showToast('Số dư ví không đủ. Vui lòng nạp thêm tiền.', 'error');
+        return;
+      }
     }
 
     const checkoutProducts = cartProducts.filter((item) => selectedIds.includes(getLineId(item)));
@@ -360,8 +396,7 @@ export default function Checkout() {
 
     if (user?.id) {
       try {
-        const wallet = await api.get(`/payments/wallet/${user.id}`);
-        setWalletBalance(Number(wallet.data?.balance || 0));
+        await loadWallet({ silent: true });
       } catch {
         // no-op
       }
@@ -488,7 +523,16 @@ export default function Checkout() {
           </>
         )}
 
-        <button className="btn btn-primary btn-full" onClick={checkout} disabled={hasOutOfStock || selectedIds.length === 0 || Boolean(checkoutProgress)}>
+        <button
+          className="btn btn-primary btn-full"
+          onClick={checkout}
+          disabled={
+            hasOutOfStock ||
+            selectedIds.length === 0 ||
+            Boolean(checkoutProgress) ||
+            (paymentMethod === 'wallet' && (walletLoading || !walletAvailable))
+          }
+        >
           {checkoutProgress ? 'Đang xử lý...' : 'Đặt hàng'}
         </button>
       </div>
@@ -497,8 +541,9 @@ export default function Checkout() {
         <h3>Thanh toán</h3>
         <p className="muted">Hỗ trợ thanh toán ví và SePay QR.</p>
         <div className="muted">
-          Số dư ví: <strong>{walletLoading ? 'Đang tải...' : formatPrice(walletBalance)}</strong>
+          Số dư ví: <strong>{walletLoading ? 'Đang tải...' : (walletAvailable ? formatPrice(walletBalance) : 'Ví đang không khả dụng')}</strong>
         </div>
+        {walletError && <div className="muted">{walletError}</div>}
         <div className="payment-options">
           <label className="radio-field">
             <input
@@ -520,15 +565,16 @@ export default function Checkout() {
             />
             Chuyển khoản ngân hàng qua SePay QR
           </label>
-          <label className="radio-field">
+          <label className={`radio-field ${!walletAvailable ? 'disabled' : ''}`}>
             <input
               type="radio"
               name="payment"
               value="wallet"
               checked={paymentMethod === 'wallet'}
+              disabled={walletLoading || !walletAvailable}
               onChange={(event) => setPaymentMethod(event.target.value)}
             />
-            Ví
+            Ví {!walletAvailable && !walletLoading ? '(đang không khả dụng)' : ''}
           </label>
         </div>
         <div className="voucher-picker">

@@ -97,6 +97,24 @@ async function handleOrderCreated(payload) {
         await enqueuePaymentFailed(transaction, normalized, 'missing_user_id');
         return;
       }
+      await publishPaymentEvent(
+        'payment.pending',
+        {
+          orderId,
+          status: 'payment_processing',
+          paymentMethod: method,
+          userId: normalized.userId || null,
+          totalPrice: normalized.totalPrice,
+          sagaId: normalized.sagaId,
+          correlationId: normalized.correlationId
+        },
+        {
+          transaction,
+          eventType: 'PaymentPending',
+          key: orderId,
+          aggregateId: orderId
+        }
+      );
       await enqueueEvent({
         transaction,
         topic: 'wallet.debit.requested',

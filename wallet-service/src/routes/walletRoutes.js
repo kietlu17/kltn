@@ -13,6 +13,7 @@ const {
   getShopPayouts,
   getSettlementJobs,
   runSettlements,
+  receiveCodRemittance,
   withdrawUserBalance,
   getUserWithdrawals,
   completeUserWithdrawalRequest,
@@ -29,6 +30,7 @@ router.post('/shop/:shopId/withdrawals', withdrawShopBalance);
 router.get('/shop/:shopId/payouts', getShopPayouts);
 router.get('/settlements', getSettlementJobs);
 router.post('/settlements/run', runSettlements);
+router.post('/cod-remittances', receiveCodRemittance);
 router.post('/payouts/:referenceId/complete', completeShopPayout);
 router.post('/payouts/:referenceId/fail', failShopPayout);
 router.post('/user-withdrawals/:referenceId/complete', completeUserWithdrawalRequest);

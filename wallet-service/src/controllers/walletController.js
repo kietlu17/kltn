@@ -10,7 +10,8 @@ const {
 } = require('../services/shopFinanceService');
 const {
   processDueSettlements,
-  listSettlementJobs
+  listSettlementJobs,
+  recordCodRemittance
 } = require('../services/settlementService');
 const {
   requestUserWithdrawal,
@@ -192,6 +193,30 @@ async function runSettlements(req, res) {
   }
 }
 
+async function receiveCodRemittance(req, res) {
+  try {
+    const amount = Number(req.body?.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return res.status(400).json({ message: 'amount must be greater than 0' });
+    }
+    const result = await recordCodRemittance({
+      orderId: req.body?.orderId,
+      shopId: req.body?.shopId,
+      amount,
+      carrier: req.body?.carrier || 'mock_carrier',
+      referenceId: req.headers['idempotency-key'] || req.body?.referenceId || req.body?.idempotencyKey || null,
+      metadata: req.body?.metadata || {},
+      sagaId: req.body?.sagaId || null,
+      correlationId: req.headers['x-correlation-id'] || req.body?.correlationId || null
+    });
+    return res.status(result.reused ? 200 : 201).json(result);
+  } catch (err) {
+    const message = String(err.message || '');
+    const status = message.includes('not_found') ? 404 : (message.includes('amount_mismatch') || message.includes('not_payable') ? 409 : 500);
+    return res.status(status).json({ message: 'Record COD remittance failed', error: err.message });
+  }
+}
+
 async function withdrawUserBalance(req, res) {
   try {
     const { userId } = req.params;
@@ -259,6 +284,7 @@ module.exports = {
   getShopPayouts,
   getSettlementJobs,
   runSettlements,
+  receiveCodRemittance,
   withdrawUserBalance,
   getUserWithdrawals,
   completeUserWithdrawalRequest,

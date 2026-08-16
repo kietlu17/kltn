@@ -72,6 +72,7 @@ const PUBLIC_PATHS = [
   { method: 'POST', path: '/auth/session' },
   { method: 'GET', path: '/shops' },
   { method: 'POST', path: '/orders/shipping/callback' },
+  { method: 'POST', path: '/payments/wallet/cod-remittances' },
   { method: 'POST', path: '/payments/sepay/webhook' }
 ];
 
@@ -143,6 +144,7 @@ function getRequiredRoles(req) {
   if (path.startsWith('/chat')) return ['buyer', 'seller', 'admin'];
   if (path.startsWith('/reviews')) return ['buyer', 'admin'];
   if (path.startsWith('/payments/wallet/platform-wallet')) return ['admin'];
+  if (path.startsWith('/payments/wallet/cod-remittances')) return ['admin'];
   if (method === 'POST' && /^\/payments\/wallet\/shop\/[^/]+\/settlements$/.test(path)) return ['admin'];
   if (path.startsWith('/payments/wallet/settlements')) return ['admin'];
   if (path.startsWith('/payments/wallet/user-withdrawals/')) return ['admin'];

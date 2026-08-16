@@ -1,5 +1,6 @@
 const { sequelize } = require('../config/db');
-const { LedgerTransaction, PayoutRequest } = require('../models');
+const { Op } = require('sequelize');
+const { LedgerTransaction, PayoutRequest, SettlementJob } = require('../models');
 const {
   toMoney,
   getSystemAccount,
@@ -16,7 +17,53 @@ async function getShopBalance(shopId) {
     const payoutPendingAccount = await getShopPayoutPendingAccount(shopId, transaction);
     const sellerBalance = await getAccountSnapshot(sellerAccount, transaction);
     const payoutPending = await getAccountSnapshot(payoutPendingAccount, transaction);
-    return { shopId: String(shopId), sellerBalance, payoutPending };
+    const pendingJobs = await SettlementJob.findAll({
+      where: {
+        shop_id: String(shopId),
+        status: { [Op.in]: ['pending', 'awaiting_remittance'] }
+      },
+      transaction
+    });
+    const completedPayouts = await PayoutRequest.findAll({
+      where: {
+        shop_id: String(shopId),
+        status: 'completed'
+      },
+      transaction
+    });
+    const completedPayoutAmount = completedPayouts.reduce((sum, payout) => toMoney(sum + Number(payout.amount || 0)), 0);
+    const now = new Date();
+    const incomingSettlements = pendingJobs.reduce(
+      (summary, job) => {
+        const amount = toMoney(job.amount);
+        const status = String(job.status || '').toLowerCase();
+        const eligibleAt = job.eligible_at ? new Date(job.eligible_at) : null;
+        summary.totalAmount = toMoney(summary.totalAmount + amount);
+        summary.count += 1;
+        if (status === 'awaiting_remittance') {
+          summary.codAwaitingRemittanceAmount = toMoney(summary.codAwaitingRemittanceAmount + amount);
+          summary.codAwaitingRemittanceCount += 1;
+        } else if (eligibleAt && eligibleAt > now) {
+          summary.scheduledAmount = toMoney(summary.scheduledAmount + amount);
+          summary.scheduledCount += 1;
+        } else {
+          summary.readyAmount = toMoney(summary.readyAmount + amount);
+          summary.readyCount += 1;
+        }
+        return summary;
+      },
+      {
+        totalAmount: 0,
+        count: 0,
+        readyAmount: 0,
+        readyCount: 0,
+        scheduledAmount: 0,
+        scheduledCount: 0,
+        codAwaitingRemittanceAmount: 0,
+        codAwaitingRemittanceCount: 0
+      }
+    );
+    return { shopId: String(shopId), sellerBalance, payoutPending, completedPayoutAmount, incomingSettlements };
   });
 }
 

@@ -42,7 +42,7 @@ const codStatusSteps = [
   { key: 'pending_payment', label: 'Đã đặt' },
   { key: 'confirmed', label: 'Đã xác nhận' },
   { key: 'shipped', label: 'Đang giao' },
-  { key: 'paid', label: 'Đã thanh toán' }
+  { key: 'delivered', label: 'Đã giao' }
 ];
 
 function isCodOrder(order) {
@@ -59,6 +59,14 @@ function getStatusIndex(status, steps) {
   if (normalized === 'completed') return steps.length - 1;
   const index = steps.findIndex((step) => step.key === normalized);
   return index === -1 ? 0 : index;
+}
+
+function formatSettlementStatus(status) {
+  const key = String(status || '').toLowerCase();
+  if (key === 'settled') return 'Đã chuyển';
+  if (key === 'pending') return 'Chờ đối soát';
+  if (key === 'awaiting_cod_remittance') return 'Chờ carrier nộp COD';
+  return 'Chưa đủ điều kiện';
 }
 
 export default function Orders({ embedded = false }) {
@@ -278,7 +286,7 @@ export default function Orders({ embedded = false }) {
                     </div>
                     <div>
                       <span className="muted">Ví shop</span>
-                      <strong>{order.settlement_status === 'settled' ? 'Đã chuyển' : order.settlement_status === 'pending' ? 'Chờ đối soát' : 'Chưa đủ điều kiện'}</strong>
+                      <strong>{formatSettlementStatus(order.settlement_status)}</strong>
                     </div>
                   </div>
 

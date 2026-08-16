@@ -151,9 +151,12 @@ async function markOrderDelivered(order, deliveredAt = new Date()) {
   const wasDelivered = order.status === 'delivered';
   const paymentMethod = String(order.payment_method || '').toLowerCase();
   const hasPlatformHeldFunds = ['wallet', 'bank_transfer', 'sepay'].includes(paymentMethod);
+  const isCodOrder = paymentMethod === 'cod';
   order.status = 'delivered';
   order.delivered_at = order.delivered_at || deliveredAt;
-  order.settlement_status = order.settlement_status === 'settled' ? 'settled' : (hasPlatformHeldFunds ? 'pending' : 'not_eligible');
+  order.settlement_status = order.settlement_status === 'settled'
+    ? 'settled'
+    : (isCodOrder ? 'awaiting_cod_remittance' : (hasPlatformHeldFunds ? 'pending' : 'not_eligible'));
   order.settlement_eligible_at = hasPlatformHeldFunds
     ? (order.settlement_eligible_at || buildSettlementEligibleAt(order.delivered_at))
     : null;
@@ -482,23 +485,20 @@ async function confirmOrder(req, res) {
         order.status = 'confirmed';
         await order.save();
       }
-      const shipment = await ensureShipmentForOrder(order, req.body || {});
-      return res.json({ ...order.toJSON(), shipment: shipment?.toJSON ? shipment.toJSON() : shipment });
+      return res.json(order.toJSON());
     }
     if (order.status === 'pending_payment' || order.status === 'payment_processing') {
       return res.status(400).json({ message: 'Order payment is not completed yet' });
     }
     if (['confirmed', 'shipped', 'delivered'].includes(order.status)) {
-      const shipment = order.status === 'confirmed' ? await ensureShipmentForOrder(order, req.body || {}) : null;
-      return res.json({ ...order.toJSON(), shipment: shipment?.toJSON ? shipment.toJSON() : shipment });
+      return res.json(order.toJSON());
     }
     if (order.status !== 'paid') {
       return res.status(400).json({ message: 'Order payment is not completed yet' });
     }
     order.status = 'confirmed';
     await order.save();
-    const shipment = await ensureShipmentForOrder(order, req.body || {});
-    return res.json({ ...order.toJSON(), shipment: shipment?.toJSON ? shipment.toJSON() : shipment });
+    return res.json(order.toJSON());
   } catch (err) {
     return res.status(500).json({ message: 'Confirm order failed', error: err.message });
   }
@@ -758,7 +758,8 @@ async function updateAdminOrderStatus(req, res) {
         pending_payment: new Set(['pending_payment', 'confirmed', 'cancelled', 'payment_failed']),
         payment_processing: new Set(['payment_processing', 'confirmed', 'cancelled', 'payment_failed']),
         confirmed: new Set(['confirmed', 'shipped', 'cancelled']),
-        shipped: new Set(['shipped', 'paid', 'cancelled']),
+        shipped: new Set(['shipped', 'delivered', 'cancelled']),
+        delivered: new Set(['delivered']),
         paid: new Set(['paid', 'cancelled']),
         payment_failed: new Set(['payment_failed']),
         cancelled: new Set(['cancelled'])
@@ -766,7 +767,7 @@ async function updateAdminOrderStatus(req, res) {
       const allowedSet = allowedCodNextByCurrent[currentStatus] || new Set([currentStatus]);
       if (!allowedSet.has(nextStatus)) {
         return res.status(400).json({
-          message: 'Invalid COD status flow. Expected: pending_payment -> confirmed -> shipped -> paid'
+          message: 'Invalid COD status flow. Expected: pending_payment -> confirmed -> shipped -> delivered'
         });
       }
     }

@@ -182,7 +182,7 @@ export default function SellerDashboard() {
 
         <div className="card">
           <h3>Ví shop</h3>
-          <p className="muted">Số dư khả dụng nhận từ settlement sau khi đơn đã giao.</p>
+          <p className="muted">Số dư khả dụng và các khoản settlement dự kiến về ví.</p>
           <div className="seller-stats">
             <div>
               <span className="muted">Khả dụng</span>
@@ -191,6 +191,14 @@ export default function SellerDashboard() {
             <div>
               <span className="muted">Đang rút</span>
               <strong>{formatPrice(finance?.payoutPending?.availableBalance || 0)}</strong>
+            </div>
+            <div>
+              <span className="muted">Đã rút</span>
+              <strong>{formatPrice(finance?.completedPayoutAmount || 0)}</strong>
+            </div>
+            <div>
+              <span className="muted">Dự kiến về ví</span>
+              <strong>{formatPrice(finance?.incomingSettlements?.totalAmount || 0)}</strong>
             </div>
           </div>
           <div className="form-actions">

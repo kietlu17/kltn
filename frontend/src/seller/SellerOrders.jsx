@@ -148,12 +148,12 @@ export default function SellerOrders() {
             ? {
                 ...order,
                 status: response.data?.status || 'confirmed',
-                shipment_tracking_code: response.data?.shipment_tracking_code || response.data?.shipment?.tracking_code || order.shipment_tracking_code
+                shipment_tracking_code: response.data?.shipment_tracking_code || order.shipment_tracking_code
               }
             : order)
         )
       );
-      showToast('Đã xác nhận đơn và gửi yêu cầu vận chuyển');
+      showToast('Đã xác nhận đơn. Vui lòng bàn giao cho vận chuyển.');
     } catch (err) {
       showToast(err?.response?.data?.message || 'Không thể xác nhận đơn', 'error');
     }

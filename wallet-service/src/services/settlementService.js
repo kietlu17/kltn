@@ -2,6 +2,7 @@ const { Op } = require('sequelize');
 const { sequelize } = require('../config/db');
 const { SettlementJob, OutboxEvent } = require('../models');
 const { settleOrderToShop } = require('./shopFinanceService');
+const { getSystemAccount, transfer } = require('./accountLedgerService');
 
 const SETTLEMENT_DELAY_DAYS = Number(process.env.SETTLEMENT_DELAY_DAYS || 15);
 
@@ -74,7 +75,7 @@ async function createSettlementJobsForDeliveredOrder(payload) {
   const orderId = Number(payload?.id || payload?.orderId);
   if (!Number.isFinite(orderId)) return [];
   const method = String(payload?.payment_method || payload?.paymentMethod || '').toLowerCase();
-  if (!['wallet', 'bank_transfer', 'sepay'].includes(method)) return [];
+  if (!['wallet', 'bank_transfer', 'sepay', 'cod'].includes(method)) return [];
 
   const items = parseOrderItems(payload);
   const shopIds = [...new Set(items.map((item) => item?.shopId).filter(Boolean).map(String))];
@@ -94,12 +95,13 @@ async function createSettlementJobsForDeliveredOrder(payload) {
           order_id: orderId,
           shop_id: shopId,
           amount,
-          status: 'pending',
+          status: method === 'cod' ? 'awaiting_remittance' : 'pending',
           eligible_at: eligibleAt,
           reference_id: referenceId,
           metadata: {
             paymentMethod: method,
-            deliveredAt: payload?.delivered_at || payload?.deliveredAt || null
+            deliveredAt: payload?.delivered_at || payload?.deliveredAt || null,
+            remittanceRequired: method === 'cod'
           },
           saga_id: payload?.sagaId || `order:${orderId}:settlement`,
           correlation_id: payload?.correlationId || `order:${orderId}:settlement`
@@ -110,6 +112,38 @@ async function createSettlementJobsForDeliveredOrder(payload) {
     }
   });
   return createdJobs;
+}
+
+async function settleJob(job) {
+  const ledgerResult = await settleOrderToShop({
+    shopId: job.shop_id,
+    orderId: job.order_id,
+    amount: job.amount,
+    referenceId: job.reference_id,
+    metadata: {
+      source: 'settlement_job',
+      eligibleAt: job.eligible_at
+    },
+    sagaId: job.saga_id,
+    correlationId: job.correlation_id
+  });
+
+  return sequelize.transaction(async (transaction) => {
+    const locked = await SettlementJob.findByPk(job.id, {
+      transaction,
+      lock: transaction.LOCK.UPDATE
+    });
+    if (!locked || locked.status === 'settled') return null;
+    locked.status = 'settled';
+    locked.settled_at = new Date();
+    locked.metadata = {
+      ...(locked.metadata || {}),
+      ledgerTransactionId: ledgerResult.ledgerTransactionId
+    };
+    await locked.save({ transaction });
+    await enqueueSettlementCompleted(transaction, locked, ledgerResult);
+    return locked.toJSON();
+  });
 }
 
 async function processDueSettlements({ force = false, limit = 50 } = {}) {
@@ -125,38 +159,91 @@ async function processDueSettlements({ force = false, limit = 50 } = {}) {
 
   const results = [];
   for (const job of jobs) {
-    const ledgerResult = await settleOrderToShop({
-      shopId: job.shop_id,
-      orderId: job.order_id,
-      amount: job.amount,
-      referenceId: job.reference_id,
-      metadata: {
-        source: 'settlement_job',
-        eligibleAt: job.eligible_at
-      },
-      sagaId: job.saga_id,
-      correlationId: job.correlation_id
-    });
-
-    await sequelize.transaction(async (transaction) => {
-      const locked = await SettlementJob.findByPk(job.id, {
-        transaction,
-        lock: transaction.LOCK.UPDATE
-      });
-      if (!locked || locked.status === 'settled') return;
-      locked.status = 'settled';
-      locked.settled_at = new Date();
-      locked.metadata = {
-        ...(locked.metadata || {}),
-        ledgerTransactionId: ledgerResult.ledgerTransactionId
-      };
-      await locked.save({ transaction });
-      await enqueueSettlementCompleted(transaction, locked, ledgerResult);
-      results.push(locked.toJSON());
-    });
+    const settled = await settleJob(job);
+    if (settled) results.push(settled);
   }
 
   return results;
+}
+
+async function recordCodRemittance({
+  orderId,
+  shopId,
+  amount,
+  carrier = 'mock_carrier',
+  referenceId,
+  metadata = {},
+  sagaId = null,
+  correlationId = null
+}) {
+  const normalizedOrderId = Number(orderId);
+  const remittanceAmount = toMoney(amount);
+  if (!Number.isFinite(normalizedOrderId)) throw new Error('orderId is required');
+  if (!shopId) throw new Error('shopId is required');
+  if (remittanceAmount <= 0) throw new Error('amount must be greater than 0');
+
+  const settlementReference = `order:${normalizedOrderId}:shop:${shopId}:settlement`;
+  const job = await SettlementJob.findOne({ where: { reference_id: settlementReference } });
+  if (!job) throw new Error('settlement_job_not_found');
+  if (job.status === 'settled') return { ok: true, reused: true, job: job.toJSON() };
+  if (job.status !== 'awaiting_remittance' && job.status !== 'pending') {
+    throw new Error(`settlement_job_not_payable:${job.status}`);
+  }
+
+  const expectedAmount = toMoney(job.amount);
+  if (remittanceAmount !== expectedAmount) {
+    throw new Error(`cod_remittance_amount_mismatch:${remittanceAmount}:${expectedAmount}`);
+  }
+
+  await sequelize.transaction(async (transaction) => {
+    const externalAccount = await getSystemAccount('external_bank', transaction);
+    const platformAccount = await getSystemAccount('platform_clearing', transaction);
+    await transfer({
+      fromAccount: externalAccount,
+      toAccount: platformAccount,
+      amount: expectedAmount,
+      referenceId: `ledger:order:${normalizedOrderId}:shop:${shopId}:cod_remittance`,
+      idempotencyKey: referenceId || `ledger:order:${normalizedOrderId}:shop:${shopId}:cod_remittance`,
+      type: 'cod_carrier_remittance',
+      metadata: {
+        orderId: normalizedOrderId,
+        shopId,
+        carrier,
+        remittedAmount: remittanceAmount,
+        expectedAmount,
+        ...metadata
+      },
+      sagaId: sagaId || job.saga_id,
+      correlationId: correlationId || job.correlation_id,
+      transaction
+    });
+
+    const locked = await SettlementJob.findByPk(job.id, {
+      transaction,
+      lock: transaction.LOCK.UPDATE
+    });
+    if (!locked || locked.status === 'settled') return;
+    locked.status = 'pending';
+    locked.eligible_at = new Date();
+    locked.metadata = {
+      ...(locked.metadata || {}),
+      codRemittance: {
+        carrier,
+        referenceId: referenceId || null,
+        remittedAmount: remittanceAmount,
+        receivedAt: new Date().toISOString()
+      }
+    };
+    await locked.save({ transaction });
+  });
+
+  const refreshed = await SettlementJob.findByPk(job.id);
+  return {
+    ok: true,
+    remitted: true,
+    settlementQueued: true,
+    job: refreshed.toJSON()
+  };
 }
 
 async function listSettlementJobs(shopId, limit = 50) {
@@ -182,6 +269,7 @@ function initSettlementWorker() {
 module.exports = {
   createSettlementJobsForDeliveredOrder,
   processDueSettlements,
+  recordCodRemittance,
   listSettlementJobs,
   initSettlementWorker
 };

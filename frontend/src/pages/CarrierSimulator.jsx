@@ -11,6 +11,27 @@ function formatDate(value) {
   return date.toLocaleString('vi-VN');
 }
 
+function formatPrice(value) {
+  const number = Number(value || 0);
+  return number.toLocaleString('vi-VN', { style: 'currency', currency: 'VND' });
+}
+
+function parseOrderItems(order) {
+  if (Array.isArray(order?.products)) return order.products;
+  if (typeof order?.products === 'string') {
+    try {
+      return JSON.parse(order.products);
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+function getPrimaryShopId(order) {
+  return parseOrderItems(order).find((item) => item?.shopId)?.shopId || order?.shopId || '';
+}
+
 function statusText(status) {
   const labels = {
     requested: 'Da nhan yeu cau',
@@ -30,6 +51,7 @@ export default function CarrierSimulator() {
   const [trackingCode, setTrackingCode] = useState(initialTrackingCode);
   const [lastResult, setLastResult] = useState(null);
   const [loadingStatus, setLoadingStatus] = useState('');
+  const [remittanceLoading, setRemittanceLoading] = useState(false);
 
   async function sendCallback(status) {
     const code = trackingCode.trim();
@@ -55,6 +77,40 @@ export default function CarrierSimulator() {
 
   const order = lastResult?.order;
   const shipment = lastResult?.shipment;
+  const isCodDelivered =
+    String(order?.payment_method || '').toLowerCase() === 'cod' &&
+    String(order?.status || '').toLowerCase() === 'delivered';
+  const codAmount = Number(order?.total_price || order?.totalPrice || 0);
+
+  async function remitCod() {
+    const shopId = getPrimaryShopId(order);
+    if (!order?.id || !shopId || !Number.isFinite(codAmount) || codAmount <= 0) {
+      showToast('Khong du thong tin nop COD', 'error');
+      return;
+    }
+    setRemittanceLoading(true);
+    try {
+      const res = await api.post('/payments/wallet/cod-remittances', {
+        orderId: order.id,
+        shopId,
+        amount: codAmount,
+        carrier: shipment?.carrier || 'mock_carrier',
+        referenceId: `carrier:${shipment?.tracking_code || trackingCode}:cod`
+      });
+      setLastResult((prev) => ({
+        ...(prev || {}),
+        codRemittance: res.data,
+        order: prev?.order
+          ? { ...prev.order, settlement_status: 'pending' }
+          : prev?.order
+      }));
+      showToast('Da nop tien COD ve san, cho worker chuyen tien shop');
+    } catch (err) {
+      showToast(err?.response?.data?.error || err?.response?.data?.message || 'Nop COD that bai, thu lai sau', 'error');
+    } finally {
+      setRemittanceLoading(false);
+    }
+  }
 
   return (
     <div className="container page-section carrier-page">
@@ -117,7 +173,31 @@ export default function CarrierSimulator() {
               <span className="muted">Cap nhat luc</span>
               <strong>{formatDate(shipment?.updated_at || shipment?.updatedAt)}</strong>
             </div>
+            {isCodDelivered && (
+              <div>
+                <span className="muted">Tien COD can nop</span>
+                <strong>{formatPrice(codAmount)}</strong>
+              </div>
+            )}
           </div>
+          {isCodDelivered && order?.settlement_status !== 'settled' && (
+            <div className="form-actions">
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={remitCod}
+                disabled={remittanceLoading}
+              >
+                {remittanceLoading ? 'Dang nop COD...' : 'Nop tien COD ve san'}
+              </button>
+            </div>
+          )}
+          {lastResult.codRemittance && (
+            <div className="checkout-row">
+              <span>COD remittance</span>
+              <strong>{lastResult.codRemittance.ok ? 'Accepted' : 'Sent'}</strong>
+            </div>
+          )}
         </div>
       )}
     </div>

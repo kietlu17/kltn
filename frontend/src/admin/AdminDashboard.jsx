@@ -5,7 +5,7 @@ import { useToast } from '../context/ToastContext.jsx';
 import { formatDisputeStatus, formatOrderStatus } from '../utils/statusLabels';
 
 const orderStatuses = ['pending_payment', 'payment_processing', 'paid', 'confirmed', 'shipped', 'delivered', 'refund_processing', 'refunded', 'payment_failed', 'cancelled'];
-const codOrderStatuses = ['pending_payment', 'confirmed', 'shipped', 'paid', 'refund_processing', 'refunded', 'payment_failed', 'cancelled'];
+const codOrderStatuses = ['pending_payment', 'confirmed', 'shipped', 'delivered', 'paid', 'refund_processing', 'refunded', 'payment_failed', 'cancelled'];
 
 function isCodOrder(order) {
   return String(order?.payment_method || '').toLowerCase() === 'cod';
@@ -30,6 +30,14 @@ function SectionHeader({ title, subtitle }) {
 
 function formatCurrency(value) {
   return Number(value || 0).toLocaleString('vi-VN', { style: 'currency', currency: 'VND' });
+}
+
+function formatSettlementStatus(status) {
+  const key = String(status || '').toLowerCase();
+  if (key === 'settled') return 'Đã chuyển';
+  if (key === 'pending') return 'Chờ đối soát';
+  if (key === 'awaiting_cod_remittance') return 'Chờ carrier nộp COD';
+  return '-';
 }
 
 export default function AdminDashboard() {
@@ -274,7 +282,7 @@ export default function AdminDashboard() {
                 <div>{order.user_id}</div>
                 <div>{formatOrderStatus(order.status)}</div>
                 <div>{order.shipment_tracking_code || '-'}</div>
-                <div>{order.settlement_status === 'settled' ? 'Đã chuyển' : order.settlement_status === 'pending' ? 'Chờ đối soát' : '-'}</div>
+                <div>{formatSettlementStatus(order.settlement_status)}</div>
                 <div className="admin-actions">
                   <select value={order.status} onChange={(event) => updateOrderStatus(order.id, event.target.value)}>
                     {getSelectableOrderStatuses(order).map((status) => (
@@ -340,12 +348,8 @@ export default function AdminDashboard() {
                   <strong>{formatCurrency(platformWallet.capital?.availableBalance)}</strong>
                 </div>
                 <div className="admin-finance-tile">
-                  <span>Ví clearing</span>
-                  <strong>{formatCurrency(platformWallet.clearing?.availableBalance)}</strong>
-                </div>
-                <div className="admin-finance-tile">
-                  <span>Tổng khả dụng</span>
-                  <strong>{formatCurrency(platformWallet.totalAvailable)}</strong>
+                  <span>Tiền sàn giữ hộ</span>
+                  <strong>{formatCurrency(platformWallet.clearingHeldAmount)}</strong>
                 </div>
               </div>
               <button type="button" className="btn btn-outline" onClick={loadPlatformWallet}>

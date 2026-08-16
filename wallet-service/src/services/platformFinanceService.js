@@ -79,7 +79,8 @@ async function getPlatformWallet() {
       initialCapital: PLATFORM_INITIAL_CAPITAL,
       capital,
       clearing,
-      totalAvailable: toMoney(capital.availableBalance + clearing.availableBalance),
+      operatingCapitalAvailable: capital.availableBalance,
+      clearingHeldAmount: clearing.availableBalance,
       updatedAt: new Date().toISOString()
     };
   });

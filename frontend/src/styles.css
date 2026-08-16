@@ -1710,6 +1710,11 @@ img {
   color: var(--text);
 }
 
+.radio-field.disabled {
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
 .checkout-row {
   display: flex;
   justify-content: space-between;
