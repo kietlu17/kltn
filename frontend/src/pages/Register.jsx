@@ -10,6 +10,10 @@ export default function Register({ forcedRole = null }) {
   const [name, setName] = useState('');
   const [shopName, setShopName] = useState('');
   const [shopDescription, setShopDescription] = useState('');
+  const [legalEntityType, setLegalEntityType] = useState('unknown');
+  const [taxCode, setTaxCode] = useState('');
+  const [invoiceProvider, setInvoiceProvider] = useState('');
+  const [invoiceRequestMode, setInvoiceRequestMode] = useState('chat_required');
   const { showToast } = useToast();
   const navigate = useNavigate();
 
@@ -40,7 +44,11 @@ export default function Register({ forcedRole = null }) {
         role: effectiveRole,
         name,
         shopName,
-        shopDescription
+        shopDescription,
+        legalEntityType,
+        taxCode,
+        invoiceProvider,
+        invoiceRequestMode
       });
       showToast('Đăng ký thành công');
       navigate(loginPath);
@@ -87,6 +95,27 @@ export default function Register({ forcedRole = null }) {
               value={shopDescription}
               onChange={(e) => setShopDescription(e.target.value)}
             />
+            <label>Loại hình kinh doanh</label>
+            <select value={legalEntityType} onChange={(e) => setLegalEntityType(e.target.value)}>
+              <option value="unknown">Chưa cập nhật</option>
+              <option value="company">Công ty</option>
+              <option value="business_household">Hộ kinh doanh</option>
+              <option value="individual">Cá nhân kinh doanh</option>
+            </select>
+            <label>Mã số thuế</label>
+            <input placeholder="MST nếu có" value={taxCode} onChange={(e) => setTaxCode(e.target.value)} />
+            <label>Phần mềm hóa đơn</label>
+            <input
+              placeholder="Ví dụ: MISA, Sapo, VNPT"
+              value={invoiceProvider}
+              onChange={(e) => setInvoiceProvider(e.target.value)}
+            />
+            <label>Cách nhận yêu cầu hóa đơn</label>
+            <select value={invoiceRequestMode} onChange={(e) => setInvoiceRequestMode(e.target.value)}>
+              <option value="chat_required">Khách chat shop để gửi thông tin</option>
+              <option value="checkout_form">Hiện form ở trang thanh toán</option>
+              <option value="off">Không hiển thị hỗ trợ hóa đơn</option>
+            </select>
           </>
         )}
 

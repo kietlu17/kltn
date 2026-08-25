@@ -15,6 +15,7 @@ import Register from './pages/Register.jsx';
 import Help from './pages/Help.jsx';
 import Addresses from './pages/Addresses.jsx';
 import CarrierSimulator from './pages/CarrierSimulator.jsx';
+import BuyerLiveRoom from './pages/BuyerLiveRoom.jsx';
 import SellerLayout from './seller/SellerLayout.jsx';
 import SellerDashboard from './seller/SellerDashboard.jsx';
 import SellerProductList from './seller/ProductList.jsx';
@@ -23,6 +24,7 @@ import EditProduct from './seller/EditProduct.jsx';
 import SellerCategories from './seller/Categories.jsx';
 import SellerOrders from './seller/SellerOrders.jsx';
 import SellerChat from './seller/SellerChat.jsx';
+import SellerLiveStudio from './seller/SellerLiveStudio.jsx';
 import AdminLayout from './admin/AdminLayout.jsx';
 import AdminDashboard from './admin/AdminDashboard.jsx';
 import VoucherManager from './components/VoucherManager.jsx';
@@ -99,6 +101,14 @@ export default function App() {
           <Route path="/register" element={<Register forcedRole="buyer" />} />
           <Route path="/help" element={<Help />} />
           <Route path="/carrier" element={<CarrierSimulator />} />
+          <Route
+            path="/live/:liveId"
+            element={
+              <ProtectedRoute allowedRoles={['buyer']}>
+                <BuyerLiveRoom />
+              </ProtectedRoute>
+            }
+          />
           <Route path="/seller/login" element={<Login expectedRole="seller" />} />
           <Route path="/seller/register" element={<Register forcedRole="seller" />} />
           <Route path="/admin/login" element={<Login expectedRole="admin" />} />
@@ -116,6 +126,7 @@ export default function App() {
             <Route path="categories" element={<SellerCategories />} />
             <Route path="orders" element={<SellerOrders />} />
             <Route path="chat" element={<SellerChat />} />
+            <Route path="livestreams" element={<SellerLiveStudio />} />
             <Route path="vouchers" element={<VoucherManager title="Mã giảm giá của shop" />} />
             <Route path="products/create" element={<CreateProduct />} />
             <Route path="products/edit/:id" element={<EditProduct />} />

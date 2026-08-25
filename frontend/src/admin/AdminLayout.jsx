@@ -8,6 +8,7 @@ const links = [
   { key: 'products', label: 'Sản phẩm' },
   { key: 'orders', label: 'Đơn hàng' },
   { key: 'disputes', label: 'Trả hàng/hoàn tiền' },
+  { key: 'invoice_requests', label: 'Yêu cầu hóa đơn' },
   { key: 'finance', label: 'Ví sàn' },
   { key: 'categories', label: 'Danh mục' },
   { key: 'vouchers', label: 'Mã giảm giá', to: '/admin/vouchers' }

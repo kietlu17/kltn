@@ -9,7 +9,16 @@ const { createProxyMiddleware, fixRequestBody } = require('http-proxy-middleware
 const fetchImpl = require('node-fetch');
 
 const app = express();
-app.use(cors());
+const corsOptions = {
+  origin: true,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Length']
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 app.use(express.json());
 app.use(morgan('dev'));
 
@@ -32,7 +41,8 @@ const targets = {
   wallet: process.env.WALLET_SERVICE_URL || 'http://localhost:3011',
   paymentGateway: process.env.PAYMENT_GATEWAY_URL || 'http://localhost:3012',
   reviews: process.env.REVIEW_SERVICE_URL || 'http://localhost:3008',
-  chat: process.env.CHAT_SERVICE_URL || 'http://localhost:3009'
+  chat: process.env.CHAT_SERVICE_URL || 'http://localhost:3009',
+  lives: process.env.LIVESTREAM_SERVICE_URL || 'http://localhost:3014'
 };
 
 function createMtlsAgent() {
@@ -57,6 +67,8 @@ function buildProxy(target) {
   const config = {
     target,
     changeOrigin: true,
+    ws: true,
+    logLevel: 'warn',
     onProxyReq: fixRequestBody
   };
   if (target.startsWith('https://')) {
@@ -71,6 +83,7 @@ const PUBLIC_PATHS = [
   { method: 'POST', path: '/auth/register' },
   { method: 'POST', path: '/auth/session' },
   { method: 'GET', path: '/shops' },
+  { method: 'POST', path: '/lives/provider/livekit/webhook' },
   { method: 'POST', path: '/orders/shipping/callback' },
   { method: 'POST', path: '/payments/wallet/cod-remittances' },
   { method: 'POST', path: '/payments/sepay/webhook' }
@@ -81,6 +94,9 @@ function matchesPath(targetPath, reqPath) {
 }
 
 function isPublicRequest(req) {
+  if (req.path.startsWith('/shops/admin/') || /^\/shops\/[^/]+\/invoice-feature/.test(req.path)) {
+    return false;
+  }
   return PUBLIC_PATHS.some((item) => item.method === req.method && matchesPath(item.path, req.path));
 }
 
@@ -140,8 +156,19 @@ function getRequiredRoles(req) {
   if (path.startsWith('/seller/')) return ['seller', 'admin'];
 
   if (path.startsWith('/users')) return ['buyer', 'seller', 'admin'];
+  if (path.startsWith('/shops/admin/')) return ['admin'];
+  if (/^\/shops\/[^/]+\/invoice-feature/.test(path)) return ['seller', 'admin'];
   if (path.startsWith('/cart')) return ['buyer', 'admin'];
   if (path.startsWith('/chat')) return ['buyer', 'seller', 'admin'];
+  if (path.startsWith('/lives')) {
+    if (path.startsWith('/lives/provider/')) return null;
+    if (method === 'GET') {
+      if (path === '/lives/seller/me') return ['seller', 'admin'];
+      return null;
+    }
+    if (path.endsWith('/viewer-token')) return ['buyer', 'admin'];
+    return ['seller', 'admin'];
+  }
   if (path.startsWith('/reviews')) return ['buyer', 'admin'];
   if (path.startsWith('/payments/wallet/platform-wallet')) return ['admin'];
   if (path.startsWith('/payments/wallet/cod-remittances')) return ['admin'];
@@ -156,6 +183,7 @@ function getRequiredRoles(req) {
   if (path.startsWith('/orders')) {
     if (method === 'POST' && /^\/orders\/\d+\/confirm$/.test(path)) return ['seller', 'admin'];
     if (method === 'POST' && /^\/orders\/\d+\/shipments$/.test(path)) return ['seller', 'admin'];
+    if (method === 'PATCH' && /^\/orders\/\d+\/invoice$/.test(path)) return ['seller', 'admin'];
     if (method === 'GET' && /^\/orders\/shipments\/order\/\d+$/.test(path)) return ['buyer', 'seller', 'admin'];
     if (method === 'POST' && /^\/orders\/shipments\/[^/]+\/simulate$/.test(path)) return ['admin'];
     if (method === 'POST' && path === '/orders/shipping/callback') return ['admin'];
@@ -278,6 +306,7 @@ app.use('/payments/sepay', buildProxy(targets.paymentGateway));
 app.use('/payments', buildProxy(targets.payments));
 app.use('/reviews', buildProxy(targets.reviews));
 app.use('/chat', buildProxy(targets.chat));
+app.use('/lives', buildProxy(targets.lives));
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

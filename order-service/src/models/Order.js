@@ -12,6 +12,7 @@ const Order = sequelize.define(
     total_price: { type: DataTypes.DECIMAL(12, 2), allowNull: false },
     voucher_code: { type: DataTypes.STRING(40), allowNull: true },
     voucher_snapshot: { type: DataTypes.JSONB, allowNull: true },
+    invoice_request: { type: DataTypes.JSONB, allowNull: true },
     status: { type: DataTypes.STRING(40), allowNull: false, defaultValue: 'pending_payment' },
     idempotency_key: { type: DataTypes.STRING(128), allowNull: true, unique: true },
     idempotency_request_hash: { type: DataTypes.STRING(64), allowNull: true },

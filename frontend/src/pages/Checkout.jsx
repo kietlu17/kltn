@@ -49,6 +49,15 @@ export default function Checkout() {
   const [selectedVoucherCode, setSelectedVoucherCode] = useState('');
   const [voucherLoading, setVoucherLoading] = useState(false);
   const [checkoutProgress, setCheckoutProgress] = useState(null);
+  const [invoiceRequested, setInvoiceRequested] = useState(false);
+  const [invoiceInfo, setInvoiceInfo] = useState({
+    targetType: 'company',
+    buyerName: '',
+    taxCode: '',
+    address: '',
+    email: '',
+    note: ''
+  });
 
   useEffect(() => {
     refreshCart();
@@ -152,6 +161,29 @@ export default function Checkout() {
   );
 
   const hasOutOfStock = enrichedProducts.some((item) => !item.inStock);
+  const invoiceShopModes = useMemo(() => {
+    const modes = new Map();
+    enrichedProducts.forEach((item) => {
+      const shopId = item.shopId;
+      if (!shopId || modes.has(shopId)) return;
+      const shop = shopMap.get(shopId);
+      const mode = shop?.invoiceEligible === false ? 'off' : (shop?.invoiceRequestMode || 'chat_required');
+      modes.set(shopId, {
+        shopId,
+        shopName: shop?.name || item.shopName || 'Shop',
+        mode
+      });
+    });
+    return [...modes.values()];
+  }, [enrichedProducts, shopMap]);
+  const checkoutInvoiceShops = invoiceShopModes.filter((shop) => shop.mode === 'checkout_form');
+  const canRequestInvoiceAtCheckout = checkoutInvoiceShops.length > 0;
+
+  useEffect(() => {
+    if (!canRequestInvoiceAtCheckout && invoiceRequested) {
+      setInvoiceRequested(false);
+    }
+  }, [canRequestInvoiceAtCheckout, invoiceRequested]);
 
   useEffect(() => {
     if (hasOutOfStock) {
@@ -197,6 +229,20 @@ export default function Checkout() {
       await delay(1000);
     }
     return false;
+  }
+
+  function buildInvoiceRequest() {
+    if (!invoiceRequested) return null;
+    return {
+      requested: true,
+      targetType: invoiceInfo.targetType,
+      buyerName: invoiceInfo.buyerName.trim(),
+      taxCode: invoiceInfo.taxCode.trim(),
+      address: invoiceInfo.address.trim(),
+      email: invoiceInfo.email.trim(),
+      note: invoiceInfo.note.trim(),
+      priceIncludesVat: true
+    };
   }
 
   useEffect(() => {
@@ -287,6 +333,10 @@ export default function Checkout() {
       showToast('Vui lòng chọn phương thức thanh toán', 'error');
       return;
     }
+    if (invoiceRequested && !canRequestInvoiceAtCheckout) {
+      showToast('Các shop đã chọn đang nhận yêu cầu hóa đơn qua chat', 'error');
+      return;
+    }
     if (paymentMethod === 'wallet') {
       if (!walletAvailable) {
         showToast('Ví đang không khả dụng. Vui lòng chọn COD hoặc SePay QR.', 'error');
@@ -299,6 +349,21 @@ export default function Checkout() {
       }
       if (payableTotal > Number(walletState.balance || 0)) {
         showToast('Số dư ví không đủ. Vui lòng nạp thêm tiền.', 'error');
+        return;
+      }
+    }
+    const invoiceRequest = buildInvoiceRequest();
+    if (invoiceRequest) {
+      if (!invoiceRequest.buyerName || !invoiceRequest.address || !invoiceRequest.email) {
+        showToast('Vui lòng nhập đủ tên, địa chỉ và email nhận hóa đơn', 'error');
+        return;
+      }
+      if (invoiceRequest.targetType !== 'personal' && !invoiceRequest.taxCode) {
+        showToast('Vui lòng nhập mã số thuế để xuất hóa đơn công ty/hộ kinh doanh', 'error');
+        return;
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(invoiceRequest.email)) {
+        showToast('Email nhận hóa đơn không hợp lệ', 'error');
         return;
       }
     }
@@ -365,6 +430,7 @@ export default function Checkout() {
     const createdOrders = [];
     try {
       for (const [shopId, items] of ordersByShop.entries()) {
+        const shopInvoiceMode = invoiceShopModes.find((shop) => String(shop.shopId) === String(shopId))?.mode || 'chat_required';
         const shouldApplyVoucher =
           selectedVoucher &&
           (
@@ -376,7 +442,8 @@ export default function Checkout() {
           products: items,
           shippingAddress: selectedAddress,
           paymentMethod,
-          voucherCode: shouldApplyVoucher ? selectedVoucher.code : null
+          voucherCode: shouldApplyVoucher ? selectedVoucher.code : null,
+          invoiceRequest: shopInvoiceMode === 'checkout_form' ? invoiceRequest : null
         });
         createdOrders.push(created.data);
       }
@@ -488,6 +555,86 @@ export default function Checkout() {
             </select>
           )}
         </div>
+
+        {canRequestInvoiceAtCheckout && (
+          <div className="checkout-section invoice-box">
+            <label className="checkbox-field invoice-toggle">
+              <input
+                type="checkbox"
+                checked={invoiceRequested}
+                onChange={(event) => setInvoiceRequested(event.target.checked)}
+              />
+              Yêu cầu hóa đơn điện tử
+            </label>
+            <div className="muted">
+              Form này áp dụng cho: {checkoutInvoiceShops.map((shop) => shop.shopName).join(', ')}
+            </div>
+            {invoiceRequested && (
+              <div className="invoice-form">
+                <div className="invoice-price-note">
+                  Giá sản phẩm hiển thị đã bao gồm VAT nếu hàng hóa thuộc diện chịu thuế.
+                </div>
+                <div className="form-grid">
+                  <div>
+                    <label>Đối tượng nhận hóa đơn</label>
+                    <select
+                      value={invoiceInfo.targetType}
+                      onChange={(event) =>
+                        setInvoiceInfo((prev) => ({ ...prev, targetType: event.target.value }))
+                      }
+                    >
+                      <option value="company">Công ty</option>
+                      <option value="business_household">Hộ kinh doanh</option>
+                      <option value="personal">Cá nhân</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label>Email nhận hóa đơn</label>
+                    <input
+                      value={invoiceInfo.email}
+                      onChange={(event) => setInvoiceInfo((prev) => ({ ...prev, email: event.target.value }))}
+                      placeholder="billing@example.com"
+                    />
+                  </div>
+                </div>
+                <div className="form-grid">
+                  <div>
+                    <label>Tên công ty/cá nhân</label>
+                    <input
+                      value={invoiceInfo.buyerName}
+                      onChange={(event) => setInvoiceInfo((prev) => ({ ...prev, buyerName: event.target.value }))}
+                      placeholder="Tên trên hóa đơn"
+                    />
+                  </div>
+                  <div>
+                    <label>Mã số thuế</label>
+                    <input
+                      value={invoiceInfo.taxCode}
+                      onChange={(event) => setInvoiceInfo((prev) => ({ ...prev, taxCode: event.target.value }))}
+                      placeholder={invoiceInfo.targetType === 'personal' ? 'Không bắt buộc' : 'Bắt buộc'}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label>Địa chỉ xuất hóa đơn</label>
+                  <input
+                    value={invoiceInfo.address}
+                    onChange={(event) => setInvoiceInfo((prev) => ({ ...prev, address: event.target.value }))}
+                    placeholder="Địa chỉ theo thông tin thuế"
+                  />
+                </div>
+                <div>
+                  <label>Ghi chú cho shop</label>
+                  <textarea
+                    value={invoiceInfo.note}
+                    onChange={(event) => setInvoiceInfo((prev) => ({ ...prev, note: event.target.value }))}
+                    placeholder="Ví dụ: vui lòng xuất hóa đơn sau khi đơn hoàn tất"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="checkout-items">
           {enrichedProducts.length === 0 ? (

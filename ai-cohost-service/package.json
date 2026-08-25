@@ -1,0 +1,17 @@
+{
+  "name": "ai-cohost-service",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/agent.js start",
+    "dev": "node src/agent.js dev"
+  },
+  "dependencies": {
+    "@livekit/agents": "^1.7.0",
+    "@livekit/rtc-node": "^0.13.34",
+    "dotenv": "^16.4.5",
+    "kafkajs": "^2.2.4",
+    "node-fetch": "^3.3.2"
+  }
+}

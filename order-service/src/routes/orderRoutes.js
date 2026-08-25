@@ -6,6 +6,7 @@ const {
   getUserOrders,
   getSellerOrders,
   getSellerStats,
+  updateInvoiceStatus,
   getAdminOrders,
   updateAdminOrderStatus,
   forceCancelOrder,
@@ -31,6 +32,7 @@ router.post('/shipping/callback', receiveShippingCallback);
 router.get('/user', getUserOrders);
 router.get('/seller/:shopId/stats', getSellerStats);
 router.get('/seller/:shopId', getSellerOrders);
+router.patch('/:id/invoice', updateInvoiceStatus);
 router.get('/admin/orders', getAdminOrders);
 router.patch('/admin/orders/:id/status', updateAdminOrderStatus);
 router.post('/admin/orders/:id/force-cancel', forceCancelOrder);

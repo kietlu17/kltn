@@ -89,6 +89,49 @@ function toNumber(value) {
   return Number.isFinite(number) ? number : 0;
 }
 
+function cleanText(value, maxLength) {
+  if (typeof value !== 'string') return '';
+  return value.trim().slice(0, maxLength);
+}
+
+function normalizeInvoiceRequest(value) {
+  if (!value || typeof value !== 'object' || value.requested !== true) return null;
+  const targetType = ['company', 'business_household', 'personal'].includes(value.targetType)
+    ? value.targetType
+    : 'company';
+  const invoice = {
+    requested: true,
+    targetType,
+    buyerName: cleanText(value.buyerName, 160),
+    taxCode: cleanText(value.taxCode, 32),
+    address: cleanText(value.address, 240),
+    email: cleanText(value.email, 160),
+    note: cleanText(value.note, 300),
+    priceIncludesVat: value.priceIncludesVat !== false,
+    status: 'requested',
+    requestedAt: null,
+    issuedAt: null,
+    invoiceNumber: '',
+    lookupUrl: ''
+  };
+  if (!invoice.buyerName || !invoice.address || !invoice.email) {
+    const error = new Error('Invoice name, address, and email are required');
+    error.status = 400;
+    throw error;
+  }
+  if (targetType !== 'personal' && !invoice.taxCode) {
+    const error = new Error('Tax code is required for company or business household invoices');
+    error.status = 400;
+    throw error;
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(invoice.email)) {
+    const error = new Error('Invoice email is invalid');
+    error.status = 400;
+    throw error;
+  }
+  return invoice;
+}
+
 function isCodPaymentMethod(paymentMethod) {
   return String(paymentMethod || '').toLowerCase() === 'cod';
 }
@@ -320,7 +363,7 @@ async function cancelOrderWithCompensation(order, options = {}) {
 
 async function createOrder(req, res) {
   try {
-    const { userId, products, shippingAddress, paymentMethod, voucherCode } = req.body;
+    const { userId, products, shippingAddress, paymentMethod, voucherCode, invoiceRequest } = req.body;
     const idempotencyKey = normalizeIdempotencyKey(req.headers['idempotency-key']);
     const actorRole = req.headers['x-user-role'] || '';
     const actorUserId = req.headers['x-user-id'] || '';
@@ -343,9 +386,20 @@ async function createOrder(req, res) {
     if (shopIds.size > 1) {
       return res.status(400).json({ message: 'Each order must contain products from a single shop' });
     }
+    const normalizedInvoiceRequest = normalizeInvoiceRequest(invoiceRequest);
+    const invoiceForCreate = normalizedInvoiceRequest
+      ? { ...normalizedInvoiceRequest, requestedAt: new Date().toISOString() }
+      : null;
 
     const idempotencyHash = idempotencyKey
-      ? buildIdempotencyHash({ userId, products, shippingAddress, paymentMethod, voucherCode: voucherCode || null })
+      ? buildIdempotencyHash({
+          userId,
+          products,
+          shippingAddress,
+          paymentMethod,
+          voucherCode: voucherCode || null,
+          invoiceRequest: normalizedInvoiceRequest
+        })
       : null;
 
     if (idempotencyKey) {
@@ -369,6 +423,7 @@ async function createOrder(req, res) {
         total_price: subtotalPrice,
         voucher_code: voucherCode || null,
         voucher_snapshot: null,
+        invoice_request: invoiceForCreate,
         status: 'pending_payment',
         idempotency_key: idempotencyKey || null,
         idempotency_request_hash: idempotencyHash,
@@ -474,6 +529,9 @@ async function confirmOrder(req, res) {
     const shopId = getPrimaryShopId(order.toJSON ? order.toJSON() : order);
     const actorShopId = req.headers['x-user-shop-id'] || req.headers['x-user-id'] || '';
     const actorRole = req.headers['x-user-role'] || '';
+    if (!['seller', 'admin'].includes(actorRole)) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
     if (actorRole === 'seller' && String(shopId) !== String(actorShopId)) {
       return res.status(403).json({ message: 'Forbidden' });
     }
@@ -721,6 +779,46 @@ async function getSellerStats(req, res) {
     });
   } catch (err) {
     return res.status(500).json({ message: 'Get seller stats failed', error: err.message });
+  }
+}
+
+async function updateInvoiceStatus(req, res) {
+  try {
+    const id = Number(req.params.id);
+    const order = await Order.findByPk(id);
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+    const invoiceRequest = order.invoice_request || null;
+    if (!invoiceRequest?.requested) {
+      return res.status(400).json({ message: 'Order does not have an invoice request' });
+    }
+
+    const shopId = getPrimaryShopId(order.toJSON ? order.toJSON() : order);
+    const actorShopId = req.headers['x-user-shop-id'] || req.headers['x-user-id'] || '';
+    const actorRole = req.headers['x-user-role'] || '';
+    if (actorRole === 'seller' && String(shopId) !== String(actorShopId)) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+
+    const { invoiceNumber, lookupUrl, note } = req.body || {};
+    const nextInvoice = {
+      ...invoiceRequest,
+      status: 'issued',
+      invoiceNumber: cleanText(invoiceNumber, 80),
+      lookupUrl: cleanText(lookupUrl, 240),
+      sellerNote: cleanText(note, 300),
+      issuedAt: new Date().toISOString()
+    };
+    if (!nextInvoice.invoiceNumber) {
+      return res.status(400).json({ message: 'invoiceNumber is required' });
+    }
+
+    order.invoice_request = nextInvoice;
+    await order.save();
+    return res.json(order.toJSON());
+  } catch (err) {
+    return res.status(500).json({ message: 'Update invoice failed', error: err.message });
   }
 }
 
@@ -1015,6 +1113,7 @@ module.exports = {
   getUserOrders,
   getSellerOrders,
   getSellerStats,
+  updateInvoiceStatus,
   getAdminOrders,
   updateAdminOrderStatus,
   forceCancelOrder,

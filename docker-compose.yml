@@ -77,6 +77,27 @@ services:
     depends_on:
       - kafka_e
 
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
+  livekit:
+    image: livekit/livekit-server:latest
+    container_name: livekit
+    restart: unless-stopped
+    command: --node-ip ${LIVEKIT_NODE_IP:-192.168.100.3} --config /livekit.yaml
+    ports:
+      - "7880:7880"
+      - "7881:7881"
+      - "7882:7882/udp"
+    volumes:
+      - ./docker/livekit/livekit.yaml:/livekit.yaml:ro
+    depends_on:
+      - redis
+
   auth-service:
     build:
       context: .
@@ -355,6 +376,78 @@ services:
       mongo:
         condition: service_healthy
 
+  livestream-service:
+    build:
+      context: .
+      dockerfile: livestream-service/Dockerfile
+    container_name: livestream-service
+    restart: unless-stopped
+    environment:
+      PORT: 3014
+      MONGO_URI: mongodb://mongo:27017/livestream-service
+      PRODUCT_SERVICE_URL: https://product-service:3004
+      KAFKA_BROKER: kafka-e:29092
+      REDIS_URL: redis://redis:6379
+      LIVEKIT_HOST: http://livekit:7880
+      LIVEKIT_PUBLIC_URL: ${LIVEKIT_PUBLIC_URL:-ws://localhost:7880}
+      LIVEKIT_API_KEY: devkey
+      LIVEKIT_API_SECRET: devsecret
+      LIVEKIT_AI_COHOST_AGENT_NAME: live-commerce-cohost
+      TLS_ENABLED: "true"
+      TLS_REQUEST_CLIENT_CERT: "true"
+      TLS_REJECT_UNAUTHORIZED: "true"
+      TLS_CA_PATH: /certs/ca/ca.crt
+      TLS_CERT_PATH: /certs/livestream-service/tls.crt
+      TLS_KEY_PATH: /certs/livestream-service/tls.key
+      MTLS_ENABLED: "true"
+      MTLS_REJECT_UNAUTHORIZED: "true"
+      MTLS_CA_PATH: /certs/ca/ca.crt
+      MTLS_CLIENT_CERT_PATH: /certs/livestream-service/tls.crt
+      MTLS_CLIENT_KEY_PATH: /certs/livestream-service/tls.key
+    volumes:
+      - certs_data:/certs:ro
+    depends_on:
+      certs-init:
+        condition: service_completed_successfully
+      mongo:
+        condition: service_healthy
+      kafka_e:
+        condition: service_started
+      livekit:
+        condition: service_started
+      redis:
+        condition: service_started
+
+  ai-cohost-service:
+    build:
+      context: .
+      dockerfile: ai-cohost-service/Dockerfile
+    container_name: ai-cohost-service
+    restart: unless-stopped
+    environment:
+      LIVEKIT_URL: ws://livekit:7880
+      LIVEKIT_API_KEY: devkey
+      LIVEKIT_API_SECRET: devsecret
+      LIVEKIT_AGENT_NAME: live-commerce-cohost
+      KAFKA_BROKER: kafka-e:29092
+      CART_SERVICE_URL: https://cart-service:3005
+      MTLS_ENABLED: "true"
+      MTLS_REJECT_UNAUTHORIZED: "true"
+      MTLS_CA_PATH: /certs/ca/ca.crt
+      MTLS_CLIENT_CERT_PATH: /certs/ai-cohost-service/tls.crt
+      MTLS_CLIENT_KEY_PATH: /certs/ai-cohost-service/tls.key
+    volumes:
+      - certs_data:/certs:ro
+    depends_on:
+      certs-init:
+        condition: service_completed_successfully
+      livekit:
+        condition: service_started
+      kafka_e:
+        condition: service_started
+      cart-service:
+        condition: service_started
+
   payment-service:
     build:
       context: .
@@ -479,6 +572,7 @@ services:
       PAYMENT_GATEWAY_URL: https://payment-gateway:3012
       REVIEW_SERVICE_URL: https://review-service:3008
       CHAT_SERVICE_URL: https://chat-service:3009
+      LIVESTREAM_SERVICE_URL: https://livestream-service:3014
       MTLS_ENABLED: "true"
       MTLS_REJECT_UNAUTHORIZED: "true"
       MTLS_CA_PATH: /certs/ca/ca.crt
@@ -508,6 +602,10 @@ services:
       review-service:
         condition: service_started
       chat-service:
+        condition: service_started
+      livestream-service:
+        condition: service_started
+      ai-cohost-service:
         condition: service_started
       payment-service:
         condition: service_started

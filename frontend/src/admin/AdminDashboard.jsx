@@ -51,6 +51,7 @@ export default function AdminDashboard() {
   const [orders, setOrders] = useState([]);
   const [disputes, setDisputes] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [invoiceRequests, setInvoiceRequests] = useState([]);
   const [categoryForm, setCategoryForm] = useState({});
   const [platformWallet, setPlatformWallet] = useState(null);
   const [platformWalletError, setPlatformWalletError] = useState('');
@@ -60,6 +61,7 @@ export default function AdminDashboard() {
   const loadOrders = () => api.get('/orders/admin/orders').then((res) => setOrders(res.data || [])).catch(() => setOrders([]));
   const loadDisputes = () => api.get('/orders/admin/disputes').then((res) => setDisputes(res.data || [])).catch(() => setDisputes([]));
   const loadCategories = () => api.get('/categories/admin/all').then((res) => setCategories(res.data || [])).catch(() => setCategories([]));
+  const loadInvoiceRequests = () => api.get('/shops/admin/invoice-feature-requests').then((res) => setInvoiceRequests(res.data || [])).catch(() => setInvoiceRequests([]));
   const loadPlatformWallet = () => api.get('/payments/wallet/platform-wallet')
     .then((res) => {
       setPlatformWallet(res.data || null);
@@ -79,6 +81,7 @@ export default function AdminDashboard() {
     if (activeTab === 'products') loadPendingProducts();
     if (activeTab === 'orders') loadOrders();
     if (activeTab === 'disputes') loadDisputes();
+    if (activeTab === 'invoice_requests') loadInvoiceRequests();
     if (activeTab === 'finance') loadPlatformWallet();
     if (activeTab === 'categories') loadCategories();
   }, [activeTab]);
@@ -89,10 +92,11 @@ export default function AdminDashboard() {
       products: pendingProducts.length,
       orders: orders.length,
       disputes: disputes.length,
+      invoice_requests: invoiceRequests.filter((item) => item.status === 'pending').length,
       finance: platformWallet ? 1 : 0,
       categories: categories.length
     }),
-    [users, pendingProducts, orders, disputes, platformWallet, categories]
+    [users, pendingProducts, orders, disputes, invoiceRequests, platformWallet, categories]
   );
 
   async function setUserLock(user, isActive) {
@@ -169,6 +173,22 @@ export default function AdminDashboard() {
       loadDisputes();
     } catch (err) {
       showToast(err?.response?.data?.message || 'Cập nhật yêu cầu thất bại', 'error');
+    }
+  }
+
+  function formatInvoiceMode(mode) {
+    if (mode === 'checkout_form') return 'Mở form checkout';
+    if (mode === 'off') return 'Ẩn hỗ trợ hóa đơn';
+    return 'Khách chat shop';
+  }
+
+  async function reviewInvoiceRequest(requestId, action) {
+    try {
+      await api.patch(`/shops/admin/invoice-feature-requests/${requestId}`, { action });
+      showToast(action === 'approve' ? 'Đã duyệt yêu cầu hóa đơn' : 'Đã từ chối yêu cầu hóa đơn');
+      loadInvoiceRequests();
+    } catch (err) {
+      showToast(err?.response?.data?.message || 'Duyệt yêu cầu hóa đơn thất bại', 'error');
     }
   }
 
@@ -357,6 +377,55 @@ export default function AdminDashboard() {
               </button>
             </>
           )}
+        </>
+      )}
+
+      {activeTab === 'invoice_requests' && (
+        <>
+          <SectionHeader title="Duyệt yêu cầu hóa đơn" subtitle={`${activeCounts.invoice_requests} chờ duyệt`} />
+          <div className="seller-table admin-table admin-invoice-requests-table">
+            <div className="seller-table-row seller-table-head">
+              <div>Shop</div>
+              <div>Hiện tại</div>
+              <div>Yêu cầu</div>
+              <div>Thông tin thuế</div>
+              <div>Trạng thái</div>
+              <div>Thao tác</div>
+            </div>
+            {invoiceRequests.map((request) => (
+              <div key={request._id || request.id} className="seller-table-row">
+                <div>
+                  <strong>{request.shopName}</strong>
+                  <span className="muted">{request.shopId}</span>
+                </div>
+                <div>{formatInvoiceMode(request.currentMode)}</div>
+                <div>
+                  <strong>{formatInvoiceMode(request.requestedMode)}</strong>
+                  {request.reason && <span className="muted">{request.reason}</span>}
+                </div>
+                <div>
+                  <span>{request.legalEntityType || 'unknown'}</span>
+                  <span className="muted">{request.taxCode || 'Chưa có MST'}</span>
+                  {request.invoiceProvider && <span className="muted">{request.invoiceProvider}</span>}
+                </div>
+                <div>{request.status === 'pending' ? 'Chờ duyệt' : request.status === 'approved' ? 'Đã duyệt' : 'Từ chối'}</div>
+                <div className="admin-actions">
+                  {request.status === 'pending' ? (
+                    <>
+                      <button type="button" className="btn btn-primary" onClick={() => reviewInvoiceRequest(request._id || request.id, 'approve')}>
+                        Duyệt
+                      </button>
+                      <button type="button" className="btn btn-outline" onClick={() => reviewInvoiceRequest(request._id || request.id, 'reject')}>
+                        Từ chối
+                      </button>
+                    </>
+                  ) : (
+                    <span className="muted">Đã xử lý</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
         </>
       )}
 

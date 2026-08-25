@@ -56,6 +56,12 @@ async function initDb() {
         allowNull: true
       });
     }
+    if (!table.invoice_request) {
+      await queryInterface.addColumn('orders', 'invoice_request', {
+        type: Sequelize.JSONB,
+        allowNull: true
+      });
+    }
     if (!table.shipment_tracking_code) {
       await queryInterface.addColumn('orders', 'shipment_tracking_code', {
         type: Sequelize.STRING(64),

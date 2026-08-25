@@ -55,6 +55,12 @@ function isToday(value) {
   return toLocalDateKey(value) === todayKey;
 }
 
+function formatInvoiceTarget(type) {
+  if (type === 'business_household') return 'Hộ kinh doanh';
+  if (type === 'personal') return 'Cá nhân';
+  return 'Công ty';
+}
+
 export default function SellerOrders() {
   const { user } = useAuth();
   const { showToast } = useToast();
@@ -64,6 +70,7 @@ export default function SellerOrders() {
   const [expandedOrderId, setExpandedOrderId] = useState(null);
   const [printOrder, setPrintOrder] = useState(null);
   const [printBatch, setPrintBatch] = useState([]);
+  const [invoiceForms, setInvoiceForms] = useState({});
   const pendingPrintIds = useRef([]);
   const marketplaceName = 'Shopee Lite';
 
@@ -177,6 +184,41 @@ export default function SellerOrders() {
     } catch (err) {
       showToast(err?.response?.data?.message || 'Không thể bàn giao vận chuyển', 'error');
     }
+  }
+
+  async function issueInvoice(orderId) {
+    const form = invoiceForms[orderId] || {};
+    if (!form.invoiceNumber?.trim()) {
+      showToast('Vui lòng nhập số hóa đơn', 'error');
+      return;
+    }
+    try {
+      const response = await api.patch(`/orders/${orderId}/invoice`, {
+        invoiceNumber: form.invoiceNumber,
+        lookupUrl: form.lookupUrl || '',
+        note: form.note || ''
+      });
+      setOrders((prev) =>
+        prev.map((order) => (String(getOrderId(order)) === String(orderId) ? response.data : order))
+      );
+      setInvoiceForms((prev) => ({ ...prev, [orderId]: { invoiceNumber: '', lookupUrl: '', note: '' } }));
+      showToast('Đã cập nhật trạng thái hóa đơn');
+    } catch (err) {
+      showToast(err?.response?.data?.message || 'Không thể cập nhật hóa đơn', 'error');
+    }
+  }
+
+  function updateInvoiceForm(orderId, field, value) {
+    setInvoiceForms((prev) => ({
+      ...prev,
+      [orderId]: {
+        invoiceNumber: '',
+        lookupUrl: '',
+        note: '',
+        ...(prev[orderId] || {}),
+        [field]: value
+      }
+    }));
   }
 
   const handlePrintToday = () => {
@@ -325,6 +367,77 @@ export default function SellerOrders() {
                       <span>{formatPrice(Number(item.price || 0) * Number(item.quantity || 0))}</span>
                     </div>
                   ))}
+
+                  {order.invoice_request?.requested && (
+                    <div className="invoice-summary">
+                      <div className="order-detail-head">Yêu cầu hóa đơn điện tử</div>
+                      <div className="order-detail-meta">
+                        <div>
+                          <span className="muted">Đối tượng</span>
+                          <strong>{formatInvoiceTarget(order.invoice_request.targetType)}</strong>
+                        </div>
+                        <div>
+                          <span className="muted">Tên trên hóa đơn</span>
+                          <strong>{order.invoice_request.buyerName}</strong>
+                        </div>
+                        <div>
+                          <span className="muted">Mã số thuế</span>
+                          <strong>{order.invoice_request.taxCode || 'Không có'}</strong>
+                        </div>
+                        <div>
+                          <span className="muted">Email nhận</span>
+                          <strong>{order.invoice_request.email}</strong>
+                        </div>
+                        <div>
+                          <span className="muted">Địa chỉ hóa đơn</span>
+                          <strong>{order.invoice_request.address}</strong>
+                        </div>
+                        <div>
+                          <span className="muted">Giá VAT</span>
+                          <strong>Giá đã bao gồm VAT nếu áp dụng</strong>
+                        </div>
+                        <div>
+                          <span className="muted">Trạng thái</span>
+                          <strong>{order.invoice_request.status === 'issued' ? 'Đã xuất hóa đơn' : 'Chờ xuất hóa đơn'}</strong>
+                        </div>
+                        {order.invoice_request.invoiceNumber && (
+                          <div>
+                            <span className="muted">Số hóa đơn</span>
+                            <strong>{order.invoice_request.invoiceNumber}</strong>
+                          </div>
+                        )}
+                      </div>
+                      {order.invoice_request.note && <div className="muted">Ghi chú: {order.invoice_request.note}</div>}
+                      {order.invoice_request.status === 'issued' ? (
+                        order.invoice_request.lookupUrl && (
+                          <a className="section-link" href={order.invoice_request.lookupUrl} target="_blank" rel="noreferrer">
+                            Mở link tra cứu hóa đơn
+                          </a>
+                        )
+                      ) : (
+                        <div className="invoice-issue-form">
+                          <input
+                            value={invoiceForms[orderId]?.invoiceNumber || ''}
+                            onChange={(event) => updateInvoiceForm(orderId, 'invoiceNumber', event.target.value)}
+                            placeholder="Số hóa đơn"
+                          />
+                          <input
+                            value={invoiceForms[orderId]?.lookupUrl || ''}
+                            onChange={(event) => updateInvoiceForm(orderId, 'lookupUrl', event.target.value)}
+                            placeholder="Link tra cứu nếu có"
+                          />
+                          <input
+                            value={invoiceForms[orderId]?.note || ''}
+                            onChange={(event) => updateInvoiceForm(orderId, 'note', event.target.value)}
+                            placeholder="Ghi chú nội bộ"
+                          />
+                          <button type="button" className="btn btn-outline" onClick={() => issueInvoice(orderId)}>
+                            Đánh dấu đã xuất
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   <div className="order-detail-actions">
                     <button

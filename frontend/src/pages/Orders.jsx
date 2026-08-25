@@ -69,6 +69,12 @@ function formatSettlementStatus(status) {
   return 'Chưa đủ điều kiện';
 }
 
+function formatInvoiceTarget(type) {
+  if (type === 'business_household') return 'Hộ kinh doanh';
+  if (type === 'personal') return 'Cá nhân';
+  return 'Công ty';
+}
+
 export default function Orders({ embedded = false }) {
   const [orders, setOrders] = useState([]);
   const [activeStatus, setActiveStatus] = useState('all');
@@ -322,6 +328,50 @@ export default function Orders({ embedded = false }) {
                           <div><span className="muted">Nội dung</span><strong>{sepayQrByOrder[orderId].requestCode}</strong></div>
                         </div>
                       </div>
+                    </div>
+                  )}
+
+                  {order.invoice_request?.requested && (
+                    <div className="invoice-summary">
+                      <div className="order-detail-head">Hóa đơn điện tử</div>
+                      <div className="order-detail-meta">
+                        <div>
+                          <span className="muted">Đối tượng</span>
+                          <strong>{formatInvoiceTarget(order.invoice_request.targetType)}</strong>
+                        </div>
+                        <div>
+                          <span className="muted">Tên trên hóa đơn</span>
+                          <strong>{order.invoice_request.buyerName}</strong>
+                        </div>
+                        <div>
+                          <span className="muted">Mã số thuế</span>
+                          <strong>{order.invoice_request.taxCode || 'Không có'}</strong>
+                        </div>
+                        <div>
+                          <span className="muted">Email nhận</span>
+                          <strong>{order.invoice_request.email}</strong>
+                        </div>
+                        <div>
+                          <span className="muted">Giá VAT</span>
+                          <strong>Giá đã bao gồm VAT nếu áp dụng</strong>
+                        </div>
+                        <div>
+                          <span className="muted">Trạng thái</span>
+                          <strong>{order.invoice_request.status === 'issued' ? 'Đã xuất hóa đơn' : 'Shop đang xử lý'}</strong>
+                        </div>
+                        {order.invoice_request.invoiceNumber && (
+                          <div>
+                            <span className="muted">Số hóa đơn</span>
+                            <strong>{order.invoice_request.invoiceNumber}</strong>
+                          </div>
+                        )}
+                      </div>
+                      <div className="muted">Shop là bên tiếp nhận và xuất hóa đơn cho đơn hàng này.</div>
+                      {order.invoice_request.lookupUrl && (
+                        <a className="section-link" href={order.invoice_request.lookupUrl} target="_blank" rel="noreferrer">
+                          Mở link tra cứu hóa đơn
+                        </a>
+                      )}
                     </div>
                   )}
 

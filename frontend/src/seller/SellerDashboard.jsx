@@ -21,6 +21,11 @@ export default function SellerDashboard() {
   const [payouts, setPayouts] = useState([]);
   const [withdrawAmount, setWithdrawAmount] = useState('100');
   const [withdrawLoading, setWithdrawLoading] = useState(false);
+  const [invoiceFeature, setInvoiceFeature] = useState(null);
+  const [invoiceFeatureForm, setInvoiceFeatureForm] = useState({
+    requestedMode: 'checkout_form',
+    reason: ''
+  });
 
   const years = useMemo(() => {
     const current = now.getFullYear();
@@ -48,6 +53,13 @@ export default function SellerDashboard() {
     api.get(`/orders/seller/${shopId}`).then((res) => setOrders(res.data)).catch(() => setOrders([]));
     api.get(`/payments/wallet/shop/${shopId}/balance`).then((res) => setFinance(res.data)).catch(() => setFinance(null));
     api.get(`/payments/wallet/shop/${shopId}/payouts?limit=5`).then((res) => setPayouts(res.data || [])).catch(() => setPayouts([]));
+    api.get(`/shops/${shopId}/invoice-feature`).then((res) => {
+      setInvoiceFeature(res.data || null);
+      setInvoiceFeatureForm((prev) => ({
+        ...prev,
+        requestedMode: res.data?.invoiceRequestMode === 'checkout_form' ? 'chat_required' : 'checkout_form'
+      }));
+    }).catch(() => setInvoiceFeature(null));
   }, [user]);
 
   const daysInMonth = useMemo(() => new Date(year, month, 0).getDate(), [month, year]);
@@ -122,6 +134,33 @@ export default function SellerDashboard() {
     }
   }
 
+  function formatInvoiceMode(mode) {
+    if (mode === 'checkout_form') return 'Hiện form khi tạo đơn';
+    if (mode === 'off') return 'Tắt hiển thị';
+    return 'Khách chat shop';
+  }
+
+  function formatInvoiceFeatureStatus(status) {
+    if (status === 'pending_review') return 'Chờ admin duyệt';
+    if (status === 'rejected') return 'Yêu cầu gần nhất bị từ chối';
+    if (status === 'off') return 'Đang tắt';
+    return 'Đang hoạt động';
+  }
+
+  async function submitInvoiceFeatureRequest() {
+    const shopId = user?.shopId || user?.id;
+    if (!shopId) return;
+    try {
+      await api.post(`/shops/${shopId}/invoice-feature-requests`, invoiceFeatureForm);
+      const response = await api.get(`/shops/${shopId}/invoice-feature`);
+      setInvoiceFeature(response.data || null);
+      setInvoiceFeatureForm((prev) => ({ ...prev, reason: '' }));
+      showToast('Đã gửi yêu cầu, vui lòng chờ admin duyệt');
+    } catch (err) {
+      showToast(err?.response?.data?.message || 'Không thể gửi yêu cầu hóa đơn', 'error');
+    }
+  }
+
   return (
     <div className="container page-section seller-dashboard">
       <div className="section-header">
@@ -181,6 +220,12 @@ export default function SellerDashboard() {
         </div>
 
         <div className="card">
+          <h3>Livestream</h3>
+          <p className="muted">Mở live, lấy token LiveKit self-host và ghim sản phẩm để bán trong phiên live.</p>
+          <Link to="/seller/livestreams" className="btn btn-primary">Mở Live Studio</Link>
+        </div>
+
+        <div className="card">
           <h3>Ví shop</h3>
           <p className="muted">Số dư khả dụng và các khoản settlement dự kiến về ví.</p>
           <div className="seller-stats">
@@ -231,6 +276,51 @@ export default function SellerDashboard() {
           <h3>Thông tin shop</h3>
           <p className="muted">Cập nhật thông tin và nhận diện thương hiệu shop.</p>
           <button className="btn btn-outline">Chỉnh sửa hồ sơ</button>
+        </div>
+
+        <div className="card">
+          <h3>Yêu cầu hiển thị hóa đơn</h3>
+          <p className="muted">Gửi yêu cầu bật/tắt mục hóa đơn điện tử ở bước tạo đơn.</p>
+          <div className="seller-stats">
+            <div>
+              <span className="muted">Hiện tại</span>
+              <strong>{formatInvoiceMode(invoiceFeature?.invoiceRequestMode)}</strong>
+            </div>
+            <div>
+              <span className="muted">Trạng thái</span>
+              <strong>{formatInvoiceFeatureStatus(invoiceFeature?.invoiceFeatureStatus)}</strong>
+            </div>
+          </div>
+          <div className="form-grid">
+            <div>
+              <label>Yêu cầu</label>
+              <select
+                value={invoiceFeatureForm.requestedMode}
+                onChange={(event) => setInvoiceFeatureForm((prev) => ({ ...prev, requestedMode: event.target.value }))}
+              >
+                <option value="checkout_form">Mở form hóa đơn khi tạo đơn</option>
+                <option value="chat_required">Tắt form, khách chat shop</option>
+                <option value="off">Ẩn hỗ trợ hóa đơn</option>
+              </select>
+            </div>
+            <div>
+              <label>Lý do</label>
+              <input
+                value={invoiceFeatureForm.reason}
+                onChange={(event) => setInvoiceFeatureForm((prev) => ({ ...prev, reason: event.target.value }))}
+                placeholder="Ví dụ: shop đã kết nối MISA"
+              />
+            </div>
+          </div>
+          <button type="button" className="btn btn-outline" onClick={submitInvoiceFeatureRequest}>
+            Gửi yêu cầu duyệt
+          </button>
+          {(invoiceFeature?.requests || []).slice(0, 2).map((request) => (
+            <div key={request._id || request.id} className="checkout-row">
+              <span>{formatInvoiceMode(request.requestedMode)}</span>
+              <strong>{request.status === 'pending' ? 'Chờ duyệt' : request.status === 'approved' ? 'Đã duyệt' : 'Từ chối'}</strong>
+            </div>
+          ))}
         </div>
       </div>
 

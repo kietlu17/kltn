@@ -49,7 +49,18 @@ async function postJson(url, payload) {
 
 async function register(req, res) {
   try {
-    const { email, password, role, name, shopName, shopDescription } = req.body;
+    const {
+      email,
+      password,
+      role,
+      name,
+      shopName,
+      shopDescription,
+      legalEntityType,
+      taxCode,
+      invoiceProvider,
+      invoiceRequestMode
+    } = req.body;
     if (!email || !password) {
       return res.status(400).json({ message: 'Email and password are required' });
     }
@@ -85,7 +96,12 @@ async function register(req, res) {
         const shop = await postJson(`${SHOP_SERVICE_URL}/shops`, {
           name: normalizedShopName,
           ownerId: user._id.toString(),
-          description: shopDescription || ''
+          description: shopDescription || '',
+          invoiceEligible: true,
+          invoiceRequestMode: invoiceRequestMode || 'chat_required',
+          legalEntityType: legalEntityType || 'unknown',
+          taxCode: taxCode || '',
+          invoiceProvider: invoiceProvider || ''
         });
         user.shopId = shop?._id || shop?.id || null;
         await user.save();

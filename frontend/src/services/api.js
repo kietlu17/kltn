@@ -3,8 +3,8 @@ import axios from 'axios';
 const configuredBaseUrl = (import.meta.env.VITE_API_BASE_URL || '').trim();
 
 const api = axios.create({
-  // Frontend should only call api-gateway by default.
-  baseURL: configuredBaseUrl || 'http://localhost:3000'
+  // Empty baseURL keeps browser requests same-origin, so Vite dev proxy can forward them.
+  baseURL: configuredBaseUrl || ''
 });
 
 export const API_BASE_URL = api.defaults.baseURL;
@@ -26,5 +26,4 @@ api.interceptors.request.use((config) => {
 });
 
 export default api;
-
 
