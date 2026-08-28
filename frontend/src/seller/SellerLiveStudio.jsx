@@ -10,11 +10,11 @@ function formatPrice(value) {
 }
 
 function statusLabel(status) {
-  if (status === 'live') return 'Dang live';
-  if (status === 'starting') return 'Dang khoi dong';
-  if (status === 'ended') return 'Da ket thuc';
-  if (status === 'banned') return 'Bi khoa';
-  return 'Da len lich';
+  if (status === 'live') return 'Đang live';
+  if (status === 'starting') return 'Đang khởi động';
+  if (status === 'ended') return 'Đã kết thúc';
+  if (status === 'banned') return 'Bị khóa';
+  return 'Đã lên lịch';
 }
 
 function encodeLiveData(payload) {
@@ -32,15 +32,15 @@ function decodeLiveData(payload) {
 function describePublishError(err) {
   const message = err?.message || '';
   if (/permission|denied|notallowed/i.test(message)) {
-    return 'Trinh duyet chua duoc cap quyen camera/microphone';
+    return 'Trình duyệt chưa được cấp quyền camera/microphone';
   }
   if (/notfound|device/i.test(message)) {
-    return 'Khong tim thay camera hoac microphone';
+    return 'Không tìm thấy camera hoặc microphone';
   }
   if (/websocket|network|connect|timeout/i.test(message)) {
-    return 'Khong ket noi duoc LiveKit. Kiem tra livekit container va ws://localhost:7880';
+    return 'Không kết nối được LiveKit. Kiểm tra LIVEKIT_PUBLIC_URL, Vite proxy /livekit và livekit container';
   }
-  return message || 'Khong the publish camera/microphone len LiveKit';
+  return message || 'Không thể publish camera/microphone lên LiveKit';
 }
 
 async function publishLiveData(room, payload) {
@@ -65,6 +65,7 @@ export default function SellerLiveStudio() {
   const [selectedProductId, setSelectedProductId] = useState('');
   const [livekitSession, setLivekitSession] = useState(null);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [isLiveRoomOpen, setIsLiveRoomOpen] = useState(false);
   const [hasCameraPreview, setHasCameraPreview] = useState(false);
   const [publishError, setPublishError] = useState('');
   const [viewerCount, setViewerCount] = useState(0);
@@ -120,6 +121,11 @@ export default function SellerLiveStudio() {
     loadPinnedProducts(selectedLiveId).catch(() => setPinnedProducts([]));
   }, [selectedLiveId]);
 
+  useEffect(() => {
+    document.body.classList.toggle('seller-live-fullscreen', isLiveRoomOpen);
+    return () => document.body.classList.remove('seller-live-fullscreen');
+  }, [isLiveRoomOpen]);
+
   async function disconnectLiveKitRoom() {
     if (roomRef.current) {
       await roomRef.current.disconnect();
@@ -150,10 +156,23 @@ export default function SellerLiveStudio() {
     cleanupLiveKit();
   }, []);
 
+  function attachLocalVideoTrack() {
+    const videoTrack = localTracksRef.current.find((track) => track?.mediaStreamTrack?.kind === 'video' || track?.kind === 'video');
+    if (!videoTrack || !videoRef.current) return;
+    videoTrack.attach(videoRef.current);
+    videoRef.current.muted = true;
+    videoRef.current.playsInline = true;
+  }
+
+  useEffect(() => {
+    attachLocalVideoTrack();
+  }, [isLiveRoomOpen, hasCameraPreview]);
+
   async function prepareCameraPreview() {
     setPublishError('');
     if (localTracksRef.current.length) {
       setHasCameraPreview(true);
+      attachLocalVideoTrack();
       return localTracksRef.current;
     }
     const [videoTrack, audioTrack] = await Promise.all([
@@ -161,12 +180,7 @@ export default function SellerLiveStudio() {
       createLocalAudioTrack()
     ]);
     localTracksRef.current = [videoTrack, audioTrack];
-
-    if (videoRef.current) {
-      videoTrack.attach(videoRef.current);
-      videoRef.current.muted = true;
-      videoRef.current.playsInline = true;
-    }
+    attachLocalVideoTrack();
     setHasCameraPreview(true);
     return localTracksRef.current;
   }
@@ -192,13 +206,13 @@ export default function SellerLiveStudio() {
       if (data.type === 'live.cart.item_added') {
         setChatMessages((prev) => [
           ...prev.slice(-80),
-          { id: `cart-${Date.now()}`, senderName: 'AI Co-host', text: `Da them san pham ${data.productId} vao gio cua ${data.buyerId}` }
+          { id: `cart-${Date.now()}`, senderName: 'AI Co-host', text: `Đã thêm sản phẩm ${data.productId} vào giỏ của ${data.buyerId}` }
         ]);
       }
       if (data.type === 'live.intent.detected') {
         setChatMessages((prev) => [
           ...prev.slice(-80),
-          { id: data.id || `intent-${Date.now()}`, senderName: 'AI Co-host', text: data.reply || 'Da nhan yeu cau mua hang' }
+          { id: data.id || `intent-${Date.now()}`, senderName: 'AI Co-host', text: data.reply || 'Đã nhận yêu cầu mua hàng' }
         ]);
       }
     });
@@ -206,12 +220,13 @@ export default function SellerLiveStudio() {
     setViewerCount(room.remoteParticipants.size);
     await Promise.all(tracks.map((track) => room.localParticipant.publishTrack(track)));
     setIsPublishing(true);
+    setIsLiveRoomOpen(true);
   }
 
   async function createLive(event) {
     event.preventDefault();
     if (!form.title.trim()) {
-      showToast('Vui long nhap tieu de livestream', 'error');
+      showToast('Vui lòng nhập tiêu đề buổi live', 'error');
       return;
     }
     setLoading(true);
@@ -220,9 +235,9 @@ export default function SellerLiveStudio() {
       setForm({ title: '', description: '', visibility: 'public' });
       setSelectedLiveId(response.data.id || response.data._id);
       await loadLives();
-      showToast('Da tao phien livestream');
+      showToast('Đã tạo phiên live');
     } catch (err) {
-      showToast(err?.response?.data?.message || 'Khong the tao livestream', 'error');
+      showToast(err?.response?.data?.message || 'Không thể tạo phiên live', 'error');
     } finally {
       setLoading(false);
     }
@@ -238,11 +253,11 @@ export default function SellerLiveStudio() {
       const session = response.data?.livekit || null;
       setLivekitSession(session);
       await loadLives();
-      showToast('Da bat dau live');
+      showToast('Đã bắt đầu live');
       if (session?.url && session?.token) {
         try {
           await connectAndPublish(session);
-          showToast('Dang publish camera va microphone len LiveKit');
+          showToast('Đang phát camera và microphone lên LiveKit');
         } catch (publishErr) {
           const message = describePublishError(publishErr);
           setPublishError(message);
@@ -250,7 +265,7 @@ export default function SellerLiveStudio() {
         }
       }
     } catch (err) {
-      showToast(err?.response?.data?.message || 'Khong the bat dau livestream', 'error');
+      showToast(err?.response?.data?.message || 'Không thể bắt đầu livestream', 'error');
     } finally {
       setLoading(false);
     }
@@ -260,7 +275,7 @@ export default function SellerLiveStudio() {
     setLoading(true);
     try {
       await prepareCameraPreview();
-      showToast('Da bat camera preview. Bam Bat dau live de phat len LiveKit');
+      showToast('Đã bật camera. Bấm Bắt đầu live để phát lên LiveKit');
     } catch (err) {
       const message = describePublishError(err);
       setPublishError(message);
@@ -272,7 +287,7 @@ export default function SellerLiveStudio() {
 
   async function stopPublishing() {
     await cleanupLiveKit();
-    showToast('Da tat camera');
+    showToast('Đã tắt camera');
   }
 
   async function endLive() {
@@ -282,10 +297,11 @@ export default function SellerLiveStudio() {
       await cleanupLiveKit();
       await api.post(`/lives/${selectedLiveId}/end`);
       setLivekitSession(null);
+      setIsLiveRoomOpen(false);
       await loadLives();
-      showToast('Da ket thuc livestream');
+      showToast('Đã kết thúc livestream');
     } catch (err) {
-      showToast(err?.response?.data?.message || 'Khong the ket thuc livestream', 'error');
+      showToast(err?.response?.data?.message || 'Không thể kết thúc livestream', 'error');
     } finally {
       setLoading(false);
     }
@@ -306,9 +322,9 @@ export default function SellerLiveStudio() {
         shopId,
         productId: selectedProductId
       });
-      showToast('Da ghim san pham vao live');
+      showToast('Đã ghim sản phẩm vào live');
     } catch (err) {
-      showToast(err?.response?.data?.message || 'Khong the ghim san pham', 'error');
+      showToast(err?.response?.data?.message || 'Không thể ghim sản phẩm', 'error');
     } finally {
       setLoading(false);
     }
@@ -325,9 +341,9 @@ export default function SellerLiveStudio() {
         shopId,
         productId
       });
-      showToast('Da doi san pham dang ghim');
+      showToast('Đã đổi sản phẩm đang ghim');
     } catch (err) {
-      showToast(err?.response?.data?.message || 'Khong the doi san pham dang ghim', 'error');
+      showToast(err?.response?.data?.message || 'Không thể đổi sản phẩm đang ghim', 'error');
     } finally {
       setLoading(false);
     }
@@ -347,91 +363,225 @@ export default function SellerLiveStudio() {
       text,
       activePinnedProductId: activePinnedProduct?.productId || selectedLive?.activePinnedProductId || null
     };
-    publishLiveData(roomRef.current, payload).catch(() => showToast('Khong the gui chat LiveKit', 'error'));
+    publishLiveData(roomRef.current, payload).catch(() => showToast('Không thể gửi chat LiveKit', 'error'));
     setChatMessages((prev) => [...prev.slice(-80), payload]);
     setChatInput('');
+  }
+
+  function renderPinnedProductsPanel({ asCard = true } = {}) {
+    const content = (
+      <>
+        <div className="seller-live-card-header">
+          <h3>Sản phẩm ghim</h3>
+          <span className="section-link">{pinnedProducts.length} sản phẩm</span>
+        </div>
+        <div className="form-grid">
+          <div>
+            <label>Sản phẩm</label>
+            <select value={selectedProductId} onChange={(event) => setSelectedProductId(event.target.value)}>
+              <option value="">Chọn sản phẩm</option>
+              {products.map((product) => (
+                <option key={product._id || product.id} value={product._id || product.id}>
+                  {product.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="live-pin-action">
+            <button type="button" className="btn btn-primary" onClick={pinProduct} disabled={!selectedLiveId || !selectedProductId || loading}>
+              Ghim vào live
+            </button>
+          </div>
+        </div>
+        <div className="pinned-products seller-live-pinned-strip">
+          {pinnedProducts.length === 0 ? (
+            <p className="muted">Chưa ghim sản phẩm nào.</p>
+          ) : (
+            pinnedProducts.map((item) => (
+              <div key={item.id || item._id} className={`pinned-product-row ${item.isActive ? 'active' : ''}`}>
+                {item.imageSnapshot ? <img src={resolveImageUrl(item.imageSnapshot)} alt={item.nameSnapshot} /> : <div />}
+                <div>
+                  <strong>{item.nameSnapshot}</strong>
+                  <span className="muted">{formatPrice(item.priceSnapshot)} - Tồn {item.stockSnapshot}</span>
+                </div>
+                <button type="button" className="btn btn-outline" onClick={() => activateProduct(item.productId)} disabled={item.isActive || loading}>
+                  {item.isActive ? 'Đang ghim' : 'Đặt active'}
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      </>
+    );
+
+    if (!asCard) {
+      return <div className="seller-live-products">{content}</div>;
+    }
+
+    return (
+      <div className="card seller-live-products">
+        {content}
+      </div>
+    );
+  }
+
+  if (isLiveRoomOpen) {
+    return (
+      <div className="container page-section seller-live-room-page">
+        <div className="section-header">
+          <div>
+            <h2>{selectedLive?.title || 'Livestream bán hàng'}</h2>
+            <span className="muted">{selectedLive?.providerRoomId || livekitSession?.roomName || 'LiveKit room'}</span>
+          </div>
+          <div className="seller-live-room-actions">
+            <span className="section-link">{viewerCount} người xem</span>
+            <button type="button" className="btn btn-outline" onClick={stopPublishing} disabled={!hasCameraPreview && !isPublishing}>
+              Tắt camera
+            </button>
+            <button type="button" className="btn btn-primary" onClick={endLive} disabled={!selectedLiveId || loading}>
+              Kết thúc live
+            </button>
+          </div>
+        </div>
+
+        <div className="seller-live-room-layout">
+          <section className="seller-live-broadcast">
+            <div className="live-video-frame seller-live-main-video">
+              <video ref={videoRef} autoPlay playsInline muted />
+              {!hasCameraPreview ? <span className="muted">Camera chưa bật</span> : null}
+            </div>
+            {publishError ? <p className="form-error">{publishError}</p> : null}
+            <div className="seller-stats seller-live-inline-stats">
+              <div>
+                <span className="muted">Trạng thái</span>
+                <strong>{selectedLive ? statusLabel(selectedLive.status) : 'Đang live'}</strong>
+              </div>
+              <div>
+                <span className="muted">Sản phẩm ghim</span>
+                <strong>{activePinnedProduct?.nameSnapshot || 'Chưa có'}</strong>
+              </div>
+              <div>
+                <span className="muted">LiveKit URL</span>
+                <strong>{livekitSession?.url || 'Đang kết nối'}</strong>
+              </div>
+            </div>
+          </section>
+
+          <aside className="card seller-live-chat-panel">
+            <h3>Chat</h3>
+            <div className="live-chat-list seller-live-chat-list">
+              {chatMessages.length === 0 ? (
+                <p className="muted">Chưa có tin nhắn.</p>
+              ) : (
+                chatMessages.map((msg, index) => (
+                  <div key={msg.id || `${msg.senderId}-${index}`} className="live-chat-line">
+                    <strong>{msg.senderName || msg.senderRole || 'viewer'}</strong>
+                    <span>{msg.text}</span>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="chat-widget-input">
+              <input
+                value={chatInput}
+                onChange={(event) => setChatInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') sendChatMessage();
+                }}
+                placeholder="Nhắn tin trong live"
+              />
+              <button type="button" className="btn btn-primary" onClick={sendChatMessage}>
+                Gửi
+              </button>
+            </div>
+          </aside>
+        </div>
+
+        {renderPinnedProductsPanel()}
+      </div>
+    );
   }
 
   return (
     <div className="container page-section seller-live-studio">
       <div className="section-header">
-        <h2>Livestream ban hang</h2>
+        <h2>Livestream</h2>
         <span className="section-link">LiveKit self-host studio</span>
       </div>
 
-      <div className="seller-grid">
-        <form className="card" onSubmit={createLive}>
-          <h3>Tao phien live</h3>
+      <div className="seller-live-setup-grid">
+        <form className="card seller-live-create-card" onSubmit={createLive}>
+          <h3>Tạo phiên live</h3>
           <div className="form-grid">
             <div>
-              <label>Tieu de</label>
+              <label>Tiêu đề</label>
               <input
                 value={form.title}
                 onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
-                placeholder="Vi du: Flash sale toi nay"
+                placeholder="Ví dụ: Flash sale tối nay"
               />
             </div>
             <div>
-              <label>Hien thi</label>
+              <label>Hiển thị</label>
               <select
                 value={form.visibility}
                 onChange={(event) => setForm((prev) => ({ ...prev, visibility: event.target.value }))}
               >
-                <option value="public">Cong khai</option>
-                <option value="followers_only">Chi follower</option>
-                <option value="private">Rieng tu</option>
+                <option value="public">Công khai</option>
+                <option value="followers_only">Chỉ người theo dõi</option>
+                <option value="private">Riêng tư</option>
               </select>
             </div>
           </div>
-          <label>Mo ta</label>
+          <label>Mô tả</label>
           <textarea
             value={form.description}
             onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
-            placeholder="Noi dung buoi live"
+            placeholder="Nội dung buổi live"
           />
           <button type="submit" className="btn btn-primary" disabled={loading}>
-            Tao live
+            Tạo live
           </button>
         </form>
 
         <div className="card live-preview-card">
-          <h3>Preview & publish</h3>
+          <h3>Xem trước</h3>
           <div className="live-video-frame">
             <video ref={videoRef} autoPlay playsInline muted />
-            {!hasCameraPreview ? <span className="muted">Camera chua bat</span> : null}
+            {!hasCameraPreview ? <span className="muted">Camera chưa bật</span> : null}
           </div>
           {publishError ? <p className="form-error">{publishError}</p> : null}
           <div className="seller-stats">
             <div>
-              <span className="muted">Trang thai</span>
-              <strong>{selectedLive ? statusLabel(selectedLive.status) : 'Chua chon live'}</strong>
+              <span className="muted">Trạng thái</span>
+              <strong>{selectedLive ? statusLabel(selectedLive.status) : 'Chưa chọn live'}</strong>
             </div>
             <div>
-              <span className="muted">Nguoi xem</span>
+              <span className="muted">Người xem</span>
               <strong>{viewerCount}</strong>
             </div>
           </div>
           <div className="form-actions">
             <button type="button" className="btn btn-primary" onClick={startLive} disabled={!selectedLiveId || loading}>
-              Bat dau live
+              Bắt đầu live
             </button>
             <button type="button" className="btn btn-outline" onClick={startPublishingCamera} disabled={loading || hasCameraPreview}>
-              Bat camera
+              Bật camera
             </button>
             <button type="button" className="btn btn-outline" onClick={stopPublishing} disabled={!hasCameraPreview && !isPublishing}>
-              Tat camera
+              Tắt camera
             </button>
             <button type="button" className="btn btn-outline" onClick={endLive} disabled={!selectedLiveId || loading}>
-              Ket thuc
+              Kết thúc
             </button>
           </div>
         </div>
 
-        <div className="card">
-          <h3>Dieu khien live</h3>
-          <label>Phien live</label>
+        <div className="card seller-live-control-card">
+          <h3>Điều khiển phiên live</h3>
+          <label>Phiên live</label>
           <select value={selectedLiveId} onChange={(event) => setSelectedLiveId(event.target.value)}>
-            <option value="">Chon phien live</option>
+            <option value="">Chọn phiên live</option>
             {lives.map((live) => (
               <option key={live.id || live._id} value={live.id || live._id}>
                 {live.title} - {statusLabel(live.status)}
@@ -445,12 +595,12 @@ export default function SellerLiveStudio() {
                 <strong>{selectedLive.providerRoomId}</strong>
               </div>
               <div>
-                <span className="muted">Active product</span>
-                <strong>{activePinnedProduct?.nameSnapshot || 'Chua co'}</strong>
+                <span className="muted">Sản phẩm đang ghim</span>
+                <strong>{activePinnedProduct?.nameSnapshot || 'Chưa có'}</strong>
               </div>
             </div>
           ) : (
-            <p className="muted">Chua co phien live nao.</p>
+            <p className="muted">Chưa có phiên live nào.</p>
           )}
           {livekitSession ? (
             <div className="livekit-token-panel">
@@ -466,51 +616,15 @@ export default function SellerLiveStudio() {
           ) : null}
         </div>
 
-        <div className="card">
-          <h3>Ghim san pham</h3>
-          <div className="form-grid">
-            <div>
-              <label>San pham</label>
-              <select value={selectedProductId} onChange={(event) => setSelectedProductId(event.target.value)}>
-                <option value="">Chon san pham</option>
-                {products.map((product) => (
-                  <option key={product._id || product.id} value={product._id || product.id}>
-                    {product.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="live-pin-action">
-              <button type="button" className="btn btn-primary" onClick={pinProduct} disabled={!selectedLiveId || !selectedProductId || loading}>
-                Ghim vao live
-              </button>
-            </div>
-          </div>
-          <div className="pinned-products">
-            {pinnedProducts.length === 0 ? (
-              <p className="muted">Chua ghim san pham nao.</p>
-            ) : (
-              pinnedProducts.map((item) => (
-                <div key={item.id || item._id} className={`pinned-product-row ${item.isActive ? 'active' : ''}`}>
-                  {item.imageSnapshot ? <img src={resolveImageUrl(item.imageSnapshot)} alt={item.nameSnapshot} /> : <div />}
-                  <div>
-                    <strong>{item.nameSnapshot}</strong>
-                    <span className="muted">{formatPrice(item.priceSnapshot)} - Ton {item.stockSnapshot}</span>
-                  </div>
-                  <button type="button" className="btn btn-outline" onClick={() => activateProduct(item.productId)} disabled={item.isActive || loading}>
-                    {item.isActive ? 'Dang ghim' : 'Dat active'}
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
+        <div className="card seller-live-pin-card">
+          {renderPinnedProductsPanel({ asCard: false })}
         </div>
 
-        <div className="card">
-          <h3>Chat live</h3>
+        <div className="card seller-live-setup-chat-card">
+          <h3>Chat</h3>
           <div className="live-chat-list">
             {chatMessages.length === 0 ? (
-              <p className="muted">Chua co tin nhan.</p>
+              <p className="muted">Chưa có tin nhắn.</p>
             ) : (
               chatMessages.map((msg, index) => (
                 <div key={msg.id || `${msg.senderId}-${index}`} className="live-chat-line">
@@ -527,10 +641,10 @@ export default function SellerLiveStudio() {
               onKeyDown={(event) => {
                 if (event.key === 'Enter') sendChatMessage();
               }}
-              placeholder="Nhan tin trong live"
+              placeholder="Nhắn tin trong live"
             />
             <button type="button" className="btn btn-primary" onClick={sendChatMessage}>
-              Gui
+              Gửi
             </button>
           </div>
         </div>

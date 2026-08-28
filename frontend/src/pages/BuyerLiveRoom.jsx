@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Room, RoomEvent, Track } from 'livekit-client';
 import api, { resolveImageUrl } from '../services/api';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useCart } from '../context/CartContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 
 function formatPrice(value) {
@@ -33,7 +34,9 @@ async function publishLiveData(room, payload) {
 export default function BuyerLiveRoom() {
   const { liveId } = useParams();
   const { user } = useAuth();
+  const { addItem } = useCart();
   const { showToast } = useToast();
+  const navigate = useNavigate();
   const videoRef = useRef(null);
   const audioRef = useRef(null);
   const roomRef = useRef(null);
@@ -44,6 +47,8 @@ export default function BuyerLiveRoom() {
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');
   const [connecting, setConnecting] = useState(false);
+  const [connected, setConnected] = useState(false);
+  const [connectError, setConnectError] = useState('');
 
   const activeProduct = useMemo(
     () => pinnedProducts.find((item) => item.isActive) || pinnedProducts[0] || null,
@@ -61,7 +66,7 @@ export default function BuyerLiveRoom() {
 
   useEffect(() => {
     loadLive().catch(() => {
-      showToast('Khong the tai phong live', 'error');
+      showToast('Không thể tải phòng live', 'error');
     });
   }, [liveId]);
 
@@ -76,8 +81,9 @@ export default function BuyerLiveRoom() {
   }
 
   async function connectViewer() {
-    if (!liveId) return;
+    if (!liveId || connecting || connected) return;
     setConnecting(true);
+    setConnectError('');
     try {
       const response = await api.post(`/lives/${liveId}/viewer-token`, {
         displayName: user?.email || 'Viewer'
@@ -85,9 +91,11 @@ export default function BuyerLiveRoom() {
       const session = response.data;
       if (roomRef.current) {
         await roomRef.current.disconnect();
+        setConnected(false);
       }
-      const room = new Room({ adaptiveStream: true, dynacast: true });
+      const room = new Room({ adaptiveStream: true });
       roomRef.current = room;
+      room.on(RoomEvent.Disconnected, () => setConnected(false));
       room.on(RoomEvent.TrackSubscribed, (track, publication) => attachTrack({ ...publication, track }));
       room.on(RoomEvent.ParticipantConnected, () => setViewerCount(room.remoteParticipants.size + 1));
       room.on(RoomEvent.ParticipantDisconnected, () => setViewerCount(room.remoteParticipants.size + 1));
@@ -101,24 +109,41 @@ export default function BuyerLiveRoom() {
           loadLive().catch(() => {});
         }
         if (data.type === 'live.cart.item_added' && (!data.buyerId || data.buyerId === user?.id)) {
-          showToast('Da them san pham tu live vao gio hang');
+          showToast('Đã thêm sản phẩm từ live vào giỏ hàng');
         }
       });
       await room.connect(session.url, session.token);
+      setConnected(true);
       setViewerCount(room.remoteParticipants.size + 1);
       room.remoteParticipants.forEach((participant) => {
         participant.trackPublications.forEach((publication) => attachTrack(publication));
       });
-      showToast('Da ket noi phong live');
+      showToast('Đã kết nối phòng live');
     } catch (err) {
-      showToast(err?.response?.data?.message || 'Khong the xem live', 'error');
+      const message = err?.response?.data?.message || 'Không thể xem live';
+      setConnectError(message);
+      showToast(message, 'error');
     } finally {
       setConnecting(false);
     }
   }
 
+  useEffect(() => {
+    let disposed = false;
+    const timer = window.setTimeout(() => {
+      if (!disposed) connectViewer();
+    }, 0);
+    return () => {
+      disposed = true;
+      window.clearTimeout(timer);
+    };
+  }, [liveId]);
+
   useEffect(() => () => {
-    if (roomRef.current) roomRef.current.disconnect();
+    if (roomRef.current) {
+      roomRef.current.disconnect();
+      setConnected(false);
+    }
   }, []);
 
   function sendChatMessage() {
@@ -136,16 +161,38 @@ export default function BuyerLiveRoom() {
       text,
       activePinnedProductId: activeProduct?.productId || live?.activePinnedProductId || null
     };
-    publishLiveData(roomRef.current, payload).catch(() => showToast('Khong the gui chat LiveKit', 'error'));
+    publishLiveData(roomRef.current, payload).catch(() => showToast('Không thể gửi chat LiveKit', 'error'));
     setChatMessages((prev) => [...prev.slice(-80), payload]);
     setChatInput('');
+  }
+
+  async function addPinnedProductToCart(product, options = {}) {
+    if (!product) return false;
+    if (!user?.id || user.role !== 'buyer') {
+      showToast('Vui lòng đăng nhập để mua sản phẩm trong live', 'error');
+      navigate('/login');
+      return false;
+    }
+    if (Number(product.stockSnapshot ?? 0) <= 0) {
+      showToast('Sản phẩm đang hết hàng', 'error');
+      return false;
+    }
+    try {
+      await addItem(product.productId, 1);
+      showToast(options.buyNow ? 'Đã thêm sản phẩm, chuyển sang giỏ hàng' : 'Đã thêm vào giỏ hàng');
+      if (options.buyNow) navigate('/cart');
+      return true;
+    } catch (err) {
+      showToast(err?.response?.data?.message || 'Không thể thêm sản phẩm vào giỏ', 'error');
+      return false;
+    }
   }
 
   return (
     <div className="container page-section buyer-live-room">
       <div className="section-header">
         <h2>{live?.title || 'Livestream'}</h2>
-        <span className="section-link">{viewerCount} viewer</span>
+        <span className="section-link">{viewerCount} người xem</span>
       </div>
 
       <div className="live-room-layout">
@@ -153,24 +200,45 @@ export default function BuyerLiveRoom() {
           <div className="live-video-frame buyer">
             <video ref={videoRef} autoPlay playsInline />
             <audio ref={audioRef} autoPlay />
-            <button type="button" className="btn btn-primary live-watch-button" onClick={connectViewer} disabled={connecting}>
-              {connecting ? 'Dang ket noi...' : 'Xem live'}
-            </button>
+            {!connected ? (
+              <div className="live-watch-status">
+                <span>{connecting ? 'Đang kết nối...' : connectError || 'Đang vào phòng live'}</span>
+                {connectError ? (
+                  <button type="button" className="btn btn-primary" onClick={connectViewer} disabled={connecting}>
+                    Thử lại
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         </section>
 
         <aside className="live-side-panel">
           <div className="card">
-            <h3>San pham dang ghim</h3>
+            <h3>Sản phẩm đang ghim</h3>
             {activeProduct ? (
               <div className="live-active-product">
                 {activeProduct.imageSnapshot ? <img src={resolveImageUrl(activeProduct.imageSnapshot)} alt={activeProduct.nameSnapshot} /> : <div />}
                 <strong>{activeProduct.nameSnapshot}</strong>
                 <span>{formatPrice(activeProduct.priceSnapshot)}</span>
-                <span className="muted">Ton {activeProduct.stockSnapshot}</span>
+                <span className="muted">Tồn {activeProduct.stockSnapshot}</span>
+                <div className="live-product-actions">
+                  <button
+                    type="button"
+                    className="btn btn-outline live-add-button"
+                    onClick={() => addPinnedProductToCart(activeProduct)}
+                    aria-label="Thêm vào giỏ hàng"
+                    title="Thêm vào giỏ hàng"
+                  >
+                    +
+                  </button>
+                  <button type="button" className="btn btn-primary" onClick={() => addPinnedProductToCart(activeProduct, { buyNow: true })}>
+                    Mua ngay
+                  </button>
+                </div>
               </div>
             ) : (
-              <p className="muted">Shop chua ghim san pham.</p>
+              <p className="muted">Shop chưa ghim sản phẩm.</p>
             )}
           </div>
 
@@ -178,7 +246,7 @@ export default function BuyerLiveRoom() {
             <h3>Chat live</h3>
             <div className="live-chat-list">
               {chatMessages.length === 0 ? (
-                <p className="muted">Chua co tin nhan.</p>
+                <p className="muted">Chưa có tin nhắn.</p>
               ) : (
                 chatMessages.map((msg, index) => (
                   <div key={msg.id || `${msg.senderId}-${index}`} className="live-chat-line">
@@ -195,10 +263,10 @@ export default function BuyerLiveRoom() {
                 onKeyDown={(event) => {
                   if (event.key === 'Enter') sendChatMessage();
                 }}
-                placeholder="Vi du: toi muon mua san pham nay"
+                placeholder="Ví dụ: tôi muốn mua sản phẩm này"
               />
               <button type="button" className="btn btn-primary" onClick={sendChatMessage}>
-                Gui
+                Gửi
               </button>
             </div>
           </div>

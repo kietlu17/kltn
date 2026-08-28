@@ -1546,6 +1546,14 @@ img {
   min-width: 0;
 }
 
+.seller-live-fullscreen .seller-layout {
+  grid-template-columns: 1fr;
+}
+
+.seller-live-fullscreen .seller-sidebar {
+  display: none;
+}
+
 .seller-table {
   background: white;
   border-radius: var(--radius);
@@ -2531,6 +2539,65 @@ img {
   resize: vertical;
 }
 
+.seller-live-setup-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.9fr) minmax(360px, 1.1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.seller-live-setup-grid > .card {
+  min-width: 0;
+}
+
+.seller-live-create-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.seller-live-create-card .btn[type='submit'] {
+  margin-top: 18px;
+}
+
+.seller-live-create-card,
+.seller-live-control-card {
+  grid-column: 1;
+}
+
+.seller-live-control-card .seller-stats {
+  grid-template-columns: 1fr;
+}
+
+.seller-live-control-card .seller-stats > div,
+.seller-live-control-card .seller-stats strong,
+.seller-live-control-card .livekit-token-panel strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.seller-live-setup-grid .live-preview-card {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
+.seller-live-setup-grid .live-preview-card .form-actions {
+  margin-top: 18px;
+}
+
+.seller-live-pin-card,
+.seller-live-setup-chat-card {
+  grid-column: 1 / -1;
+}
+
+.seller-live-pin-card .seller-live-products {
+  margin-top: 0;
+}
+
+.seller-live-setup-chat-card .live-chat-list {
+  min-height: 220px;
+}
+
 .livekit-token-panel {
   display: grid;
   gap: 10px;
@@ -2546,6 +2613,84 @@ img {
 .live-pin-action {
   display: flex;
   align-items: flex-end;
+}
+
+.seller-live-card-header,
+.seller-live-room-actions,
+.live-product-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.seller-live-card-header {
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.seller-live-card-header h3 {
+  margin: 0;
+}
+
+.seller-live-room-actions {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.seller-live-room-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(260px, 1fr);
+  gap: 16px;
+  align-items: stretch;
+}
+
+.seller-live-broadcast,
+.seller-live-chat-panel,
+.seller-live-products {
+  min-width: 0;
+}
+
+.seller-live-main-video {
+  min-height: min(68vh, 720px);
+}
+
+.seller-live-chat-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.seller-live-chat-panel h3 {
+  margin-top: 0;
+}
+
+.seller-live-chat-list {
+  flex: 1;
+  max-height: none;
+}
+
+.seller-live-inline-stats {
+  margin-top: 12px;
+}
+
+.seller-live-inline-stats strong {
+  overflow-wrap: anywhere;
+}
+
+.seller-live-products {
+  margin-top: 16px;
+}
+
+.seller-live-pinned-strip {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+}
+
+.seller-live-pinned-strip .pinned-product-row {
+  grid-template-columns: 64px minmax(0, 1fr);
+}
+
+.seller-live-pinned-strip .pinned-product-row button {
+  grid-column: 1 / -1;
+  width: 100%;
 }
 
 .pinned-products {
@@ -2614,9 +2759,18 @@ img {
 }
 
 .live-video-frame > .muted,
-.live-watch-button {
+.live-watch-button,
+.live-watch-status {
   position: absolute;
   z-index: 1;
+}
+
+.live-watch-status {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  max-width: min(360px, calc(100% - 32px));
+  text-align: center;
 }
 
 .live-room-layout {
@@ -2643,6 +2797,23 @@ img {
 .live-active-product {
   display: grid;
   gap: 8px;
+}
+
+.live-product-actions {
+  justify-content: stretch;
+  margin-top: 4px;
+}
+
+.live-product-actions .btn-primary {
+  flex: 1;
+}
+
+.live-add-button {
+  width: 44px;
+  height: 40px;
+  padding: 0;
+  font-size: 22px;
+  line-height: 1;
 }
 
 .live-active-product img,
@@ -2678,7 +2849,26 @@ img {
 }
 
 @media (max-width: 900px) {
-  .live-room-layout {
+  .live-room-layout,
+  .seller-live-room-layout,
+  .seller-live-setup-grid {
     grid-template-columns: 1fr;
+  }
+
+  .seller-live-create-card,
+  .seller-live-control-card,
+  .seller-live-setup-grid .live-preview-card,
+  .seller-live-pin-card,
+  .seller-live-setup-chat-card {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .seller-live-main-video {
+    min-height: auto;
+  }
+
+  .seller-live-room-actions {
+    justify-content: flex-start;
   }
 }
