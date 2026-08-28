@@ -36,8 +36,16 @@ function formatSettlementStatus(status) {
   const key = String(status || '').toLowerCase();
   if (key === 'settled') return 'Đã chuyển';
   if (key === 'pending') return 'Chờ đối soát';
-  if (key === 'awaiting_cod_remittance') return 'Chờ carrier nộp COD';
+  if (key === 'awaiting_cod_remittance') return 'Chờ đơn vị vận chuyển nộp COD';
   return '-';
+}
+
+function formatLegalEntityType(type) {
+  const key = String(type || '').toLowerCase();
+  if (key === 'company') return 'Công ty';
+  if (key === 'business_household') return 'Hộ kinh doanh';
+  if (key === 'individual') return 'Cá nhân kinh doanh';
+  return 'Chưa cập nhật';
 }
 
 export default function AdminDashboard() {
@@ -404,7 +412,7 @@ export default function AdminDashboard() {
                   {request.reason && <span className="muted">{request.reason}</span>}
                 </div>
                 <div>
-                  <span>{request.legalEntityType || 'unknown'}</span>
+                  <span>{formatLegalEntityType(request.legalEntityType)}</span>
                   <span className="muted">{request.taxCode || 'Chưa có MST'}</span>
                   {request.invoiceProvider && <span className="muted">{request.invoiceProvider}</span>}
                 </div>

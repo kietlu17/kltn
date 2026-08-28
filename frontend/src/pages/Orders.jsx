@@ -65,7 +65,7 @@ function formatSettlementStatus(status) {
   const key = String(status || '').toLowerCase();
   if (key === 'settled') return 'Đã chuyển';
   if (key === 'pending') return 'Chờ đối soát';
-  if (key === 'awaiting_cod_remittance') return 'Chờ carrier nộp COD';
+  if (key === 'awaiting_cod_remittance') return 'Chờ đơn vị vận chuyển nộp COD';
   return 'Chưa đủ điều kiện';
 }
 

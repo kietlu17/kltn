@@ -34,12 +34,12 @@ function getPrimaryShopId(order) {
 
 function statusText(status) {
   const labels = {
-    requested: 'Da nhan yeu cau',
-    handed_over: 'Shop da ban giao',
-    picked_up: 'Carrier da nhan hang',
-    in_transit: 'Dang van chuyen',
-    delivered: 'Da giao',
-    failed: 'Giao that bai'
+    requested: 'Đã nhận yêu cầu',
+    handed_over: 'Cửa hàng đã bàn giao',
+    picked_up: 'Đơn vị vận chuyển đã nhận hàng',
+    in_transit: 'Đang vận chuyển',
+    delivered: 'Đã giao',
+    failed: 'Giao thất bại'
   };
   return labels[String(status || '').toLowerCase()] || '-';
 }
@@ -67,9 +67,9 @@ export default function CarrierSimulator() {
         eventTime: new Date().toISOString()
       });
       setLastResult(res.data || null);
-      showToast(status === 'delivered' ? 'Da gui callback giao thanh cong' : 'Da gui callback carrier nhan hang');
+      showToast(status === 'delivered' ? 'Đã gửi tín hiệu giao thành công' : 'Đã gửi tín hiệu đơn vị vận chuyển nhận hàng');
     } catch (err) {
-      showToast(err?.response?.data?.message || 'Gui callback that bai', 'error');
+      showToast(err?.response?.data?.message || 'Gửi tín hiệu thất bại', 'error');
     } finally {
       setLoadingStatus('');
     }
@@ -85,7 +85,7 @@ export default function CarrierSimulator() {
   async function remitCod() {
     const shopId = getPrimaryShopId(order);
     if (!order?.id || !shopId || !Number.isFinite(codAmount) || codAmount <= 0) {
-      showToast('Khong du thong tin nop COD', 'error');
+      showToast('Không đủ thông tin nộp COD', 'error');
       return;
     }
     setRemittanceLoading(true);
@@ -104,9 +104,9 @@ export default function CarrierSimulator() {
           ? { ...prev.order, settlement_status: 'pending' }
           : prev?.order
       }));
-      showToast('Da nop tien COD ve san, cho worker chuyen tien shop');
+      showToast('Đã nộp tiền COD về sàn, chờ tác vụ nền chuyển tiền cho cửa hàng');
     } catch (err) {
-      showToast(err?.response?.data?.error || err?.response?.data?.message || 'Nop COD that bai, thu lai sau', 'error');
+      showToast(err?.response?.data?.error || err?.response?.data?.message || 'Nộp COD thất bại, thử lại sau', 'error');
     } finally {
       setRemittanceLoading(false);
     }
@@ -115,16 +115,16 @@ export default function CarrierSimulator() {
   return (
     <div className="container page-section carrier-page">
       <div className="section-header">
-        <h2>Mock Carrier</h2>
-        <span className="section-link">Gia lap ben van chuyen thu 3</span>
+        <h2>Giả lập vận chuyển</h2>
+        <span className="section-link">Giả lập bên vận chuyển thứ ba</span>
       </div>
 
       <div className="card carrier-card">
-        <label>Ma van don</label>
+        <label>Mã vận đơn</label>
         <input
           value={trackingCode}
           onChange={(event) => setTrackingCode(event.target.value)}
-          placeholder="Vi du: MOCK-123-ABCDEF"
+          placeholder="Ví dụ: MOCK-123-ABCDEF"
         />
         <div className="form-actions">
           <button
@@ -133,7 +133,7 @@ export default function CarrierSimulator() {
             onClick={() => sendCallback('picked_up')}
             disabled={Boolean(loadingStatus)}
           >
-            {loadingStatus === 'picked_up' ? 'Dang gui...' : 'Da nhan hang'}
+            {loadingStatus === 'picked_up' ? 'Đang gửi...' : 'Đã nhận hàng'}
           </button>
           <button
             type="button"
@@ -141,7 +141,7 @@ export default function CarrierSimulator() {
             onClick={() => sendCallback('delivered')}
             disabled={Boolean(loadingStatus)}
           >
-            {loadingStatus === 'delivered' ? 'Dang gui...' : 'Da giao hang'}
+            {loadingStatus === 'delivered' ? 'Đang gửi...' : 'Đã giao hàng'}
           </button>
         </div>
       </div>
@@ -150,32 +150,32 @@ export default function CarrierSimulator() {
         <div className="card carrier-card">
           <div className="order-detail-meta">
             <div>
-              <span className="muted">Ket qua</span>
-              <strong>{lastResult.ok ? 'Callback accepted' : 'Callback sent'}</strong>
+              <span className="muted">Kết quả</span>
+              <strong>{lastResult.ok ? 'Tín hiệu đã được chấp nhận' : 'Tín hiệu đã gửi'}</strong>
             </div>
             <div>
-              <span className="muted">Ma don</span>
+              <span className="muted">Mã đơn</span>
               <strong>{order?.id ? `#${order.id}` : '-'}</strong>
             </div>
             <div>
-              <span className="muted">Trang thai don</span>
+              <span className="muted">Trạng thái đơn</span>
               <strong>{formatOrderStatus(order?.status)}</strong>
             </div>
             <div>
-              <span className="muted">Trang thai van chuyen</span>
+              <span className="muted">Trạng thái vận chuyển</span>
               <strong>{statusText(shipment?.status)}</strong>
             </div>
             <div>
-              <span className="muted">Carrier</span>
+              <span className="muted">Đơn vị vận chuyển</span>
               <strong>{shipment?.carrier || '-'}</strong>
             </div>
             <div>
-              <span className="muted">Cap nhat luc</span>
+              <span className="muted">Cập nhật lúc</span>
               <strong>{formatDate(shipment?.updated_at || shipment?.updatedAt)}</strong>
             </div>
             {isCodDelivered && (
               <div>
-                <span className="muted">Tien COD can nop</span>
+                <span className="muted">Tiền COD cần nộp</span>
                 <strong>{formatPrice(codAmount)}</strong>
               </div>
             )}
@@ -188,14 +188,14 @@ export default function CarrierSimulator() {
                 onClick={remitCod}
                 disabled={remittanceLoading}
               >
-                {remittanceLoading ? 'Dang nop COD...' : 'Nop tien COD ve san'}
+                {remittanceLoading ? 'Đang nộp COD...' : 'Nộp tiền COD về sàn'}
               </button>
             </div>
           )}
           {lastResult.codRemittance && (
             <div className="checkout-row">
-              <span>COD remittance</span>
-              <strong>{lastResult.codRemittance.ok ? 'Accepted' : 'Sent'}</strong>
+              <span>Nộp tiền COD</span>
+              <strong>{lastResult.codRemittance.ok ? 'Đã chấp nhận' : 'Đã gửi'}</strong>
             </div>
           )}
         </div>

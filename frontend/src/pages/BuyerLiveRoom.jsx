@@ -86,7 +86,7 @@ export default function BuyerLiveRoom() {
     setConnectError('');
     try {
       const response = await api.post(`/lives/${liveId}/viewer-token`, {
-        displayName: user?.email || 'Viewer'
+        displayName: user?.email || 'Người xem'
       });
       const session = response.data;
       if (roomRef.current) {
@@ -156,7 +156,7 @@ export default function BuyerLiveRoom() {
       shopId: live?.shopId,
       senderId: user?.id,
       senderRole: 'buyer',
-      senderName: user?.email || 'Buyer',
+      senderName: user?.email || 'Người mua',
       buyerId: user?.id,
       text,
       activePinnedProductId: activeProduct?.productId || live?.activePinnedProductId || null
@@ -238,19 +238,19 @@ export default function BuyerLiveRoom() {
                 </div>
               </div>
             ) : (
-              <p className="muted">Shop chưa ghim sản phẩm.</p>
+              <p className="muted">Cửa hàng chưa ghim sản phẩm.</p>
             )}
           </div>
 
           <div className="card">
-            <h3>Chat live</h3>
+            <h3>Trò chuyện live</h3>
             <div className="live-chat-list">
               {chatMessages.length === 0 ? (
                 <p className="muted">Chưa có tin nhắn.</p>
               ) : (
                 chatMessages.map((msg, index) => (
                   <div key={msg.id || `${msg.senderId}-${index}`} className="live-chat-line">
-                    <strong>{msg.senderName || msg.senderRole || 'viewer'}</strong>
+                    <strong>{msg.senderName || msg.senderRole || 'người xem'}</strong>
                     <span>{msg.text}</span>
                   </div>
                 ))

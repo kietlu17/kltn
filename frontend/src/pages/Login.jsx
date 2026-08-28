@@ -4,6 +4,41 @@ import api from '../services/api';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 
+function mapLoginErrorMessage(err) {
+  const rawMessage = err?.response?.data?.message || err?.response?.data?.error || err?.message || '';
+  const message = String(rawMessage).toLowerCase();
+  const status = err?.response?.status;
+
+  if (message.includes('email and password are required')) {
+    return 'Vui lòng nhập email và mật khẩu';
+  }
+  if (message.includes('invalid credentials')) {
+    return 'Email hoặc mật khẩu không đúng';
+  }
+  if (message.includes('account is locked')) {
+    return 'Tài khoản đã bị khóa';
+  }
+  if (message.includes('role mismatch')) {
+    return 'Tài khoản không đúng vai trò đăng nhập';
+  }
+  if (message.includes('too many requests')) {
+    return 'Bạn đăng nhập quá nhiều lần. Vui lòng thử lại sau';
+  }
+  if (message.includes('network') || message.includes('timeout')) {
+    return 'Không thể kết nối máy chủ. Vui lòng thử lại sau';
+  }
+  if (status === 401) {
+    return 'Phiên đăng nhập không hợp lệ hoặc thông tin đăng nhập không đúng';
+  }
+  if (status === 403) {
+    return 'Bạn không có quyền đăng nhập khu vực này';
+  }
+  if (status >= 500) {
+    return 'Máy chủ đăng nhập đang gặp lỗi. Vui lòng thử lại sau';
+  }
+  return 'Đăng nhập thất bại';
+}
+
 export default function Login({ expectedRole = null }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -17,7 +52,7 @@ export default function Login({ expectedRole = null }) {
   const description = isAdmin
     ? 'Quản lý hoạt động sàn và xử lý khiếu nại.'
     : isSeller
-      ? 'Truy cập bảng điều khiển shop, đơn hàng và tồn kho.'
+      ? 'Truy cập bảng điều khiển cửa hàng, đơn hàng và tồn kho.'
       : 'Thanh toán nhanh, ưu đãi chọn lọc và người bán uy tín.';
 
   async function loginHandler() {
@@ -56,8 +91,7 @@ export default function Login({ expectedRole = null }) {
       }
       navigate('/');
     } catch (err) {
-      const message = err?.response?.data?.message || 'Đăng nhập thất bại';
-      showToast(message, 'error');
+      showToast(mapLoginErrorMessage(err), 'error');
     }
   }
 

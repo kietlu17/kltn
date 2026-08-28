@@ -206,13 +206,13 @@ export default function SellerLiveStudio() {
       if (data.type === 'live.cart.item_added') {
         setChatMessages((prev) => [
           ...prev.slice(-80),
-          { id: `cart-${Date.now()}`, senderName: 'AI Co-host', text: `Đã thêm sản phẩm ${data.productId} vào giỏ của ${data.buyerId}` }
+          { id: `cart-${Date.now()}`, senderName: 'Trợ lý AI', text: `Đã thêm sản phẩm ${data.productId} vào giỏ của ${data.buyerId}` }
         ]);
       }
       if (data.type === 'live.intent.detected') {
         setChatMessages((prev) => [
           ...prev.slice(-80),
-          { id: data.id || `intent-${Date.now()}`, senderName: 'AI Co-host', text: data.reply || 'Đã nhận yêu cầu mua hàng' }
+          { id: data.id || `intent-${Date.now()}`, senderName: 'Trợ lý AI', text: data.reply || 'Đã nhận yêu cầu mua hàng' }
         ]);
       }
     });
@@ -248,7 +248,7 @@ export default function SellerLiveStudio() {
     setLoading(true);
     try {
       const response = await api.post(`/lives/${selectedLiveId}/start`, {
-        displayName: user?.shopName || user?.email || 'Seller'
+        displayName: user?.shopName || user?.email || 'Người bán'
       });
       const session = response.data?.livekit || null;
       setLivekitSession(session);
@@ -359,7 +359,7 @@ export default function SellerLiveStudio() {
       shopId,
       senderId: user?.id,
       senderRole: 'seller',
-      senderName: user?.shopName || user?.email || 'Seller',
+      senderName: user?.shopName || user?.email || 'Người bán',
       text,
       activePinnedProductId: activePinnedProduct?.productId || selectedLive?.activePinnedProductId || null
     };
@@ -431,7 +431,7 @@ export default function SellerLiveStudio() {
         <div className="section-header">
           <div>
             <h2>{selectedLive?.title || 'Livestream bán hàng'}</h2>
-            <span className="muted">{selectedLive?.providerRoomId || livekitSession?.roomName || 'LiveKit room'}</span>
+            <span className="muted">{selectedLive?.providerRoomId || livekitSession?.roomName || 'Phòng LiveKit'}</span>
           </div>
           <div className="seller-live-room-actions">
             <span className="section-link">{viewerCount} người xem</span>
@@ -461,21 +461,21 @@ export default function SellerLiveStudio() {
                 <strong>{activePinnedProduct?.nameSnapshot || 'Chưa có'}</strong>
               </div>
               <div>
-                <span className="muted">LiveKit URL</span>
+                <span className="muted">URL LiveKit</span>
                 <strong>{livekitSession?.url || 'Đang kết nối'}</strong>
               </div>
             </div>
           </section>
 
           <aside className="card seller-live-chat-panel">
-            <h3>Chat</h3>
+            <h3>Trò chuyện</h3>
             <div className="live-chat-list seller-live-chat-list">
               {chatMessages.length === 0 ? (
                 <p className="muted">Chưa có tin nhắn.</p>
               ) : (
                 chatMessages.map((msg, index) => (
                   <div key={msg.id || `${msg.senderId}-${index}`} className="live-chat-line">
-                    <strong>{msg.senderName || msg.senderRole || 'viewer'}</strong>
+                    <strong>{msg.senderName || msg.senderRole || 'người xem'}</strong>
                     <span>{msg.text}</span>
                   </div>
                 ))
@@ -506,7 +506,7 @@ export default function SellerLiveStudio() {
     <div className="container page-section seller-live-studio">
       <div className="section-header">
         <h2>Livestream</h2>
-        <span className="section-link">LiveKit self-host studio</span>
+        <span className="section-link">Studio LiveKit tự host</span>
       </div>
 
       <div className="seller-live-setup-grid">
@@ -591,7 +591,7 @@ export default function SellerLiveStudio() {
           {selectedLive ? (
             <div className="seller-stats">
               <div>
-                <span className="muted">Room</span>
+                <span className="muted">Phòng</span>
                 <strong>{selectedLive.providerRoomId}</strong>
               </div>
               <div>
@@ -605,11 +605,11 @@ export default function SellerLiveStudio() {
           {livekitSession ? (
             <div className="livekit-token-panel">
               <div className="checkout-row">
-                <span>LiveKit URL</span>
+                <span>URL LiveKit</span>
                 <strong>{livekitSession.url}</strong>
               </div>
               <div className="checkout-row">
-                <span>Room</span>
+                <span>Phòng</span>
                 <strong>{livekitSession.roomName}</strong>
               </div>
             </div>
@@ -621,14 +621,14 @@ export default function SellerLiveStudio() {
         </div>
 
         <div className="card seller-live-setup-chat-card">
-          <h3>Chat</h3>
+          <h3>Trò chuyện</h3>
           <div className="live-chat-list">
             {chatMessages.length === 0 ? (
               <p className="muted">Chưa có tin nhắn.</p>
             ) : (
               chatMessages.map((msg, index) => (
                 <div key={msg.id || `${msg.senderId}-${index}`} className="live-chat-line">
-                  <strong>{msg.senderName || msg.senderRole || 'viewer'}</strong>
+                  <strong>{msg.senderName || msg.senderRole || 'người xem'}</strong>
                   <span>{msg.text}</span>
                 </div>
               ))

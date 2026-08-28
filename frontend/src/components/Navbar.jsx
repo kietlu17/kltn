@@ -137,7 +137,7 @@ export default function Navbar() {
             </>
           )}
 
-          <Link to="/carrier" className="text-link">Carrier demo</Link>
+          <Link to="/carrier" className="text-link">Giả lập vận chuyển</Link>
 
           {isSeller && (
             <Link to="/seller/dashboard" className="cart-link">Khu vực người bán</Link>

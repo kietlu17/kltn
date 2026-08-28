@@ -101,7 +101,7 @@ export default function SellerOrders() {
   );
 
   const shopId = user?.shopId || user?.id;
-  const shopName = shopMap.get(shopId)?.name || user?.shopName || 'Shop';
+  const shopName = shopMap.get(shopId)?.name || user?.shopName || 'Cửa hàng';
 
   const printKey = useMemo(() => {
     if (!shopId) return '';
@@ -330,7 +330,7 @@ export default function SellerOrders() {
                 <div className="order-detail">
                   <div className="order-detail-meta">
                     <div>
-                      <span className="muted">Shop</span>
+                      <span className="muted">Cửa hàng</span>
                       <strong>{shopName}</strong>
                     </div>
                     <div>
@@ -476,7 +476,7 @@ export default function SellerOrders() {
             </div>
             <div className="print-section">
               <div>
-                <strong>Shop</strong>
+                <strong>Cửa hàng</strong>
                 <div>{shopName}</div>
               </div>
               <div>
@@ -525,7 +525,7 @@ export default function SellerOrders() {
               </div>
               <div className="print-section">
                 <div>
-                  <strong>Shop</strong>
+                  <strong>Cửa hàng</strong>
                   <div>{shopName}</div>
                 </div>
                 <div>
