@@ -15,6 +15,7 @@ const proxiedRoutes = [
   '/payments',
   '/reviews',
   '/chat',
+  '/realtime',
   '/lives'
 ];
 
@@ -33,6 +34,7 @@ export default defineConfig(({ mode }) => {
         target: gatewayTarget,
         changeOrigin: true,
         secure: false,
+        ws: true,
         bypass: (req) => (shouldServeSpa(req) ? req.url : undefined)
       }
     ])

@@ -1,9 +1,24 @@
 const LiveSession = require('../models/LiveSession');
 const LivePinnedProduct = require('../models/LivePinnedProduct');
 const { publishEvent } = require('../kafka/producer');
-const { buildRoomName, ensureRoom, endRoom, dispatchAiCohost, createToken, publicUrl, receiveWebhook } = require('../services/mediaProvider');
+const {
+  buildRoomName,
+  ensureRoom,
+  endRoom,
+  dispatchAiCohost,
+  startHlsEgress,
+  stopHlsEgress,
+  createToken,
+  publicUrl,
+  receiveWebhook
+} = require('../services/mediaProvider');
 const { getProduct } = require('../services/productClient');
-const { markViewerJoined, markViewerLeft } = require('../services/liveMaintenance');
+const {
+  markViewerJoined,
+  markViewerLeft,
+  markViewerHeartbeat,
+  countActiveViewers
+} = require('../services/liveMaintenance');
 
 function requester(req) {
   return {
@@ -117,22 +132,29 @@ async function startLive(req, res) {
     }
 
     live.status = 'starting';
+    live.playbackUrl = '';
+    live.hlsPlaybackUrl = '';
+    live.hlsPlaylistPath = '';
+    live.egressId = '';
+    live.egressStatus = '';
     await live.save();
     await ensureRoom(live.providerRoomId);
-    dispatchAiCohost(live.providerRoomId, {
-      liveId: String(live._id),
-      shopId: live.shopId,
-      sellerId: live.sellerId,
-      activePinnedProductId: live.activePinnedProductId || null
-    }).catch((err) => {
-      console.error('AI co-host dispatch failed', err.message);
-      publishEvent('live.ai_cohost.dispatch_failed.v1', {
+    if (process.env.LIVEKIT_AI_COHOST_IN_ROOM_ENABLED === 'true') {
+      dispatchAiCohost(live.providerRoomId, {
         liveId: String(live._id),
         shopId: live.shopId,
-        providerRoomId: live.providerRoomId,
-        error: err.message
-      }).catch(() => {});
-    });
+        sellerId: live.sellerId,
+        activePinnedProductId: live.activePinnedProductId || null
+      }).catch((err) => {
+        console.error('AI co-host dispatch failed', err.message);
+        publishEvent('live.ai_cohost.dispatch_failed.v1', {
+          liveId: String(live._id),
+          shopId: live.shopId,
+          providerRoomId: live.providerRoomId,
+          error: err.message
+        }).catch(() => {});
+      });
+    }
 
     live.status = 'live';
     live.startedAt = live.startedAt || new Date();
@@ -166,9 +188,20 @@ async function endLive(req, res) {
 
     live.status = 'ending';
     await live.save();
+    await stopHlsEgress(live.egressId).catch((err) => {
+      console.error('LiveKit HLS egress stop failed', err.message);
+      publishEvent('live.hls_egress.stop_failed.v1', {
+        liveId: String(live._id),
+        shopId: live.shopId,
+        providerRoomId: live.providerRoomId,
+        egressId: live.egressId,
+        error: err.message
+      }).catch(() => {});
+    });
     await endRoom(live.providerRoomId);
 
     live.status = 'ended';
+    live.egressStatus = live.egressId ? 'ended' : live.egressStatus;
     live.endedAt = new Date();
     await live.save();
 
@@ -181,6 +214,52 @@ async function endLive(req, res) {
     return res.json(normalizeLive(live));
   } catch (err) {
     return res.status(500).json({ message: 'End live failed', error: err.message });
+  }
+}
+
+async function startHlsPlayback(req, res) {
+  try {
+    const live = await LiveSession.findById(req.params.liveId);
+    if (!live) return res.status(404).json({ message: 'Live not found' });
+    if (!canManageLive(req, live)) return res.status(403).json({ message: 'Forbidden' });
+    if (!['starting', 'live'].includes(live.status)) {
+      return res.status(409).json({ message: 'Live must be active before starting HLS egress' });
+    }
+
+    if (live.egressId && !['ended', 'failed', 'aborted'].includes(String(live.egressStatus || '').toLowerCase())) {
+      await stopHlsEgress(live.egressId).catch(() => null);
+    }
+
+    await ensureRoom(live.providerRoomId);
+    const hlsInfo = await startHlsEgress(live.providerRoomId, String(live._id), `seller:${live.sellerId}`);
+    if (!hlsInfo) {
+      live.egressStatus = 'disabled';
+      await live.save();
+      return res.json({ live: normalizeLive(live), hls: null });
+    }
+
+    live.hlsPlaybackUrl = hlsInfo.hlsPlaybackUrl;
+    live.hlsPlaylistPath = hlsInfo.hlsPlaylistPath;
+    live.egressId = hlsInfo.egressId;
+    live.egressStatus = hlsInfo.egressStatus;
+    live.playbackUrl = hlsInfo.hlsPlaybackUrl;
+    await live.save();
+
+    await publishEvent('live.hls_egress.started.v1', {
+      liveId: String(live._id),
+      shopId: live.shopId,
+      providerRoomId: live.providerRoomId,
+      egressId: live.egressId,
+      hlsPlaybackUrl: live.hlsPlaybackUrl
+    });
+
+    return res.json({ live: normalizeLive(live), hls: hlsInfo });
+  } catch (err) {
+    await publishEvent('live.hls_egress.start_failed.v1', {
+      liveId: req.params.liveId,
+      error: err.message
+    }).catch(() => {});
+    return res.status(500).json({ message: 'Start HLS egress failed', error: err.message });
   }
 }
 
@@ -218,6 +297,40 @@ async function createViewerToken(req, res) {
     return res.json({ url: publicUrl, token, roomName: live.providerRoomId });
   } catch (err) {
     return res.status(500).json({ message: 'Create viewer token failed', error: err.message });
+  }
+}
+
+function hlsViewerIdentity(req) {
+  const current = requester(req);
+  if (current.userId && current.role === 'buyer') return `buyer:${current.userId}`;
+  const rawViewerId = String(req.body?.viewerId || req.headers['x-live-viewer-id'] || '').trim();
+  const safeViewerId = rawViewerId.replace(/[^a-zA-Z0-9:_-]/g, '').slice(0, 80);
+  return `hls:${safeViewerId || req.ip || Date.now()}`;
+}
+
+async function recordViewerHeartbeat(req, res) {
+  try {
+    const live = await LiveSession.findById(req.params.liveId);
+    if (!live) return res.status(404).json({ message: 'Live not found' });
+    if (!['starting', 'live'].includes(live.status)) {
+      return res.json({ liveId: String(live._id), viewerCount: 0, status: live.status });
+    }
+    const identity = hlsViewerIdentity(req);
+    const viewerCount = await markViewerHeartbeat(String(live._id), identity);
+    return res.json({ liveId: String(live._id), viewerCount, status: live.status });
+  } catch (err) {
+    return res.status(500).json({ message: 'Viewer heartbeat failed', error: err.message });
+  }
+}
+
+async function getViewerCount(req, res) {
+  try {
+    const live = await LiveSession.findById(req.params.liveId);
+    if (!live) return res.status(404).json({ message: 'Live not found' });
+    const viewerCount = await countActiveViewers(String(live._id));
+    return res.json({ liveId: String(live._id), viewerCount, status: live.status });
+  } catch (err) {
+    return res.status(500).json({ message: 'Get viewer count failed', error: err.message });
   }
 }
 
@@ -400,9 +513,12 @@ module.exports = {
   listSellerLives,
   getLive,
   startLive,
+  startHlsPlayback,
   endLive,
   createSellerToken,
   createViewerToken,
+  recordViewerHeartbeat,
+  getViewerCount,
   listPinnedProducts,
   pinProduct,
   setActiveProduct,

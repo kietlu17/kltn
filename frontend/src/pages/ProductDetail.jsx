@@ -1,16 +1,53 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import api, { resolveImageUrl } from '../services/api';
+import api, { getProductItems, resolveImageUrl } from '../services/api';
 import { useCart } from '../context/CartContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import useShopMap from '../hooks/useShopMap';
 import useInventoryMap, { getAvailableStock } from '../hooks/useInventoryMap';
 import ChatWidget from '../components/ChatWidget.jsx';
+import ProductGrid from '../components/ProductGrid.jsx';
+
+const RECENTLY_VIEWED_KEY = 'recentlyViewedProducts';
+const RELATED_STOP_WORDS = new Set([
+  'va',
+  'voi',
+  'cho',
+  'cua',
+  'hang',
+  'san',
+  'pham',
+  'loai',
+  'mau',
+  'size',
+  'cao',
+  'cap',
+  'chinh',
+  'hang'
+]);
 
 function formatPrice(value) {
   const number = Number(value || 0);
   return number.toLocaleString('vi-VN', { style: 'currency', currency: 'VND' });
+}
+
+function getProductKeywords(name) {
+  return String(name || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/đ/g, 'd')
+    .split(/[^a-z0-9]+/)
+    .filter((word) => word.length > 1 && !RELATED_STOP_WORDS.has(word));
+}
+
+function getPriceScore(basePrice, candidatePrice) {
+  const base = Number(basePrice || 0);
+  const candidate = Number(candidatePrice || 0);
+  if (!base || !candidate) return 0;
+  const differenceRatio = Math.abs(candidate - base) / base;
+  return differenceRatio <= 0.25 ? 10 : 0;
 }
 
 export default function ProductDetail() {
@@ -18,6 +55,8 @@ export default function ProductDetail() {
   const [product, setProduct] = useState(null);
   const [categories, setCategories] = useState([]);
   const [reviews, setReviews] = useState([]);
+  const [allProducts, setAllProducts] = useState([]);
+  const [recentProducts, setRecentProducts] = useState([]);
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
   const [canReview, setCanReview] = useState(false);
@@ -26,6 +65,10 @@ export default function ProductDetail() {
   const [zoomLevel, setZoomLevel] = useState(1);
   const [chatOpen, setChatOpen] = useState(false);
   const [selectedVariantId, setSelectedVariantId] = useState('');
+  const [vouchers, setVouchers] = useState([]);
+  const [voucherLoading, setVoucherLoading] = useState(false);
+  const [priceDetailOpen, setPriceDetailOpen] = useState(false);
+  const [purchaseQuantity, setPurchaseQuantity] = useState(1);
 
   const { addItem } = useCart();
   const { showToast } = useToast();
@@ -36,6 +79,13 @@ export default function ProductDetail() {
   useEffect(() => {
     api.get(`/products/${id}`).then((res) => setProduct(res.data)).catch(() => setProduct(null));
   }, [id]);
+
+  useEffect(() => {
+    api
+      .get('/products', { params: { paginated: true, page: 1, limit: 48 } })
+      .then((res) => setAllProducts(getProductItems(res.data)))
+      .catch(() => setAllProducts([]));
+  }, []);
 
   useEffect(() => {
     api.get('/categories').then((res) => setCategories(res.data)).catch(() => setCategories([]));
@@ -89,10 +139,25 @@ export default function ProductDetail() {
     if (!Array.isArray(product?.variants) || product.variants.length === 0) return null;
     return product.variants.find((item) => String(item._id) === String(selectedVariantId)) || null;
   }, [product, selectedVariantId]);
-  const inventoryMap = useInventoryMap(product ? [product] : []);
+  const inventoryProducts = useMemo(
+    () => (product ? [product, ...allProducts, ...recentProducts] : [...allProducts, ...recentProducts]),
+    [product, allProducts, recentProducts]
+  );
+  const inventoryMap = useInventoryMap(inventoryProducts);
 
   const effectivePrice = selectedVariant ? selectedVariant.price : product?.price;
   const effectiveStock = getAvailableStock(product, selectedVariant, inventoryMap);
+  const productShopId = product?.shopId || product?.shop?._id || product?.shop?.id;
+
+  const voucherItems = useMemo(() => {
+    if (!product) return [];
+    return [{
+      productId: product._id || product.id,
+      shopId: productShopId,
+      quantity: 1,
+      price: effectivePrice
+    }];
+  }, [product, productShopId, effectivePrice]);
 
   const categoryMap = useMemo(() => {
     const map = new Map();
@@ -124,6 +189,49 @@ export default function ProductDetail() {
   }, [resolvedImages]);
 
   useEffect(() => {
+    setPurchaseQuantity(1);
+    setPriceDetailOpen(false);
+  }, [id, selectedVariantId]);
+
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem(RECENTLY_VIEWED_KEY) || '[]');
+      setRecentProducts(Array.isArray(stored) ? stored : []);
+    } catch {
+      setRecentProducts([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!product) return;
+    const viewedProduct = {
+      _id: product._id || product.id,
+      id: product._id || product.id,
+      name: product.name,
+      price: product.price,
+      originalPrice: product.originalPrice,
+      images: product.images,
+      imageUrl: product.imageUrl,
+      quantity: product.quantity,
+      sold: product.sold,
+      variants: product.variants,
+      categoryId: product.categoryId,
+      shopId: product.shopId,
+      categoryName: categoryMap.get(product.categoryId)?.name || product.categoryName,
+      shopName: shopMap.get(product.shopId)?.name || product.shopName
+    };
+
+    setRecentProducts((current) => {
+      const next = [
+        viewedProduct,
+        ...current.filter((item) => String(item._id || item.id) !== String(viewedProduct.id))
+      ].slice(0, 9);
+      localStorage.setItem(RECENTLY_VIEWED_KEY, JSON.stringify(next));
+      return next;
+    });
+  }, [product, categoryMap, shopMap]);
+
+  useEffect(() => {
     if (!Array.isArray(product?.variants) || product.variants.length === 0) {
       setSelectedVariantId('');
       return;
@@ -131,6 +239,31 @@ export default function ProductDetail() {
     const preferred = product.variants.find((item) => getAvailableStock(product, item, inventoryMap) > 0) || product.variants[0];
     setSelectedVariantId(String(preferred?._id || ''));
   }, [product, inventoryMap]);
+
+  useEffect(() => {
+    if (!user?.id || user?.role !== 'buyer' || voucherItems.length === 0 || !Number.isFinite(Number(effectivePrice))) {
+      setVouchers([]);
+      return;
+    }
+
+    let cancelled = false;
+    setVoucherLoading(true);
+    api
+      .post('/vouchers/checkout', { userId: user.id, items: voucherItems })
+      .then((res) => {
+        if (!cancelled) setVouchers(Array.isArray(res.data) ? res.data : []);
+      })
+      .catch(() => {
+        if (!cancelled) setVouchers([]);
+      })
+      .finally(() => {
+        if (!cancelled) setVoucherLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, user?.role, voucherItems, effectivePrice]);
 
   useEffect(() => {
     if (!isZoomOpen) return;
@@ -141,22 +274,29 @@ export default function ProductDetail() {
     return () => window.removeEventListener('keydown', handleKey);
   }, [isZoomOpen]);
 
-  async function addToCart() {
-    if (!product) return;
+  async function addToCart(targetProduct = product) {
+    if (!targetProduct) return;
     if (!user?.id || user.role !== 'buyer') {
       showToast('Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng', 'error');
       navigate('/login');
       return;
     }
-    if (Array.isArray(product.variants) && product.variants.length > 0 && !selectedVariant) {
-      showToast('Vui lòng chọn biến thể', 'error');
+    const isCurrentProduct = String(targetProduct._id || targetProduct.id) === String(product?._id || product?.id);
+    const targetVariant = isCurrentProduct ? selectedVariant : null;
+    if (Array.isArray(targetProduct.variants) && targetProduct.variants.length > 0 && !targetVariant) {
+      showToast('Vui lòng chọn biến thể trước khi thêm vào giỏ');
+      navigate(`/product/${targetProduct._id || targetProduct.id}`);
       return;
     }
-    if (Number(effectiveStock ?? 0) <= 0) {
+    const targetStock = isCurrentProduct
+      ? effectiveStock
+      : getAvailableStock(targetProduct, targetVariant, inventoryMap);
+    if (Number(targetStock ?? 0) <= 0) {
       showToast('Hết hàng', 'error');
       return;
     }
-    await addItem(product._id || product.id, 1, selectedVariant ? selectedVariant._id : null);
+    const quantity = isCurrentProduct ? currentQuantity : 1;
+    await addItem(targetProduct._id || targetProduct.id, quantity, targetVariant ? targetVariant._id : null);
     showToast('Đã thêm vào giỏ hàng');
   }
 
@@ -181,7 +321,7 @@ export default function ProductDetail() {
     const lineId = `${productId || ''}::${variantId || ''}`;
 
     try {
-      await addItem(productId, 1, variantId);
+      await addItem(productId, currentQuantity, variantId);
       localStorage.setItem('checkoutSelection', JSON.stringify([lineId]));
       navigate('/checkout', { state: { selectedProductIds: [lineId] } });
     } catch (err) {
@@ -232,10 +372,66 @@ export default function ProductDetail() {
   }
 
   const categoryName = categoryMap.get(product.categoryId)?.name || product.categoryName;
-  const shopId = product?.shopId || product?.shop?._id || product?.shop?.id;
+  const shopId = productShopId;
   const shopName = shopMap.get(shopId)?.name || product.shopName || 'Shop chính thức';
   const isOutOfStock = Number(effectiveStock ?? 0) <= 0;
   const sold = Number(product?.sold ?? 0);
+  const reviewCount = reviews.length;
+  const averageRating = reviewCount
+    ? reviews.reduce((sum, item) => sum + Number(item.rating || 0), 0) / reviewCount
+    : 0;
+  const effectiveOriginalPrice = selectedVariant
+    ? (selectedVariant.originalPrice ?? selectedVariant.price)
+    : (product.originalPrice ?? product.price);
+  const productDiscount = Math.max(Number(effectiveOriginalPrice || 0) - Number(effectivePrice || 0), 0);
+  const eligibleVouchers = vouchers.filter((voucher) => voucher.eligible && Number(voucher.discountAmount || 0) > 0);
+  const platformVoucher = eligibleVouchers
+    .filter((voucher) => voucher.type === 'platform')
+    .sort((a, b) => Number(b.discountAmount || 0) - Number(a.discountAmount || 0))[0];
+  const shopVoucher = eligibleVouchers
+    .filter((voucher) => voucher.type === 'shop' && String(voucher.shopId) === String(shopId))
+    .sort((a, b) => Number(b.discountAmount || 0) - Number(a.discountAmount || 0))[0];
+  const platformDiscount = Number(platformVoucher?.discountAmount || 0);
+  const shopDiscount = Number(shopVoucher?.discountAmount || 0);
+  const priceAfterVoucher = Math.max(Number(effectivePrice || 0) - platformDiscount - shopDiscount, 0);
+  const decorateSuggestion = (item) => ({
+    ...item,
+    availableStock: getAvailableStock(item, null, inventoryMap),
+    categoryName: categoryMap.get(item.categoryId)?.name || item.categoryName,
+    shopName: shopMap.get(item.shopId)?.name || item.shopName
+  });
+  const currentKeywords = new Set(getProductKeywords(product.name));
+  const maxSold = Math.max(...allProducts.map((item) => Number(item.sold || 0)), 0);
+  const scoreRelatedProduct = (item) => {
+    const candidateStock = getAvailableStock(item, null, inventoryMap);
+    const matchedKeywordCount = getProductKeywords(item.name).filter((word) => currentKeywords.has(word)).length;
+    const soldScore = maxSold > 0 ? Math.min(10, Math.round((Number(item.sold || 0) / maxSold) * 10)) : 0;
+
+    return (
+      (item.categoryId && product.categoryId && String(item.categoryId) === String(product.categoryId) ? 50 : 0) +
+      (matchedKeywordCount > 0 ? 30 : 0) +
+      (item.shopId && shopId && String(item.shopId) === String(shopId) ? 15 : 0) +
+      getPriceScore(effectivePrice, item.price) +
+      soldScore +
+      (Number(candidateStock ?? 0) > 0 ? 10 : 0)
+    );
+  };
+  const relatedProducts = allProducts
+    .filter((item) => String(item._id || item.id) !== String(product._id || product.id))
+    .map((item) => ({ item, score: scoreRelatedProduct(item) }))
+    .filter(({ score }) => score > 0)
+    .sort((a, b) => b.score - a.score || Number(b.item.sold || 0) - Number(a.item.sold || 0))
+    .slice(0, 8)
+    .map(({ item }) => decorateSuggestion(item));
+  const viewedProducts = recentProducts
+    .filter((item) => String(item._id || item.id) !== String(product._id || product.id))
+    .slice(0, 8)
+    .map(decorateSuggestion);
+  const stockQuantity = Math.max(Number(effectiveStock ?? 0), 0);
+  const currentQuantity = Math.min(purchaseQuantity, Math.max(stockQuantity, 1));
+  const likedCount = Math.max(sold * 3 + reviewCount, 0);
+  const selectedShopVoucher = shopVoucher || eligibleVouchers.find((voucher) => voucher.type === 'shop');
+  const visibleVoucher = selectedShopVoucher;
 
   return (
     <div className="container page-section">
@@ -263,56 +459,239 @@ export default function ProductDetail() {
               </button>
             ))}
           </div>
+
+          <div className="product-share-row">
+            <span>Chia sẻ:</span>
+            <button type="button">f</button>
+            <button type="button">m</button>
+            <button type="button">p</button>
+            <span className="product-liked">♡ Đã thích ({likedCount.toLocaleString('vi-VN')})</span>
+          </div>
         </div>
 
         <div className="product-info">
-          <span className="badge">Sàn thương mại</span>
-          {isOutOfStock && <span className="badge badge-danger">Hết hàng</span>}
+          <div className="product-title-badges">
+            <span className="badge">Sàn thương mại</span>
+            <span className="badge badge-danger">Mall</span>
+            {isOutOfStock && <span className="badge badge-danger">Hết hàng</span>}
+          </div>
           <h2>{product.name}</h2>
-          <div className="price">{formatPrice(effectivePrice)}</div>
-          <p className="muted">
-            {shopId ? <Link to={`/shop/${shopId}`} className="shop-link">{shopName}</Link> : shopName}
-          </p>
-          <p className="muted">Đã bán: {sold}</p>
-          <p className="muted">Tồn kho: {effectiveStock ?? 0}</p>
+
+          <div className="product-rating-meta">
+            <span>{averageRating ? averageRating.toFixed(1) : 'Chưa có'}</span>
+            <span className="rating-stars-static">★★★★★</span>
+            <span>{reviewCount.toLocaleString('vi-VN')} Đánh Giá</span>
+            <span>Đã Bán {sold.toLocaleString('vi-VN')}</span>
+          </div>
+
+          <div className="product-price-panel">
+            <div className="product-price-line">
+              <div className="price">{formatPrice(effectivePrice)}</div>
+              <button
+                type="button"
+                className="voucher-price-label"
+                onClick={() => setPriceDetailOpen((current) => !current)}
+              >
+                Giá sau voucher
+              </button>
+            </div>
+          </div>
 
           {Array.isArray(product.variants) && product.variants.length > 0 && (
-            <div className="product-section">
-              <h4>Biến thể</h4>
+            <div className="purchase-row">
+              <span>Biến thể</span>
               <select value={selectedVariantId} onChange={(event) => setSelectedVariantId(event.target.value)}>
                 {product.variants.map((variant) => (
                   <option key={variant._id} value={variant._id}>
-                    {variant.name} - {formatPrice(variant.price)} - Tồn kho: {getAvailableStock(product, variant, inventoryMap)}
+                    {variant.name} - {formatPrice(variant.price)}
                   </option>
                 ))}
               </select>
             </div>
           )}
 
-          {categoryName && <p className="muted">Danh mục: {categoryName}</p>}
+          <div className="purchase-row">
+            <span>Mã Giảm Giá Của Shop</span>
+            <strong>{selectedShopVoucher ? `Giảm ${Number(selectedShopVoucher.discountValue || 0)}%` : 'Chưa có mã'}</strong>
+          </div>
+
+          <div className="purchase-row">
+            <span>Vận Chuyển</span>
+            <strong>{isOutOfStock ? 'Không hỗ trợ' : 'Có hỗ trợ giao hàng'}</strong>
+          </div>
+
+          <div className="purchase-row">
+            <span>An Tâm Mua Sắm</span>
+            <strong>Shopee Xử Lý · Trả hàng miễn phí 15 ngày · Chính hãng 100%</strong>
+          </div>
+
+          <div className="purchase-row quantity-row">
+            <span>Số Lượng</span>
+            <div className="quantity-control">
+              <button
+                type="button"
+                onClick={() => setPurchaseQuantity((value) => Math.max(1, value - 1))}
+                disabled={currentQuantity <= 1}
+              >
+                -
+              </button>
+              <input
+                type="number"
+                min="1"
+                max={stockQuantity || 1}
+                value={currentQuantity}
+                onChange={(event) => {
+                  const next = Number(event.target.value || 1);
+                  setPurchaseQuantity(Math.min(Math.max(next, 1), stockQuantity || 1));
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => setPurchaseQuantity((value) => Math.min(value + 1, stockQuantity || 1))}
+                disabled={currentQuantity >= (stockQuantity || 1)}
+              >
+                +
+              </button>
+            </div>
+            <span className="stock-text">{isOutOfStock ? 'Hết hàng' : `${stockQuantity.toLocaleString('vi-VN')} còn hàng`}</span>
+          </div>
 
           <div className="product-actions">
-            <button className="btn btn-primary" onClick={addToCart} disabled={isOutOfStock}>
+            <button className="btn btn-primary" onClick={() => addToCart()} disabled={isOutOfStock}>
               Thêm vào giỏ
             </button>
             <button className="btn btn-outline" onClick={buyNow} disabled={isOutOfStock}>
-              Mua ngay
+              Mua với voucher
             </button>
             <button className="btn btn-ghost" onClick={handleOpenChat}>
               Chat với shop
             </button>
           </div>
 
-          <div className="product-section">
-            <h4>Mô tả</h4>
-            <p>{product.description || 'Chưa có mô tả.'}</p>
-          </div>
+          {priceDetailOpen && (
+            <div className="price-detail-panel">
+              <h4>Chi tiết giá</h4>
+              <div className="price-detail-row">
+                <span>Giá gốc</span>
+                <strong>{formatPrice(effectiveOriginalPrice)}</strong>
+              </div>
+              <div className="price-detail-row">
+                <span>Giảm giá sản phẩm</span>
+                <strong className="discount-value">-{formatPrice(productDiscount)}</strong>
+              </div>
+              <div className="price-detail-divider" />
+              <div className="price-detail-row stacked">
+                <span>
+                  Voucher Shopee
+                  {platformVoucher && (
+                    <small>
+                      Mua từ {formatPrice(platformVoucher.minOrderAmount)} để được giảm {Number(platformVoucher.discountValue || 0)}%.
+                      Số lượng Voucher có hạn.
+                    </small>
+                  )}
+                </span>
+                <strong className="discount-value">-{formatPrice(platformDiscount)}</strong>
+              </div>
+              <div className="price-detail-row stacked">
+                <span>
+                  Voucher của Shop
+                  {shopVoucher && (
+                    <small>
+                      Mua từ {formatPrice(shopVoucher.minOrderAmount)} để được giảm {Number(shopVoucher.discountValue || 0)}%.
+                      Số lượng Voucher có hạn.
+                    </small>
+                  )}
+                </span>
+                <strong className="discount-value">-{formatPrice(shopDiscount)}</strong>
+              </div>
+              <div className="price-detail-divider" />
+              <div className="price-detail-total">
+                <span>Giá sau voucher</span>
+                <strong>{formatPrice(priceAfterVoucher)}</strong>
+              </div>
+              <p className="price-detail-note">
+                {voucherLoading
+                  ? 'Đang tải Voucher khả dụng.'
+                  : '*Vui lòng thêm Voucher khả dụng ở bước thanh toán để được giá như trên'}
+              </p>
+            </div>
+          )}
 
-          <div className="product-section">
-            <h4>Chi tiết</h4>
-            <p>{product.detail || 'Chưa có thông tin chi tiết.'}</p>
+        </div>
+      </div>
+
+      <section className="shop-summary">
+        <div className="shop-summary-main">
+          <div className="shop-avatar">{shopName.slice(0, 2).toUpperCase()}</div>
+          <div>
+            <h3>{shopName}</h3>
+            <p className="muted">Online 2 phút trước</p>
+            <div className="shop-summary-actions">
+              <button type="button" className="btn btn-outline" onClick={handleOpenChat}>Chat ngay</button>
+              {shopId && <Link to={`/shop/${shopId}`} className="btn btn-ghost">Xem shop</Link>}
+            </div>
           </div>
         </div>
+        <div className="shop-summary-stats">
+          <div><span>Đánh Giá</span><strong>{reviewCount.toLocaleString('vi-VN')}</strong></div>
+          <div><span>Sản Phẩm</span><strong>{allProducts.filter((item) => String(item.shopId) === String(shopId)).length}</strong></div>
+          <div><span>Tỉ Lệ Phản Hồi</span><strong>99%</strong></div>
+          <div><span>Tham Gia</span><strong>4 năm trước</strong></div>
+        </div>
+      </section>
+
+      <div className="product-content-layout">
+        <div className="product-content-main">
+          <section className="detail-block">
+            <h3>Chi tiết sản phẩm</h3>
+            <dl className="product-specs">
+              <div>
+                <dt>Danh mục</dt>
+                <dd>{categoryName || 'Chưa phân loại'}</dd>
+              </div>
+              <div>
+                <dt>Kho</dt>
+                <dd>{isOutOfStock ? 'Hết hàng' : 'Còn hàng'}</dd>
+              </div>
+              <div>
+                <dt>Cửa hàng</dt>
+                <dd>{shopName}</dd>
+              </div>
+              <div>
+                <dt>Đã bán</dt>
+                <dd>{sold.toLocaleString('vi-VN')}</dd>
+              </div>
+              <div>
+                <dt>Biến thể</dt>
+                <dd>{Array.isArray(product.variants) && product.variants.length > 0 ? `${product.variants.length} lựa chọn` : 'Không có'}</dd>
+              </div>
+            </dl>
+          </section>
+
+          <section className="detail-block">
+            <h3>Mô tả sản phẩm</h3>
+            <p className="product-description">{product.description || product.detail || 'Chưa có mô tả.'}</p>
+            {product.detail && product.detail !== product.description && (
+              <p className="product-description">{product.detail}</p>
+            )}
+          </section>
+        </div>
+
+        <aside className="product-content-side">
+          <section className="shop-voucher-box">
+            <h3>Mã giảm giá của Shop</h3>
+            {visibleVoucher ? (
+              <div className="shop-voucher-card">
+                <strong>Giảm {Number(visibleVoucher.discountValue || 0)}%</strong>
+                <span>Đơn tối thiểu {formatPrice(visibleVoucher.minOrderAmount || 0)}</span>
+                <small>{Number(visibleVoucher.remaining ?? visibleVoucher.quantity ?? 0).toLocaleString('vi-VN')} mã còn lại</small>
+                <button type="button">Lưu</button>
+              </div>
+            ) : (
+              <p className="muted">Shop chưa có voucher khả dụng.</p>
+            )}
+          </section>
+        </aside>
       </div>
 
       <div className="reviews">
@@ -378,6 +757,26 @@ export default function ProductDetail() {
           )}
         </div>
       </div>
+
+      {relatedProducts.length > 0 && (
+        <section className="product-suggestion-section">
+          <div className="section-header">
+            <h3>Sản phẩm liên quan</h3>
+            <span className="section-link">{relatedProducts.length} sản phẩm</span>
+          </div>
+          <ProductGrid products={relatedProducts} onAdd={addToCart} detailBasePath="/product" />
+        </section>
+      )}
+
+      {viewedProducts.length > 0 && (
+        <section className="product-suggestion-section">
+          <div className="section-header">
+            <h3>Sản phẩm đã xem gần đây</h3>
+            <span className="section-link">{viewedProducts.length} sản phẩm</span>
+          </div>
+          <ProductGrid products={viewedProducts} onAdd={addToCart} detailBasePath="/product" />
+        </section>
+      )}
 
       {isZoomOpen && hero && (
         <div className="image-modal" onClick={() => setIsZoomOpen(false)}>

@@ -1,12 +1,52 @@
 const Product = require('../models/Product');
 const Category = require('../models/Category');
+const mongoose = require('mongoose');
 const { publishProductCreated, publishProductUpdated } = require('../kafka/producer');
 const { evaluateProductContent } = require('../moderation/keywordRules');
+const { uploadProductFile } = require('../services/objectStorage');
 
 function parseNumber(value, fallback = 0) {
   const parsed = Number(value);
   if (Number.isFinite(parsed)) return parsed;
   return fallback;
+}
+
+function parsePositiveInteger(value, fallback, max = Number.MAX_SAFE_INTEGER) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 1) return fallback;
+  return Math.min(Math.trunc(parsed), max);
+}
+
+function parseProductsPagination(query = {}) {
+  const enabled =
+    String(query.paginated || '').toLowerCase() === 'true' ||
+    query.page != null ||
+    query.limit != null;
+  const maxLimit = parsePositiveInteger(process.env.PRODUCTS_MAX_PAGE_SIZE, 100, 500);
+  const defaultLimit = parsePositiveInteger(process.env.PRODUCTS_DEFAULT_PAGE_SIZE, 24, maxLimit);
+  return {
+    enabled,
+    page: parsePositiveInteger(query.page, 1),
+    limit: parsePositiveInteger(query.limit, defaultLimit, maxLimit)
+  };
+}
+
+function buildProductsSort(sort) {
+  const sortMap = {
+    newest: { createdAt: -1, _id: -1 },
+    price_asc: { price: 1, createdAt: -1, _id: -1 },
+    price_desc: { price: -1, createdAt: -1, _id: -1 },
+    sold_desc: { sold: -1, createdAt: -1, _id: -1 }
+  };
+  return sortMap[sort] || sortMap.newest;
+}
+
+function parseProductIds(value, max = 100) {
+  return [...new Set(String(value || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter((item) => mongoose.Types.ObjectId.isValid(item)))]
+    .slice(0, max);
 }
 
 function parsePriceValue(value, fallback = NaN) {
@@ -36,6 +76,26 @@ function parsePriceValue(value, fallback = NaN) {
   return fallback;
 }
 
+function normalizePricePair(rawOriginalPrice, rawSalePrice) {
+  const salePrice = parsePriceValue(rawSalePrice, NaN);
+  const originalPrice =
+    rawOriginalPrice == null || rawOriginalPrice === ''
+      ? salePrice
+      : parsePriceValue(rawOriginalPrice, NaN);
+
+  if (!Number.isFinite(salePrice) || salePrice < 0) {
+    throw new Error('price must be a non-negative number');
+  }
+  if (!Number.isFinite(originalPrice) || originalPrice < 0) {
+    throw new Error('originalPrice must be a non-negative number');
+  }
+  if (originalPrice < salePrice) {
+    throw new Error('originalPrice must be greater than or equal to price');
+  }
+
+  return { originalPrice, price: salePrice };
+}
+
 function parseVariants(rawVariants) {
   if (rawVariants == null || rawVariants === '') return [];
   let input = rawVariants;
@@ -53,11 +113,17 @@ function parseVariants(rawVariants) {
   const normalized = input
     .map((item) => {
       const existingId = item?._id != null ? String(item._id).trim() : '';
+      const rawPrice = parsePriceValue(item?.price, NaN);
+      const rawOriginalPrice =
+        item?.originalPrice == null || item?.originalPrice === ''
+          ? rawPrice
+          : parsePriceValue(item?.originalPrice, NaN);
       const normalizedItem = {
         name: String(item?.name || '').trim(),
         sku: String(item?.sku || '').trim(),
         imageUrl: String(item?.imageUrl || '').trim(),
-        price: parsePriceValue(item?.price, NaN),
+        originalPrice: rawOriginalPrice,
+        price: rawPrice,
         quantity: parseNumber(item?.quantity, NaN)
       };
       if (existingId) normalizedItem._id = existingId;
@@ -72,6 +138,12 @@ function parseVariants(rawVariants) {
     if (!Number.isFinite(item.price) || item.price < 0) {
       throw new Error('Each variant requires a non-negative price');
     }
+    if (!Number.isFinite(item.originalPrice) || item.originalPrice < 0) {
+      throw new Error('Each variant requires a non-negative originalPrice');
+    }
+    if (item.originalPrice < item.price) {
+      throw new Error('Each variant originalPrice must be greater than or equal to price');
+    }
     if (!Number.isFinite(item.quantity) || item.quantity < 0) {
       throw new Error('Each variant requires a non-negative quantity');
     }
@@ -80,20 +152,22 @@ function parseVariants(rawVariants) {
   return normalized;
 }
 
-function splitUploadedFiles(files = []) {
+async function splitUploadedFiles(files = []) {
   const all = Array.isArray(files) ? files : [];
-  const productImages = all
-    .filter((file) => file?.fieldname === 'images')
-    .map((file) => `/uploads/${file.filename}`);
+  const productImages = await Promise.all(
+    all
+      .filter((file) => file?.fieldname === 'images')
+      .map((file) => uploadProductFile(file))
+  );
   const variantImages = new Map();
-  all.forEach((file) => {
+  await Promise.all(all.map(async (file) => {
     const match = String(file?.fieldname || '').match(/^variantImage_(\d+)$/);
     if (!match) return;
     const index = Number(match[1]);
     if (!Number.isInteger(index) || index < 0) return;
-    variantImages.set(index, `/uploads/${file.filename}`);
-  });
-  return { productImages, variantImages };
+    variantImages.set(index, await uploadProductFile(file, 'variants'));
+  }));
+  return { productImages: productImages.filter(Boolean), variantImages };
 }
 
 function attachVariantImages(variants, variantImages) {
@@ -120,11 +194,14 @@ function preserveExistingVariantIds(existingVariants, nextVariants) {
 
 function summarizeVariants(variants) {
   if (!Array.isArray(variants) || variants.length === 0) {
-    return { minPrice: null, totalQuantity: null };
+    return { minPrice: null, minOriginalPrice: null, totalQuantity: null };
   }
   const minPrice = Math.min(...variants.map((item) => Number(item.price || 0)));
+  const minOriginalPrice = Math.min(
+    ...variants.map((item) => Number(item.originalPrice ?? item.price ?? 0))
+  );
   const totalQuantity = variants.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
-  return { minPrice, totalQuantity };
+  return { minPrice, minOriginalPrice, totalQuantity };
 }
 
 function buildModerationFields({ name, description, detail }) {
@@ -155,8 +232,9 @@ function buildModerationFields({ name, description, detail }) {
 function recalcProductSummary(product) {
   const variants = Array.isArray(product.variants) ? product.variants : [];
   if (!variants.length) return;
-  const { minPrice, totalQuantity } = summarizeVariants(variants);
+  const { minPrice, minOriginalPrice, totalQuantity } = summarizeVariants(variants);
   product.price = minPrice;
+  product.originalPrice = minOriginalPrice;
   product.quantity = totalQuantity;
 }
 
@@ -166,7 +244,8 @@ async function createProduct(req, res) {
     const categoryId = req.body.categoryId || null;
     let variants = parseVariants(req.body.variants);
 
-    let price = req.body.price != null ? parsePriceValue(req.body.price, NaN) : NaN;
+    let originalPrice = NaN;
+    let price = NaN;
     let quantity = req.body.quantity != null ? Number(req.body.quantity) : 0;
 
     if (!name || !shopId) {
@@ -176,11 +255,12 @@ async function createProduct(req, res) {
     if (variants.length > 0) {
       const summary = summarizeVariants(variants);
       price = summary.minPrice;
+      originalPrice = summary.minOriginalPrice;
       quantity = summary.totalQuantity;
     } else {
-      if (!Number.isFinite(price) || price < 0) {
-        return res.status(400).json({ message: 'price must be a non-negative number' });
-      }
+      const pricePair = normalizePricePair(req.body.originalPrice, req.body.price);
+      originalPrice = pricePair.originalPrice;
+      price = pricePair.price;
       if (!Number.isFinite(quantity) || quantity < 0) {
         return res.status(400).json({ message: 'quantity must be a non-negative number' });
       }
@@ -193,13 +273,14 @@ async function createProduct(req, res) {
       }
     }
 
-    const { productImages, variantImages } = splitUploadedFiles(req.files);
+    const { productImages, variantImages } = await splitUploadedFiles(req.files);
     const images = productImages;
     variants = attachVariantImages(variants, variantImages);
     const moderation = buildModerationFields({ name, description, detail });
 
     const product = await Product.create({
       name,
+      originalPrice,
       price,
       description,
       detail,
@@ -224,7 +305,7 @@ async function createProduct(req, res) {
       }
     });
   } catch (err) {
-    if (/variant|price must|quantity must/i.test(err.message || '')) {
+    if (/variant|price must|originalPrice must|quantity must/i.test(err.message || '')) {
       return res.status(400).json({ message: err.message });
     }
     return res.status(500).json({ message: 'Create product failed', error: err.message });
@@ -233,13 +314,22 @@ async function createProduct(req, res) {
 
 async function getProducts(req, res) {
   try {
-    const { shopId, q, moderationStatus } = req.query;
+    const { shopId, q, moderationStatus, categoryId, minPrice, maxPrice, sort } = req.query;
+    const pagination = parseProductsPagination(req.query);
     const role = req.headers['x-user-role'] || '';
     const requesterShopId = req.headers['x-user-shop-id'] || req.headers['x-user-id'] || '';
     const filter = {};
     if (shopId) filter.shopId = shopId;
+    if (categoryId) filter.categoryId = categoryId;
     if (q) filter.name = { $regex: q, $options: 'i' };
     if (moderationStatus) filter.moderationStatus = moderationStatus;
+    const minPriceValue = parsePriceValue(minPrice, NaN);
+    const maxPriceValue = parsePriceValue(maxPrice, NaN);
+    if (Number.isFinite(minPriceValue) || Number.isFinite(maxPriceValue)) {
+      filter.price = {};
+      if (Number.isFinite(minPriceValue)) filter.price.$gte = minPriceValue;
+      if (Number.isFinite(maxPriceValue)) filter.price.$lte = maxPriceValue;
+    }
 
     const isAdmin = role === 'admin';
     const isSellerViewingOwnShop =
@@ -247,10 +337,55 @@ async function getProducts(req, res) {
     if (!isAdmin && !isSellerViewingOwnShop) {
       filter.moderationStatus = 'approved';
     }
-    const products = await Product.find(filter);
+    const sortBy = buildProductsSort(sort);
+    if (pagination.enabled) {
+      const skip = (pagination.page - 1) * pagination.limit;
+      const [products, total] = await Promise.all([
+        Product.find(filter).sort(sortBy).skip(skip).limit(pagination.limit),
+        Product.countDocuments(filter)
+      ]);
+      const totalPages = Math.max(1, Math.ceil(total / pagination.limit));
+      return res.json({
+        items: products,
+        pagination: {
+          page: pagination.page,
+          limit: pagination.limit,
+          total,
+          totalPages,
+          hasNextPage: pagination.page < totalPages,
+          hasPrevPage: pagination.page > 1
+        }
+      });
+    }
+
+    const products = await Product.find(filter).sort(sortBy);
     return res.json(products);
   } catch (err) {
     return res.status(500).json({ message: 'Get products failed', error: err.message });
+  }
+}
+
+async function getProductsByIds(req, res) {
+  try {
+    const ids = parseProductIds(req.query.ids, 200);
+    if (!ids.length) {
+      return res.json([]);
+    }
+
+    const role = req.headers['x-user-role'] || '';
+    const requesterShopId = req.headers['x-user-shop-id'] || req.headers['x-user-id'] || '';
+    const filter = { _id: { $in: ids } };
+    if (role !== 'admin') {
+      filter.$or = [
+        { moderationStatus: 'approved' },
+        { shopId: String(requesterShopId || '') }
+      ];
+    }
+
+    const products = await Product.find(filter);
+    return res.json(products);
+  } catch (err) {
+    return res.status(500).json({ message: 'Get product batch failed', error: err.message });
   }
 }
 
@@ -309,7 +444,7 @@ async function updateProduct(req, res) {
       delete updates.existingImages;
     }
 
-    const { productImages, variantImages } = splitUploadedFiles(req.files);
+    const { productImages, variantImages } = await splitUploadedFiles(req.files);
     if (productImages.length) {
       const uploaded = productImages;
       const existing = Array.isArray(updates.images) ? updates.images : product.images || [];
@@ -327,14 +462,22 @@ async function updateProduct(req, res) {
     if (variants.length > 0) {
       const summary = summarizeVariants(variants);
       updates.price = summary.minPrice;
+      updates.originalPrice = summary.minOriginalPrice;
       updates.quantity = summary.totalQuantity;
     } else {
-      if (updates.price != null) {
-        const nextPrice = parsePriceValue(updates.price, NaN);
-        if (!Number.isFinite(nextPrice) || nextPrice < 0) {
-          return res.status(400).json({ message: 'price must be a non-negative number' });
-        }
-        updates.price = nextPrice;
+      if (updates.price != null || updates.originalPrice != null) {
+        const nextSalePrice = parsePriceValue(updates.price ?? product.price, NaN);
+        const existingOriginalPrice = parsePriceValue(product.originalPrice, NaN);
+        const fallbackOriginalPrice =
+          Number.isFinite(existingOriginalPrice) && existingOriginalPrice >= nextSalePrice
+            ? existingOriginalPrice
+            : nextSalePrice;
+        const pricePair = normalizePricePair(
+          updates.originalPrice ?? fallbackOriginalPrice,
+          updates.price ?? product.price
+        );
+        updates.originalPrice = pricePair.originalPrice;
+        updates.price = pricePair.price;
       }
       if (updates.quantity != null) {
         const nextQty = Number(updates.quantity);
@@ -381,7 +524,7 @@ async function updateProduct(req, res) {
       }
     });
   } catch (err) {
-    if (/variant|price must|quantity must/i.test(err.message || '')) {
+    if (/variant|price must|originalPrice must|quantity must/i.test(err.message || '')) {
       return res.status(400).json({ message: err.message });
     }
     return res.status(500).json({ message: 'Update product failed', error: err.message });
@@ -470,6 +613,7 @@ async function deleteProductByAdmin(req, res) {
 module.exports = {
   createProduct,
   getProducts,
+  getProductsByIds,
   getProductById,
   updateProduct,
   deleteProduct,

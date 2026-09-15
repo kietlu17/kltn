@@ -1,6 +1,7 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import api, { resolveImageUrl } from '../services/api';
+import api, { getProductItems, resolveImageUrl } from '../services/api';
+import Pagination from '../components/Pagination.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import useInventoryMap, { getAvailableStock } from '../hooks/useInventoryMap';
@@ -14,6 +15,8 @@ export default function SellerProductList() {
   const { user } = useAuth();
   const { showToast } = useToast();
   const [products, setProducts] = useState([]);
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState(null);
   const [categories, setCategories] = useState([]);
   const inventoryMap = useInventoryMap(products);
 
@@ -23,13 +26,25 @@ export default function SellerProductList() {
       setProducts([]);
       return;
     }
-    const url = `/products?shopId=${encodeURIComponent(shopKey)}`;
-    api.get(url).then((res) => setProducts(res.data)).catch(() => setProducts([]));
+    api
+      .get('/products', { params: { shopId: shopKey, paginated: true, page, limit: 20 } })
+      .then((res) => {
+        setProducts(getProductItems(res.data));
+        setPagination(res.data?.pagination || null);
+      })
+      .catch(() => {
+        setProducts([]);
+        setPagination(null);
+      });
   };
 
   useEffect(() => {
+    setPage(1);
+  }, [user?.shopId, user?.id]);
+
+  useEffect(() => {
     loadProducts();
-  }, [user]);
+  }, [user, page]);
 
   useEffect(() => {
     api.get('/categories').then((res) => setCategories(res.data)).catch(() => setCategories([]));
@@ -68,13 +83,17 @@ export default function SellerProductList() {
     <div className="container page-section">
       <div className="section-header">
         <h2>Sản phẩm của bạn</h2>
-        <Link to="/seller/products/create" className="btn btn-primary">Tạo sản phẩm</Link>
+        <div className="form-actions">
+          <span className="section-link">{pagination?.total ?? shopProducts.length} sản phẩm</span>
+          <Link to="/seller/products/create" className="btn btn-primary">Tạo sản phẩm</Link>
+        </div>
       </div>
-      <div className="seller-table">
+      <div className="seller-table seller-products-table">
         <div className="seller-table-row seller-table-head">
           <div>Ảnh</div>
           <div>Tên</div>
-          <div>Giá</div>
+          <div>Giá gốc</div>
+          <div>Giá giảm</div>
           <div>Đã bán</div>
           <div>Tồn kho</div>
           <div>Danh mục</div>
@@ -88,6 +107,7 @@ export default function SellerProductList() {
               {product.images?.[0] ? <img src={resolveImageUrl(product.images[0])} alt={product.name} /> : <div className="image-placeholder" />}
             </div>
             <div>{product.name}</div>
+            <div>{formatPrice(product.originalPrice ?? product.price)}</div>
             <div>{formatPrice(product.price)}</div>
             <div>{Number(product.sold ?? 0)}</div>
             <div>{product.availableStock ?? product.quantity ?? 0}</div>
@@ -102,6 +122,7 @@ export default function SellerProductList() {
           </div>
         ))}
       </div>
+      <Pagination page={pagination?.page} totalPages={pagination?.totalPages} onPageChange={setPage} />
     </div>
   );
 }

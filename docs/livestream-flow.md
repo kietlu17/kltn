@@ -1,85 +1,130 @@
 # Livestream Flow
 
-Tai lieu nay mo ta luong livestream commerce theo kien truc moi: LiveKit la media plane va realtime room bus; AI co-host la LiveKit participant; Kafka chi luu cac event quan trong de audit/analytics.
+Tài liệu này mô tả luồng livestream commerce theo kiến trúc hybrid self-host.
 
-## 1. Thanh phan
+Mục tiêu chính: không để 10.000 viewer join trực tiếp vào một LiveKit room chỉ để xem và chat. LiveKit giữ vai trò media server cho shop publish WebRTC và tạo HLS egress. Buyer xem video qua HLS/CDN self-host, còn chat/event đi qua realtime-service riêng.
+
+## 1. Thành Phần
 
 ```text
-Frontend
-  - SellerLiveStudio: publish camera/mic, ghim san pham, chat trong room
-  - BuyerLiveRoom: subscribe live, xem pinned product, chat trong room
+Seller Frontend
+  -> SellerLiveStudio
+  -> Bật camera/mic local preview
+  -> Nhấn Bắt đầu live để publish camera/mic vào LiveKit
+  -> Chat và ghim sản phẩm qua realtime-service
+
+Buyer Frontend
+  -> BuyerLiveRoom
+  -> Xem video bằng HLS playback URL
+  -> Chat qua realtime-service, không join LiveKit room
+  -> Xem sản phẩm ghim, bấm + hoặc Mua ngay để thêm giỏ hàng
 
 API Gateway
-  - Xac thuc JWT
-  - Phan quyen seller/buyer/admin
-  - Proxy /lives sang livestream-service
+  -> Proxy /lives sang livestream-service
+  -> Proxy /realtime sang realtime-service, hỗ trợ WebSocket upgrade
 
 livestream-service
-  - Control plane cho LiveSession va LivePinnedProduct
-  - Tao LiveKit room/token
-  - Dispatch AI co-host vao room khi live start
-  - Verify LiveKit webhook va reconcile room
-  - Flush stats tu Redis ve MongoDB
+  -> Control plane cho LiveSession và LivePinnedProduct
+  -> Tạo LiveKit room/token cho seller
+  -> Start/stop LiveKit Egress để tạo HLS
+  -> Lưu hlsPlaybackUrl
+  -> Verify LiveKit webhook
+  -> Reconcile room/egress
 
 LiveKit Server
-  - WebRTC audio/video
-  - Data channel cho realtime chat va live events trong room
-  - Agent dispatch de dua AI co-host vao room
+  -> Media plane WebRTC cho seller publisher
+  -> Room/session management
+  -> Không dùng làm chat bus cho buyer ở kiến trúc hybrid chuẩn
+
+LiveKit Egress
+  -> Join room nội bộ
+  -> Transcode/segment stream thành HLS
+  -> Upload playlist/segment lên MinIO
+
+MinIO
+  -> Object storage self-host cho HLS playlist và segment
+
+Nginx HLS Gateway
+  -> Serve /hls/{liveId}/index.m3u8
+  -> Cache HLS segment
+  -> Đóng vai trò CDN/cache layer self-host đầu tiên
+
+realtime-service
+  -> Socket.IO chat/presence ngoài LiveKit room
+  -> Broadcast live:event cho seller và buyer
+  -> Ghi Kafka live.chat.message.created
+  -> Forward buyer chat sang ai-cohost-service /live-chat
 
 ai-cohost-service
-  - LiveKit Agent worker
-  - Join room nhu mot participant
-  - Nghe live.chat.message qua data channel
-  - Detect intent mua hang
-  - Goi cart-service
-  - Publish ket qua ve room qua data channel
-  - Ghi event quan trong vao Kafka
+  -> FastAPI service
+  -> Nhận chat event từ realtime-service
+  -> Call LLM để detect intent add_to_cart
+  -> Chỉ được thêm giỏ hàng, không được thanh toán
+  -> Call cart-service khi intent hợp lệ
+  -> Trả event về realtime-service để publish lại cho room chat
 
 Kafka
-  - Event log cho audit, analytics, notification, replay
-
-MongoDB / Redis
-  - MongoDB luu LiveSession, pinned product, stats snapshot
-  - Redis dem viewer/presence tam thoi va batch stats
+  -> Event log cho audit, analytics, replay
+  -> Lưu các event quan trọng:
+     live.chat.message.created
+     live.intent.detected
+     live.cart.item_added
 ```
 
-## 2. Flow seller start live
+## 2. Flow Seller Start Live
 
 ```text
-Seller bam Bat dau live
+Seller nhấn Bắt đầu live
   -> POST /lives/{liveId}/start
-  -> livestream-service verify seller thuoc shop
+  -> livestream-service verify seller thuộc shop
   -> ensure LiveKit room live_{liveId}
-  -> dispatch AI co-host agent vao room
   -> set live.status = live
-  -> tao seller publisher token
-  -> publish live.session.started.v1
-  -> frontend seller connect LiveKit va publish camera/mic
+  -> tạo seller publisher token
+  -> trả { livekit: { url, token, roomName } }
+  -> SellerLiveStudio connect LiveKit
+  -> publish camera/mic bằng WebRTC
+  -> start HLS egress
+  -> Egress ghi HLS playlist/segment vào MinIO
+  -> livestream-service lưu hlsPlaybackUrl
 ```
 
-AI co-host duoc dispatch explicit bang LiveKit Agent Dispatch API, kem metadata:
-
-```json
-{
-  "liveId": "live_123",
-  "shopId": "shop_123",
-  "sellerId": "seller_123",
-  "activePinnedProductId": "prod_123"
-}
-```
-
-## 3. Flow chat realtime trong room
-
-Chat khong di qua Socket.IO nua. Seller va buyer publish packet truc tiep len LiveKit data channel.
+Luồng media:
 
 ```text
-Buyer gui chat
-  -> room.localParticipant.publishData({ type: "live.chat.message", ... })
-  -> LiveKit fanout den seller, buyer khac, AI co-host
-  -> AI co-host ghi Kafka live.chat.message.created
+Seller Browser
+  -> WebRTC publish
+  -> LiveKit room
+  -> LiveKit Egress
+  -> MinIO
+  -> Nginx HLS Gateway/cache
+  -> Buyer Browser xem HLS
 ```
 
-Packet trong room:
+## 3. Flow Buyer Xem Live
+
+```text
+Buyer vào /live/{liveId}
+  -> GET /lives/{liveId}
+  -> GET /lives/{liveId}/pinned-products
+  -> lấy hlsPlaybackUrl
+  -> phát video HLS qua Nginx/CDN
+  -> connect realtime-service qua Socket.IO để chat
+```
+
+Buyer không gọi `/viewer-token` và không connect `room.connect(...)` vào LiveKit.
+
+## 4. Flow Chat Ngoài Room
+
+```text
+Buyer gửi chat
+  -> Socket.IO live:chat:send
+  -> realtime-service validate JWT
+  -> broadcast live:event type live.chat.message
+  -> publish Kafka live.chat.message.created
+  -> forward event sang ai-cohost-service /live-chat
+```
+
+Packet chat:
 
 ```json
 {
@@ -91,109 +136,66 @@ Packet trong room:
   "senderRole": "buyer",
   "senderName": "buyer@example.com",
   "buyerId": "buyer_456",
-  "text": "toi muon mua san pham nay 2 cai",
+  "text": "tôi muốn mua sản phẩm này 2 cái",
   "activePinnedProductId": "prod_123"
 }
 ```
 
-Kafka event:
+## 5. Flow AI Thêm Giỏ Hàng
 
 ```text
-live.chat.message.created
-```
-
-## 4. Flow AI co-host add cart
-
-```text
-AI co-host participant nhan live.chat.message
-  -> detect intent add_to_cart
-  -> resolve productId tu activePinnedProductId
-  -> resolve quantity tu text
-  -> publish live.intent.detected vao room
+ai-cohost-service nhận /live-chat
+  -> gọi LLM để phân loại intent
+  -> nếu không phải add_to_cart: bỏ qua
+  -> nếu add_to_cart nhưng chưa có activePinnedProductId: trả live.intent.detected lỗi mềm
+  -> fetch product detail từ product-service
+  -> nếu có nhiều biến thể và user chưa nói rõ: trả live.intent.variant_required
+  -> nếu đủ thông tin: POST cart-service /cart/add
   -> publish Kafka live.intent.detected
-  -> POST cart-service /cart/add bang mTLS
-  -> publish live.cart.item_added vao room
   -> publish Kafka live.cart.item_added
+  -> trả events cho realtime-service
+  -> realtime-service broadcast events về buyer/seller
 ```
 
-Room event khi detect intent:
+AI chỉ được gọi cart-service để thêm giỏ hàng. AI không được gọi payment-service, order-service, wallet-service hoặc bất kỳ API thanh toán nào.
 
-```json
-{
-  "type": "live.intent.detected",
-  "liveId": "live_123",
-  "buyerId": "buyer_456",
-  "intent": "add_to_cart",
-  "productId": "prod_123",
-  "quantity": 2,
-  "confidence": 0.82,
-  "reply": "Da nhan yeu cau mua 2 san pham dang ghim"
-}
-```
-
-Room event khi add cart thanh cong:
-
-```json
-{
-  "type": "live.cart.item_added",
-  "liveId": "live_123",
-  "buyerId": "buyer_456",
-  "productId": "prod_123",
-  "quantity": 2,
-  "reply": "Da them 2 san pham vao gio hang"
-}
-```
-
-Kafka events can luu:
+## 6. Flow Ghim Sản Phẩm
 
 ```text
-live.chat.message.created
-live.intent.detected
-live.cart.item_added
+Seller ghim/chuyển active product
+  -> POST /lives/{liveId}/pinned-products hoặc PATCH /lives/{liveId}/active-product
+  -> livestream-service validate product thuộc shop
+  -> lưu snapshot pinned product vào MongoDB
+  -> SellerLiveStudio emit live:event:send qua realtime-service
+  -> realtime-service broadcast live.product.active_changed
+  -> BuyerLiveRoom reload pinned products
 ```
 
-## 5. Flow ghim san pham
+## 7. Viewer Count Trong Hybrid
+
+Có hai loại count khác nhau:
 
 ```text
-Seller ghim/chuyen active product
-  -> POST /lives/{liveId}/pinned-products hoac PATCH /lives/{liveId}/active-product
-  -> livestream-service validate product thuoc shop
-  -> luu snapshot pinned product vao MongoDB
-  -> publish Kafka live.product.active_changed.v1
-  -> seller frontend publish data channel live.product.active_changed
-  -> buyer reload pinned products
+Chat presence
+  -> Đếm socket đang connect vào realtime-service
+  -> Phù hợp để biết số người đang tương tác
+
+HLS viewer count
+  -> Không tự nhiên nằm trong LiveKit room
+  -> Nên đo bằng heartbeat từ BuyerLiveRoom hoặc log/metrics từ Nginx/CDN
+  -> Flush về Redis/MongoDB theo batch
 ```
 
-## 6. Flow buyer xem live
+Nếu cần hiển thị "10.000 người đang xem" chính xác, không lấy từ LiveKit participant count. Với hybrid, viewer thật đến từ HLS/CDN layer.
+
+## 8. Kết Thúc Live
 
 ```text
-Buyer vao /live/{liveId}
-  -> GET /lives/{liveId}
-  -> GET /lives/{liveId}/pinned-products
-  -> POST /lives/{liveId}/viewer-token
-  -> connect LiveKit
-  -> subscribe audio/video cua seller
-  -> nhan chat/product/cart events tu data channel
-```
-
-## 7. Ket thuc live
-
-```text
-Seller bam Ket thuc
+Seller nhấn Kết thúc live
   -> POST /lives/{liveId}/end
   -> livestream-service set ending
+  -> stop LiveKit Egress
   -> delete LiveKit room
   -> set ended
   -> publish live.session.ended.v1
-  -> LiveKit disconnect seller, buyer, AI co-host
 ```
-
-## 8. Production notes
-
-- LiveKit data channel phu hop voi realtime in-room fanout; Kafka khong nam tren hot path cua chat UI.
-- Kafka van la source cho audit/analytics/replay, khong phai message bus bat buoc de user thay chat realtime.
-- AI co-host nen idempotent theo `message.id` de tranh add cart lap neu packet/retry.
-- Intent detector hien tai la rule-based; co the thay bang LLM sau, nhung van giu cung contract room event va Kafka topic.
-- LiveKit Agent worker scale ngang doc lap voi livestream-service. Nhieu worker cung dang ky `LIVEKIT_AGENT_NAME`; LiveKit dispatch se gan job cho worker kha dung.
-- Viewer count nen uu tien LiveKit room participant/presence; Redis stats chi de aggregate va flush ve MongoDB.
-- Khi chay local bang Docker Desktop, LiveKit can advertise host reachable cho ICE. Compose mac dinh dung `--node-ip 192.168.100.3` theo may dev hien tai; neu doi Wi-Fi/mang thi set `LIVEKIT_NODE_IP=<LAN_IP_may_host>` truoc khi `docker compose up`.

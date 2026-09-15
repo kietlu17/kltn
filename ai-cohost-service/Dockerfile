@@ -1,10 +1,10 @@
-FROM node:20-bookworm-slim
+FROM python:3.12-slim
 
 WORKDIR /app
 
-COPY ai-cohost-service/package*.json ./
-RUN npm install --omit=dev
+COPY ai-cohost-service/requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
 
 COPY ai-cohost-service/src ./src
 
-CMD ["npm", "start"]
+CMD ["python", "src/main.py", "start"]

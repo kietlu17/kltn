@@ -1,6 +1,6 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import api from '../services/api';
+import api, { getProductItems } from '../services/api';
 import CartItem from '../components/CartItem.jsx';
 import { useCart } from '../context/CartContext.jsx';
 import useShopMap from '../hooks/useShopMap';
@@ -39,8 +39,19 @@ export default function Cart() {
 
   useEffect(() => {
     refreshCart();
-    api.get('/products').then((res) => setProducts(res.data)).catch(() => setProducts([]));
   }, [refreshCart]);
+
+  useEffect(() => {
+    const productIds = [...new Set(cartProducts.map((item) => item.productId).filter(Boolean))];
+    if (!productIds.length) {
+      setProducts([]);
+      return;
+    }
+    api
+      .get('/products/batch', { params: { ids: productIds.join(',') } })
+      .then((res) => setProducts(getProductItems(res.data)))
+      .catch(() => setProducts([]));
+  }, [cartProducts]);
 
   useEffect(() => {
     const tab = new URLSearchParams(location.search).get('tab');

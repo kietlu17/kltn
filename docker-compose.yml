@@ -84,6 +84,51 @@ services:
     ports:
       - "6379:6379"
 
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+
+  minio-init:
+    image: minio/mc:latest
+    container_name: minio-init
+    restart: "no"
+    entrypoint: /bin/sh
+    command: >
+      -c "until mc alias set local http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD}; do sleep 2; done;
+      mc mb --ignore-existing local/$${LIVE_HLS_BUCKET};
+      mc anonymous set download local/$${LIVE_HLS_BUCKET};
+      mc mb --ignore-existing local/$${PRODUCT_IMAGE_BUCKET};
+      mc anonymous set download local/$${PRODUCT_IMAGE_BUCKET};"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      LIVE_HLS_BUCKET: ${LIVE_HLS_BUCKET:-live-hls}
+      PRODUCT_IMAGE_BUCKET: ${PRODUCT_IMAGE_BUCKET:-product-images}
+    depends_on:
+      - minio
+
+  hls-nginx:
+    image: nginx:1.27-alpine
+    container_name: hls-nginx
+    restart: unless-stopped
+    ports:
+      - "${HLS_GATEWAY_PORT:-8088}:80"
+    volumes:
+      - ./docker/nginx/hls.conf:/etc/nginx/conf.d/default.conf:ro
+      - hls_nginx_cache:/var/cache/nginx/hls
+    depends_on:
+      - minio
+
   livekit:
     image: livekit/livekit-server:latest
     container_name: livekit
@@ -97,6 +142,30 @@ services:
       - ./docker/livekit/livekit.yaml:/livekit.yaml:ro
     depends_on:
       - redis
+
+  livekit-egress:
+    image: livekit/egress:latest
+    container_name: livekit-egress
+    restart: unless-stopped
+    environment:
+      EGRESS_CONFIG_FILE: /egress.yaml
+    volumes:
+      - ./docker/livekit/egress.yaml:/egress.yaml:ro
+    depends_on:
+      - livekit
+      - redis
+      - minio-init
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    profiles:
+      - container-llm
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
 
   auth-service:
     build:
@@ -184,6 +253,12 @@ services:
       PORT: 3004
       MONGO_URI: mongodb://mongo:27017/product-service
       KAFKA_BROKER: kafka-e:29092
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_REGION: ${MINIO_REGION:-us-east-1}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      PRODUCT_IMAGE_BUCKET: ${PRODUCT_IMAGE_BUCKET:-product-images}
+      PRODUCT_IMAGE_PUBLIC_BASE_URL: ${PRODUCT_IMAGE_PUBLIC_BASE_URL:-http://localhost:9000/product-images}
       TLS_ENABLED: "true"
       TLS_REQUEST_CLIENT_CERT: "true"
       TLS_REJECT_UNAUTHORIZED: "true"
@@ -192,7 +267,6 @@ services:
       TLS_KEY_PATH: /certs/product-service/tls.key
     volumes:
       - certs_data:/certs:ro
-      - product_uploads:/app/uploads
     depends_on:
       certs-init:
         condition: service_completed_successfully
@@ -200,6 +274,8 @@ services:
         condition: service_healthy
       kafka_e:
         condition: service_started
+      minio-init:
+        condition: service_completed_successfully
 
   cart-service:
     build:
@@ -393,6 +469,17 @@ services:
       LIVEKIT_API_KEY: devkey
       LIVEKIT_API_SECRET: devsecret
       LIVEKIT_AI_COHOST_AGENT_NAME: live-commerce-cohost
+      LIVEKIT_AI_COHOST_IN_ROOM_ENABLED: ${LIVEKIT_AI_COHOST_IN_ROOM_ENABLED:-false}
+      LIVE_AI_COHOST_RECONCILE_ENABLED: ${LIVE_AI_COHOST_RECONCILE_ENABLED:-true}
+      LIVEKIT_EGRESS_ENABLED: ${LIVEKIT_EGRESS_ENABLED:-true}
+      LIVEKIT_HLS_SEGMENT_DURATION_SECONDS: ${LIVEKIT_HLS_SEGMENT_DURATION_SECONDS:-2}
+      LIVEKIT_EGRESS_LAYOUT: ${LIVEKIT_EGRESS_LAYOUT:-speaker}
+      LIVE_HLS_BUCKET: ${LIVE_HLS_BUCKET:-live-hls}
+      LIVE_HLS_REGION: ${LIVE_HLS_REGION:-us-east-1}
+      LIVE_HLS_S3_ENDPOINT: http://minio:9000
+      HLS_PUBLIC_BASE_URL: ${HLS_PUBLIC_BASE_URL:-http://localhost:8088/hls}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
       TLS_ENABLED: "true"
       TLS_REQUEST_CLIENT_CERT: "true"
       TLS_REJECT_UNAUTHORIZED: "true"
@@ -415,6 +502,12 @@ services:
         condition: service_started
       livekit:
         condition: service_started
+      livekit-egress:
+        condition: service_started
+      minio-init:
+        condition: service_completed_successfully
+      hls-nginx:
+        condition: service_started
       redis:
         condition: service_started
 
@@ -424,6 +517,8 @@ services:
       dockerfile: ai-cohost-service/Dockerfile
     container_name: ai-cohost-service
     restart: unless-stopped
+    ports:
+      - "3020:3020"
     environment:
       LIVEKIT_URL: ws://livekit:7880
       LIVEKIT_API_KEY: devkey
@@ -431,6 +526,15 @@ services:
       LIVEKIT_AGENT_NAME: live-commerce-cohost
       KAFKA_BROKER: kafka-e:29092
       CART_SERVICE_URL: https://cart-service:3005
+      PRODUCT_SERVICE_URL: https://product-service:3004
+      PORT: 3020
+      LLM_ENABLED: ${LLM_ENABLED:-true}
+      LLM_BASE_URL: ${LLM_BASE_URL:-http://host.docker.internal:11434/v1}
+      LLM_MODEL: ${LLM_MODEL:-qwen2.5:3b-instruct}
+      LLM_API_KEY: ${LLM_API_KEY:-ollama}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-30}
+      LLM_MIN_CONFIDENCE: ${LLM_MIN_CONFIDENCE:-0.7}
+      LLM_FALLBACK_RULES: ${LLM_FALLBACK_RULES:-true}
       MTLS_ENABLED: "true"
       MTLS_REJECT_UNAUTHORIZED: "true"
       MTLS_CA_PATH: /certs/ca/ca.crt
@@ -446,6 +550,25 @@ services:
       kafka_e:
         condition: service_started
       cart-service:
+        condition: service_started
+      product-service:
+        condition: service_started
+
+  realtime-service:
+    build:
+      context: .
+      dockerfile: realtime-service/Dockerfile
+    container_name: realtime-service
+    restart: unless-stopped
+    environment:
+      PORT: 3015
+      JWT_SECRET: ${JWT_SECRET:-devsecret}
+      KAFKA_BROKER: kafka-e:29092
+      AI_COHOST_SERVICE_URL: http://ai-cohost-service:3020
+    depends_on:
+      kafka_e:
+        condition: service_started
+      ai-cohost-service:
         condition: service_started
 
   payment-service:
@@ -572,7 +695,13 @@ services:
       PAYMENT_GATEWAY_URL: https://payment-gateway:3012
       REVIEW_SERVICE_URL: https://review-service:3008
       CHAT_SERVICE_URL: https://chat-service:3009
+      REALTIME_SERVICE_URL: http://realtime-service:3015
       LIVESTREAM_SERVICE_URL: https://livestream-service:3014
+      RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-60000}
+      RATE_LIMIT_MAX_REQUESTS: ${RATE_LIMIT_MAX_REQUESTS:-600}
+      AUTH_RATE_LIMIT_WINDOW_MS: ${AUTH_RATE_LIMIT_WINDOW_MS:-60000}
+      AUTH_RATE_LIMIT_MAX_REQUESTS: ${AUTH_RATE_LIMIT_MAX_REQUESTS:-30}
+      RATE_LIMIT_EXEMPT_PATH_PREFIXES: ${RATE_LIMIT_EXEMPT_PATH_PREFIXES:-/uploads,/realtime}
       MTLS_ENABLED: "true"
       MTLS_REJECT_UNAUTHORIZED: "true"
       MTLS_CA_PATH: /certs/ca/ca.crt
@@ -607,6 +736,8 @@ services:
         condition: service_started
       ai-cohost-service:
         condition: service_started
+      realtime-service:
+        condition: service_started
       payment-service:
         condition: service_started
       wallet-service:
@@ -632,4 +763,6 @@ volumes:
   mongo_data:
   postgres_data:
   kafka_data:
-  product_uploads:
+  ollama_data:
+  minio_data:
+  hls_nginx_cache:

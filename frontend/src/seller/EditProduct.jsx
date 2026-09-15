@@ -14,6 +14,7 @@ export default function EditProduct() {
   const [variantImageFiles, setVariantImageFiles] = useState([]);
   const [form, setForm] = useState({
     name: '',
+    originalPrice: '',
     price: '',
     description: '',
     detail: '',
@@ -38,6 +39,7 @@ export default function EditProduct() {
       const product = res.data;
       setForm({
         name: product.name || '',
+        originalPrice: product.originalPrice ?? product.price ?? '',
         price: product.price || '',
         description: product.description || '',
         detail: product.detail || '',
@@ -50,6 +52,7 @@ export default function EditProduct() {
             name: variant.name || '',
             sku: variant.sku || '',
             imageUrl: variant.imageUrl || '',
+            originalPrice: variant.originalPrice ?? variant.price ?? '',
             price: variant.price ?? '',
             quantity: variant.quantity ?? ''
           }))
@@ -72,6 +75,7 @@ export default function EditProduct() {
 
     const payload = new FormData();
     payload.append('name', form.name);
+    payload.append('originalPrice', form.originalPrice);
     payload.append('price', form.price);
     payload.append('quantity', form.quantity || 0);
     payload.append('description', form.description);
@@ -131,8 +135,17 @@ export default function EditProduct() {
             <input placeholder="Tên sản phẩm" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           </div>
           <div>
-            <label>Giá</label>
-            <input placeholder="Giá" type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
+            <label>Giá gốc</label>
+            <input
+              placeholder="Giá gốc"
+              type="number"
+              value={form.originalPrice}
+              onChange={(e) => setForm({ ...form, originalPrice: e.target.value })}
+            />
+          </div>
+          <div>
+            <label>Giá giảm</label>
+            <input placeholder="Giá giảm" type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
           </div>
           <div>
             <label>Số lượng</label>
@@ -178,7 +191,17 @@ export default function EditProduct() {
                 }}
               />
               <input
-                placeholder="Giá"
+                placeholder="Giá gốc"
+                type="number"
+                value={variant.originalPrice || ''}
+                onChange={(e) => {
+                  const next = [...(form.variants || [])];
+                  next[index] = { ...next[index], originalPrice: e.target.value };
+                  setForm({ ...form, variants: next });
+                }}
+              />
+              <input
+                placeholder="Giá giảm"
                 type="number"
                 value={variant.price}
                 onChange={(e) => {
@@ -244,7 +267,13 @@ export default function EditProduct() {
             type="button"
             className="btn btn-outline"
             onClick={() => {
-              setForm({ ...form, variants: [...(form.variants || []), { name: '', sku: '', imageUrl: '', price: '', quantity: '' }] });
+              setForm({
+                ...form,
+                variants: [
+                  ...(form.variants || []),
+                  { name: '', sku: '', imageUrl: '', originalPrice: '', price: '', quantity: '' }
+                ]
+              });
               setVariantImageFiles((prev) => [...prev, null]);
             }}
           >

@@ -26,7 +26,8 @@ export default function Register({ forcedRole = null }) {
     ? 'Khởi tạo cửa hàng và bắt đầu quản lý đơn hàng chỉ trong vài phút.'
     : 'Tạo cửa hàng hoặc khám phá hàng ngàn ưu đãi ngay.';
 
-  async function register() {
+  async function register(event) {
+    event?.preventDefault();
     if (!email || !password) {
       showToast('Vui lòng nhập email và mật khẩu', 'error');
       return;
@@ -60,7 +61,7 @@ export default function Register({ forcedRole = null }) {
 
   return (
     <div className="auth-page">
-      <div className="auth-card">
+      <form className="auth-card" onSubmit={register}>
         <h2>{heading}</h2>
         <label>Email</label>
         <input placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
@@ -119,11 +120,11 @@ export default function Register({ forcedRole = null }) {
           </>
         )}
 
-        <button className="btn btn-primary btn-full" onClick={register}>Đăng ký</button>
+        <button className="btn btn-primary btn-full" type="submit">Đăng ký</button>
         <p className="muted">
           Đã có tài khoản? <Link to={loginPath}>Đăng nhập</Link>
         </p>
-      </div>
+      </form>
 
       <div className="auth-side">
         <h3>{sideHeading}</h3>

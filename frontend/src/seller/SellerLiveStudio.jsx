@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Room, RoomEvent, createLocalAudioTrack, createLocalVideoTrack } from 'livekit-client';
-import api, { resolveImageUrl } from '../services/api';
+import api, { getProductItems, resolveImageUrl } from '../services/api';
+import { createLiveSocket } from '../services/realtime';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 
@@ -15,10 +16,6 @@ function statusLabel(status) {
   if (status === 'ended') return 'Đã kết thúc';
   if (status === 'banned') return 'Bị khóa';
   return 'Đã lên lịch';
-}
-
-function encodeLiveData(payload) {
-  return new TextEncoder().encode(JSON.stringify(payload));
 }
 
 function decodeLiveData(payload) {
@@ -43,19 +40,12 @@ function describePublishError(err) {
   return message || 'Không thể publish camera/microphone lên LiveKit';
 }
 
-async function publishLiveData(room, payload) {
-  if (!room?.localParticipant) return;
-  await room.localParticipant.publishData(encodeLiveData(payload), {
-    reliable: true,
-    topic: payload.type || 'live.event'
-  });
-}
-
 export default function SellerLiveStudio() {
   const { user } = useAuth();
   const { showToast } = useToast();
   const videoRef = useRef(null);
   const roomRef = useRef(null);
+  const socketRef = useRef(null);
   const localTracksRef = useRef([]);
 
   const [lives, setLives] = useState([]);
@@ -67,6 +57,7 @@ export default function SellerLiveStudio() {
   const [isPublishing, setIsPublishing] = useState(false);
   const [isLiveRoomOpen, setIsLiveRoomOpen] = useState(false);
   const [hasCameraPreview, setHasCameraPreview] = useState(false);
+  const [isMicEnabled, setIsMicEnabled] = useState(true);
   const [publishError, setPublishError] = useState('');
   const [viewerCount, setViewerCount] = useState(0);
   const [chatMessages, setChatMessages] = useState([]);
@@ -84,6 +75,50 @@ export default function SellerLiveStudio() {
     [pinnedProducts]
   );
 
+  function appendLiveEvent(data) {
+    if (!data?.type) return;
+    if (data.type === 'live.chat.message') {
+      setChatMessages((prev) => [...prev.slice(-80), data]);
+    }
+    if (data.type === 'live.cart.item_added') {
+      setChatMessages((prev) => [
+        ...prev.slice(-80),
+        { id: `cart-${Date.now()}`, senderName: 'Trợ lý AI', text: `Đã thêm sản phẩm ${data.productId} vào giỏ của ${data.buyerId}` }
+      ]);
+    }
+    if (data.type === 'live.intent.detected') {
+      setChatMessages((prev) => [
+        ...prev.slice(-80),
+        { id: data.id || `intent-${Date.now()}`, senderName: 'Trợ lý AI', text: data.reply || 'Đã nhận yêu cầu mua hàng' }
+      ]);
+    }
+    if (data.type === 'live.intent.variant_required') {
+      setChatMessages((prev) => [
+        ...prev.slice(-80),
+        { id: data.id || `variant-${Date.now()}`, senderName: 'Trợ lý AI', text: data.reply || 'Sản phẩm có nhiều biến thể, khách cần chọn thêm.' }
+      ]);
+    }
+    if (data.type === 'live.cart.item_add_failed') {
+      setChatMessages((prev) => [
+        ...prev.slice(-80),
+        { id: data.id || `cart-failed-${Date.now()}`, senderName: 'Trợ lý AI', text: data.reply || 'Không thể thêm sản phẩm vào giỏ hàng.' }
+      ]);
+    }
+    if (data.type === 'live.product.active_changed') {
+      loadPinnedProducts(selectedLiveId).catch(() => {});
+      loadLives().catch(() => {});
+    }
+  }
+
+  function emitRealtimeEvent(payload) {
+    if (!socketRef.current?.connected) return;
+    socketRef.current.emit('live:event:send', payload, (ack) => {
+      if (!ack?.ok) {
+        console.warn('Không thể gửi sự kiện live realtime', ack?.message);
+      }
+    });
+  }
+
   async function loadLives() {
     const response = await api.get('/lives/seller/me');
     const nextLives = response.data || [];
@@ -95,8 +130,8 @@ export default function SellerLiveStudio() {
 
   async function loadProducts() {
     if (!shopId) return;
-    const response = await api.get('/products', { params: { shopId } });
-    const nextProducts = response.data || [];
+    const response = await api.get('/products', { params: { shopId, paginated: true, page: 1, limit: 100 } });
+    const nextProducts = getProductItems(response.data);
     setProducts(nextProducts);
     if (!selectedProductId && nextProducts.length) {
       setSelectedProductId(nextProducts[0]._id || nextProducts[0].id);
@@ -122,6 +157,51 @@ export default function SellerLiveStudio() {
   }, [selectedLiveId]);
 
   useEffect(() => {
+    if (!selectedLiveId || !user?.id) return undefined;
+
+    if (socketRef.current) {
+      socketRef.current.disconnect();
+      socketRef.current = null;
+    }
+
+    const socket = createLiveSocket(selectedLiveId);
+    socketRef.current = socket;
+    socket.on('live:event', appendLiveEvent);
+    socket.on('live:presence', () => {});
+    socket.on('connect_error', (err) => {
+      console.warn('Không thể kết nối realtime live', err?.message);
+    });
+
+    return () => {
+      socket.disconnect();
+      if (socketRef.current === socket) {
+        socketRef.current = null;
+      }
+    };
+  }, [selectedLiveId, user?.id]);
+
+  useEffect(() => {
+    if (!selectedLiveId) return undefined;
+    let disposed = false;
+
+    async function loadViewerCount() {
+      try {
+        const response = await api.get(`/lives/${selectedLiveId}/viewer-count`);
+        if (!disposed) setViewerCount(Number(response.data?.viewerCount || 0));
+      } catch {
+        if (!disposed) setViewerCount((prev) => prev || 0);
+      }
+    }
+
+    loadViewerCount();
+    const interval = window.setInterval(loadViewerCount, 20000);
+    return () => {
+      disposed = true;
+      window.clearInterval(interval);
+    };
+  }, [selectedLiveId]);
+
+  useEffect(() => {
     document.body.classList.toggle('seller-live-fullscreen', isLiveRoomOpen);
     return () => document.body.classList.remove('seller-live-fullscreen');
   }, [isLiveRoomOpen]);
@@ -134,6 +214,22 @@ export default function SellerLiveStudio() {
     setIsPublishing(false);
   }
 
+  function getLocalAudioTrack() {
+    return localTracksRef.current.find((track) => track?.mediaStreamTrack?.kind === 'audio' || track?.kind === 'audio');
+  }
+
+  async function setLocalAudioEnabled(track, enabled) {
+    if (!track) return;
+    if (enabled && typeof track.unmute === 'function') {
+      await track.unmute();
+    } else if (!enabled && typeof track.mute === 'function') {
+      await track.mute();
+    }
+    if (track.mediaStreamTrack) {
+      track.mediaStreamTrack.enabled = enabled;
+    }
+  }
+
   function stopCameraPreviewTracks() {
     localTracksRef.current.forEach((track) => {
       track.stop();
@@ -144,6 +240,7 @@ export default function SellerLiveStudio() {
       videoRef.current.srcObject = null;
     }
     setHasCameraPreview(false);
+    setIsMicEnabled(true);
   }
 
   async function cleanupLiveKit() {
@@ -180,9 +277,27 @@ export default function SellerLiveStudio() {
       createLocalAudioTrack()
     ]);
     localTracksRef.current = [videoTrack, audioTrack];
+    await setLocalAudioEnabled(audioTrack, isMicEnabled);
     attachLocalVideoTrack();
     setHasCameraPreview(true);
     return localTracksRef.current;
+  }
+
+  async function toggleMic() {
+    const audioTrack = getLocalAudioTrack();
+    if (!audioTrack) {
+      showToast('Chưa bật microphone', 'error');
+      return;
+    }
+
+    const nextEnabled = !isMicEnabled;
+    try {
+      await setLocalAudioEnabled(audioTrack, nextEnabled);
+      setIsMicEnabled(nextEnabled);
+      showToast(nextEnabled ? 'Đã bật mic' : 'Đã tắt mic');
+    } catch {
+      showToast('Không thể thay đổi trạng thái mic', 'error');
+    }
   }
 
   async function connectAndPublish(session) {
@@ -195,30 +310,24 @@ export default function SellerLiveStudio() {
     const room = new Room({ adaptiveStream: true, dynacast: true });
     roomRef.current = room;
     room.on(RoomEvent.Disconnected, () => setIsPublishing(false));
-    room.on(RoomEvent.ParticipantConnected, () => setViewerCount(room.remoteParticipants.size));
-    room.on(RoomEvent.ParticipantDisconnected, () => setViewerCount(room.remoteParticipants.size));
     room.on(RoomEvent.DataReceived, (payload) => {
-      const data = decodeLiveData(payload);
-      if (!data) return;
-      if (data.type === 'live.chat.message') {
-        setChatMessages((prev) => [...prev.slice(-80), data]);
-      }
-      if (data.type === 'live.cart.item_added') {
-        setChatMessages((prev) => [
-          ...prev.slice(-80),
-          { id: `cart-${Date.now()}`, senderName: 'Trợ lý AI', text: `Đã thêm sản phẩm ${data.productId} vào giỏ của ${data.buyerId}` }
-        ]);
-      }
-      if (data.type === 'live.intent.detected') {
-        setChatMessages((prev) => [
-          ...prev.slice(-80),
-          { id: data.id || `intent-${Date.now()}`, senderName: 'Trợ lý AI', text: data.reply || 'Đã nhận yêu cầu mua hàng' }
-        ]);
-      }
+      appendLiveEvent(decodeLiveData(payload));
     });
     await room.connect(session.url, session.token);
-    setViewerCount(room.remoteParticipants.size);
     await Promise.all(tracks.map((track) => room.localParticipant.publishTrack(track)));
+    await new Promise((resolve) => window.setTimeout(resolve, 500));
+    api.post(`/lives/${selectedLiveId}/hls-egress/start`)
+      .then((response) => {
+        const updatedLive = response.data?.live;
+        if (updatedLive) {
+          setLives((prev) => prev.map((item) => (
+            String(item.id || item._id) === String(updatedLive.id || updatedLive._id) ? updatedLive : item
+          )));
+        }
+      })
+      .catch((err) => {
+        showToast(err?.response?.data?.message || 'Không thể khởi động HLS playback', 'error');
+      });
     setIsPublishing(true);
     setIsLiveRoomOpen(true);
   }
@@ -316,7 +425,7 @@ export default function SellerLiveStudio() {
         isActive: true
       });
       await Promise.all([loadPinnedProducts(selectedLiveId), loadLives()]);
-      await publishLiveData(roomRef.current, {
+      emitRealtimeEvent({
         type: 'live.product.active_changed',
         liveId: selectedLiveId,
         shopId,
@@ -335,7 +444,7 @@ export default function SellerLiveStudio() {
     try {
       await api.patch(`/lives/${selectedLiveId}/active-product`, { productId });
       await Promise.all([loadPinnedProducts(selectedLiveId), loadLives()]);
-      await publishLiveData(roomRef.current, {
+      emitRealtimeEvent({
         type: 'live.product.active_changed',
         liveId: selectedLiveId,
         shopId,
@@ -351,9 +460,8 @@ export default function SellerLiveStudio() {
 
   function sendChatMessage() {
     const text = chatInput.trim();
-    if (!text || !roomRef.current || !selectedLiveId) return;
+    if (!text || !socketRef.current || !selectedLiveId) return;
     const payload = {
-      type: 'live.chat.message',
       id: `msg-${Date.now()}`,
       liveId: selectedLiveId,
       shopId,
@@ -363,9 +471,13 @@ export default function SellerLiveStudio() {
       text,
       activePinnedProductId: activePinnedProduct?.productId || selectedLive?.activePinnedProductId || null
     };
-    publishLiveData(roomRef.current, payload).catch(() => showToast('Không thể gửi chat LiveKit', 'error'));
-    setChatMessages((prev) => [...prev.slice(-80), payload]);
-    setChatInput('');
+    socketRef.current.emit('live:chat:send', payload, (ack) => {
+      if (!ack?.ok) {
+        showToast(ack?.message || 'Không thể gửi chat live', 'error');
+        return;
+      }
+      setChatInput('');
+    });
   }
 
   function renderPinnedProductsPanel({ asCard = true } = {}) {
@@ -405,7 +517,7 @@ export default function SellerLiveStudio() {
                   <span className="muted">{formatPrice(item.priceSnapshot)} - Tồn {item.stockSnapshot}</span>
                 </div>
                 <button type="button" className="btn btn-outline" onClick={() => activateProduct(item.productId)} disabled={item.isActive || loading}>
-                  {item.isActive ? 'Đang ghim' : 'Đặt active'}
+                  {item.isActive ? 'Đang ghim' : 'Đặt làm ghim'}
                 </button>
               </div>
             ))
@@ -437,6 +549,9 @@ export default function SellerLiveStudio() {
             <span className="section-link">{viewerCount} người xem</span>
             <button type="button" className="btn btn-outline" onClick={stopPublishing} disabled={!hasCameraPreview && !isPublishing}>
               Tắt camera
+            </button>
+            <button type="button" className="btn btn-outline" onClick={toggleMic} disabled={!hasCameraPreview && !isPublishing}>
+              {isMicEnabled ? 'Tắt mic' : 'Bật mic'}
             </button>
             <button type="button" className="btn btn-primary" onClick={endLive} disabled={!selectedLiveId || loading}>
               Kết thúc live
@@ -570,6 +685,9 @@ export default function SellerLiveStudio() {
             </button>
             <button type="button" className="btn btn-outline" onClick={stopPublishing} disabled={!hasCameraPreview && !isPublishing}>
               Tắt camera
+            </button>
+            <button type="button" className="btn btn-outline" onClick={toggleMic} disabled={!hasCameraPreview && !isPublishing}>
+              {isMicEnabled ? 'Tắt mic' : 'Bật mic'}
             </button>
             <button type="button" className="btn btn-outline" onClick={endLive} disabled={!selectedLiveId || loading}>
               Kết thúc

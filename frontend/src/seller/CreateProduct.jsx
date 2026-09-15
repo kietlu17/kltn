@@ -9,6 +9,7 @@ export default function CreateProduct() {
   const { showToast } = useToast();
   const navigate = useNavigate();
   const [name, setName] = useState('');
+  const [originalPrice, setOriginalPrice] = useState('');
   const [price, setPrice] = useState('');
   const [description, setDescription] = useState('');
   const [detail, setDetail] = useState('');
@@ -38,6 +39,7 @@ export default function CreateProduct() {
 
     const form = new FormData();
     form.append('name', name);
+    form.append('originalPrice', originalPrice);
     form.append('price', price);
     form.append('quantity', quantity || 0);
     form.append('description', description);
@@ -85,8 +87,17 @@ export default function CreateProduct() {
             <input placeholder="Tên sản phẩm" value={name} onChange={(e) => setName(e.target.value)} />
           </div>
           <div>
-            <label>Giá</label>
-            <input placeholder="Giá" type="number" value={price} onChange={(e) => setPrice(e.target.value)} />
+            <label>Giá gốc</label>
+            <input
+              placeholder="Giá gốc"
+              type="number"
+              value={originalPrice}
+              onChange={(e) => setOriginalPrice(e.target.value)}
+            />
+          </div>
+          <div>
+            <label>Giá giảm</label>
+            <input placeholder="Giá giảm" type="number" value={price} onChange={(e) => setPrice(e.target.value)} />
           </div>
           <div>
             <label>Số lượng</label>
@@ -138,7 +149,17 @@ export default function CreateProduct() {
                 }}
               />
               <input
-                placeholder="Giá"
+                placeholder="Giá gốc"
+                type="number"
+                value={variant.originalPrice || ''}
+                onChange={(e) => {
+                  const next = [...variants];
+                  next[index] = { ...next[index], originalPrice: e.target.value };
+                  setVariants(next);
+                }}
+              />
+              <input
+                placeholder="Giá giảm"
                 type="number"
                 value={variant.price}
                 onChange={(e) => {
@@ -188,7 +209,10 @@ export default function CreateProduct() {
             type="button"
             className="btn btn-outline"
             onClick={() => {
-              setVariants((prev) => [...prev, { name: '', sku: '', imageUrl: '', price: '', quantity: '' }]);
+              setVariants((prev) => [
+                ...prev,
+                { name: '', sku: '', imageUrl: '', originalPrice: '', price: '', quantity: '' }
+              ]);
               setVariantImageFiles((prev) => [...prev, null]);
             }}
           >

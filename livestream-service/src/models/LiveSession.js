@@ -27,6 +27,10 @@ const liveSessionSchema = new mongoose.Schema(
     provider: { type: String, default: 'livekit' },
     providerRoomId: { type: String, required: true, unique: true },
     playbackUrl: { type: String, default: '' },
+    hlsPlaybackUrl: { type: String, default: '' },
+    hlsPlaylistPath: { type: String, default: '' },
+    egressId: { type: String, default: '' },
+    egressStatus: { type: String, default: '' },
     visibility: {
       type: String,
       enum: ['public', 'followers_only', 'private'],

@@ -1,4 +1,5 @@
 const { sequelize } = require('../config/db');
+const { Op } = require('sequelize');
 const Inventory = require('../models/Inventory');
 const InventoryReservation = require('../models/InventoryReservation');
 
@@ -28,6 +29,14 @@ function toPublicInventory(record) {
     createdAt: value.created_at || null,
     updatedAt: value.updated_at || null
   };
+}
+
+function parseProductIds(value, max = 100) {
+  return [...new Set(String(value || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean))]
+    .slice(0, max);
 }
 
 function normalizeItems(items) {
@@ -73,6 +82,23 @@ async function getInventory(req, res) {
     return res.json(variantId != null ? data[0] : data);
   } catch (err) {
     return res.status(500).json({ message: 'Get inventory failed', error: err.message });
+  }
+}
+
+async function getInventoryBatch(req, res) {
+  try {
+    const productIds = parseProductIds(req.query.ids, 200);
+    if (!productIds.length) {
+      return res.json({ items: [] });
+    }
+
+    const rows = await Inventory.findAll({
+      where: { product_id: { [Op.in]: productIds } },
+      order: [['product_id', 'ASC'], ['variant_id', 'ASC']]
+    });
+    return res.json({ items: rows.map(toPublicInventory) });
+  } catch (err) {
+    return res.status(500).json({ message: 'Get inventory batch failed', error: err.message });
   }
 }
 
@@ -321,6 +347,7 @@ async function commitInventory(req, res) {
 
 module.exports = {
   getInventory,
+  getInventoryBatch,
   updateInventory,
   syncProduct,
   syncProductInventory,

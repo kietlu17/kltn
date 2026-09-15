@@ -137,7 +137,7 @@ export default function Navbar() {
             </>
           )}
 
-          <Link to="/carrier" className="text-link">Giả lập vận chuyển</Link>
+          <Link to="/carrier" className="text-link">vận chuyển</Link>
 
           {isSeller && (
             <Link to="/seller/dashboard" className="cart-link">Khu vực người bán</Link>
@@ -183,8 +183,8 @@ export default function Navbar() {
             </div>
           ) : (
             <>
-              <Link to="/login" className="text-link">Đăng nhập người mua</Link>
-              <Link to="/register" className="btn btn-outline">Đăng ký người mua</Link>
+              <Link to="/login" className="text-link">Đăng nhập</Link>
+              <Link to="/register" className="btn btn-outline">Đăng ký</Link>
               <Link to="/seller/login" className="text-link">Người bán</Link>
               <Link to="/admin/login" className="text-link">Quản trị</Link>
             </>

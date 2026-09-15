@@ -1,7 +1,8 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import api from '../services/api';
+import api, { getProductItems } from '../services/api';
 import ProductGrid from '../components/ProductGrid.jsx';
+import Pagination from '../components/Pagination.jsx';
 import { useCart } from '../context/CartContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
@@ -17,6 +18,8 @@ export default function ShopDetail() {
   const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState('all');
   const inventoryMap = useInventoryMap(products);
 
@@ -40,11 +43,22 @@ export default function ShopDetail() {
 
   useEffect(() => {
     if (!id) return;
-    api
-      .get(`/products?shopId=${encodeURIComponent(id)}`)
-      .then((res) => setProducts(res.data))
-      .catch(() => setProducts([]));
+    setPage(1);
   }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    api
+      .get('/products', { params: { shopId: id, paginated: true, page, limit: 24 } })
+      .then((res) => {
+        setProducts(getProductItems(res.data));
+        setPagination(res.data?.pagination || null);
+      })
+      .catch(() => {
+        setProducts([]);
+        setPagination(null);
+      });
+  }, [id, page]);
 
   async function addToCart(product) {
     if (!product) return;
@@ -143,6 +157,9 @@ export default function ShopDetail() {
       </div>
 
       <ProductGrid products={filteredProducts} onAdd={addToCart} detailBasePath="/product" />
+      {selectedCategoryId === 'all' && (
+        <Pagination page={pagination?.page} totalPages={pagination?.totalPages} onPageChange={setPage} />
+      )}
     </div>
   );
 }

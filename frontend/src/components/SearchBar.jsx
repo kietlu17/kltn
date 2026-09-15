@@ -1,6 +1,6 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
 import useShopMap from '../hooks/useShopMap';
-import api from '../services/api';
+import api, { getProductItems } from '../services/api';
 
 export default function SearchBar({ initialValue = '', onSearch, onShopSelect, onProductSelect }) {
   const [query, setQuery] = useState(initialValue);
@@ -21,10 +21,10 @@ export default function SearchBar({ initialValue = '', onSearch, onShopSelect, o
     let active = true;
     const timer = setTimeout(() => {
       api
-        .get(`/products?q=${encodeURIComponent(normalized)}`)
+        .get('/products', { params: { q: normalized, paginated: true, page: 1, limit: 8 } })
         .then((res) => {
           if (!active) return;
-          setProductResults(Array.isArray(res.data) ? res.data : []);
+          setProductResults(getProductItems(res.data));
         })
         .catch(() => {
           if (!active) return;

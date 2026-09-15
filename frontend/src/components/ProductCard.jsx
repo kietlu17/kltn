@@ -29,6 +29,9 @@ export default function ProductCard({ product, onAdd, detailBasePath = '/product
       ? formatPrice(minVariantPrice)
       : `${formatPrice(minVariantPrice)} - ${formatPrice(maxVariantPrice)}`)
     : formatPrice(product?.price);
+  const originalPrice = Number(product?.originalPrice ?? product?.price ?? 0);
+  const salePrice = hasVariants ? minVariantPrice : Number(product?.price ?? 0);
+  const showOriginalPrice = Number.isFinite(originalPrice) && Number.isFinite(salePrice) && originalPrice > salePrice;
 
   return (
     <div className="product-card">
@@ -37,21 +40,26 @@ export default function ProductCard({ product, onAdd, detailBasePath = '/product
       </Link>
 
       <div className="product-body">
-        <Link to={`${detailBasePath}/${id}`} className="product-name">
+        <Link to={`${detailBasePath}/${id}`} className="product-name" title={product?.name || 'Sản phẩm chưa đặt tên'}>
           {product?.name || 'Sản phẩm chưa đặt tên'}
         </Link>
         {category && <span className="product-category">{category}</span>}
         {isOutOfStock && <span className="stock-badge">Hết hàng</span>}
 
         <div className="product-meta">
-          <span className="product-price">{priceLabel}</span>
-          <span className="product-sold">Đã bán: {sold}</span>
+          <div className="product-price-row">
+            <span className="product-price-wrap">
+              <span className="product-price">{priceLabel}</span>
+              {showOriginalPrice && <span className="product-original-price">{formatPrice(originalPrice)}</span>}
+            </span>
+            <span className="product-sold">Đã bán: {sold}</span>
+          </div>
           {shopId ? (
-            <Link to={`/shop/${shopId}`} className="product-shop shop-link">
+            <Link to={`/shop/${shopId}`} className="product-shop shop-link" title={shop}>
               {shop}
             </Link>
           ) : (
-            <span className="product-shop">{shop}</span>
+            <span className="product-shop" title={shop}>{shop}</span>
           )}
         </div>
 

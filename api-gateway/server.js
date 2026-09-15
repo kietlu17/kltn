@@ -6,6 +6,7 @@ const jwt = require('jsonwebtoken');
 const fs = require('fs');
 const https = require('https');
 const { createProxyMiddleware, fixRequestBody } = require('http-proxy-middleware');
+const httpProxy = require('http-proxy');
 const fetchImpl = require('node-fetch');
 
 const app = express();
@@ -23,9 +24,15 @@ app.use(express.json());
 app.use(morgan('dev'));
 
 const RATE_LIMIT_WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS || 60 * 1000);
-const RATE_LIMIT_MAX_REQUESTS = Number(process.env.RATE_LIMIT_MAX_REQUESTS || 120);
+const RATE_LIMIT_MAX_REQUESTS = Number(process.env.RATE_LIMIT_MAX_REQUESTS || 600);
 const AUTH_RATE_LIMIT_WINDOW_MS = Number(process.env.AUTH_RATE_LIMIT_WINDOW_MS || 60 * 1000);
 const AUTH_RATE_LIMIT_MAX_REQUESTS = Number(process.env.AUTH_RATE_LIMIT_MAX_REQUESTS || 30);
+const RATE_LIMIT_EXEMPT_PATH_PREFIXES = String(
+  process.env.RATE_LIMIT_EXEMPT_PATH_PREFIXES || '/uploads,/realtime'
+)
+  .split(',')
+  .map((item) => item.trim())
+  .filter(Boolean);
 const rateStore = new Map();
 
 const targets = {
@@ -42,6 +49,7 @@ const targets = {
   paymentGateway: process.env.PAYMENT_GATEWAY_URL || 'http://localhost:3012',
   reviews: process.env.REVIEW_SERVICE_URL || 'http://localhost:3008',
   chat: process.env.CHAT_SERVICE_URL || 'http://localhost:3009',
+  realtime: process.env.REALTIME_SERVICE_URL || 'http://localhost:3015',
   lives: process.env.LIVESTREAM_SERVICE_URL || 'http://localhost:3014'
 };
 
@@ -62,14 +70,25 @@ function createMtlsAgent() {
 }
 
 const mtlsAgent = createMtlsAgent();
+const realtimeWsProxy = httpProxy.createProxyServer({
+  target: targets.realtime,
+  ws: true,
+  changeOrigin: true
+});
 
-function buildProxy(target) {
+realtimeWsProxy.on('error', (err, req, socket) => {
+  console.error('Realtime websocket proxy failed', err.message);
+  if (socket && !socket.destroyed) socket.destroy();
+});
+
+function buildProxy(target, overrides = {}) {
   const config = {
     target,
     changeOrigin: true,
-    ws: true,
+    ws: false,
     logLevel: 'warn',
-    onProxyReq: fixRequestBody
+    onProxyReq: fixRequestBody,
+    ...overrides
   };
   if (target.startsWith('https://')) {
     config.secure = process.env.MTLS_REJECT_UNAUTHORIZED !== 'false';
@@ -106,15 +125,43 @@ function cleanupRateStore(now) {
   }
 }
 
+function getClientIp(req) {
+  const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+  return forwarded || req.ip;
+}
+
+function shouldSkipRateLimit(req) {
+  if (req.method === 'OPTIONS' || req.method === 'HEAD') return true;
+  return RATE_LIMIT_EXEMPT_PATH_PREFIXES.some((prefix) => matchesPath(prefix, req.path));
+}
+
+function getRateLimitProfile(req) {
+  const isAuthPath = req.path.startsWith('/auth/login') || req.path.startsWith('/auth/register');
+  if (isAuthPath) {
+    return {
+      bucket: 'auth',
+      windowMs: AUTH_RATE_LIMIT_WINDOW_MS,
+      maxRequests: AUTH_RATE_LIMIT_MAX_REQUESTS
+    };
+  }
+
+  const routeGroup = req.path.split('/').filter(Boolean)[0] || 'root';
+  const methodGroup = req.method === 'GET' ? 'read' : 'write';
+  return {
+    bucket: `${methodGroup}:${routeGroup}`,
+    windowMs: RATE_LIMIT_WINDOW_MS,
+    maxRequests: RATE_LIMIT_MAX_REQUESTS
+  };
+}
+
 function rateLimitMiddleware(req, res, next) {
   const now = Date.now();
   if (rateStore.size > 10000) cleanupRateStore(now);
 
-  const isAuthPath = req.path.startsWith('/auth/login') || req.path.startsWith('/auth/register');
-  const windowMs = isAuthPath ? AUTH_RATE_LIMIT_WINDOW_MS : RATE_LIMIT_WINDOW_MS;
-  const maxRequests = isAuthPath ? AUTH_RATE_LIMIT_MAX_REQUESTS : RATE_LIMIT_MAX_REQUESTS;
+  if (shouldSkipRateLimit(req)) return next();
 
-  const key = `${req.ip}:${isAuthPath ? 'auth' : 'default'}`;
+  const { bucket, windowMs, maxRequests } = getRateLimitProfile(req);
+  const key = `${getClientIp(req)}:${bucket}`;
   const current = rateStore.get(key);
   if (!current || current.expiresAt <= now) {
     rateStore.set(key, { count: 1, expiresAt: now + windowMs });
@@ -166,6 +213,7 @@ function getRequiredRoles(req) {
       if (path === '/lives/seller/me') return ['seller', 'admin'];
       return null;
     }
+    if (path.endsWith('/viewer-heartbeat')) return null;
     if (path.endsWith('/viewer-token')) return ['buyer', 'admin'];
     return ['seller', 'admin'];
   }
@@ -306,9 +354,23 @@ app.use('/payments/sepay', buildProxy(targets.paymentGateway));
 app.use('/payments', buildProxy(targets.payments));
 app.use('/reviews', buildProxy(targets.reviews));
 app.use('/chat', buildProxy(targets.chat));
+const realtimeProxy = buildProxy(targets.realtime, {
+  pathRewrite: { '^/realtime': '' }
+});
+
+app.use('/realtime', realtimeProxy);
 app.use('/lives', buildProxy(targets.lives));
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`API Gateway running on port ${PORT}`);
+});
+
+server.on('upgrade', (req, socket, head) => {
+  if (req.url?.startsWith('/realtime')) {
+    req.url = req.url.replace(/^\/realtime/, '') || '/';
+    realtimeWsProxy.ws(req, socket, head);
+    return;
+  }
+  socket.destroy();
 });

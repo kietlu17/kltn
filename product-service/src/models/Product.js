@@ -5,6 +5,7 @@ const variantSchema = new mongoose.Schema(
     name: { type: String, required: true },
     sku: { type: String, default: '' },
     imageUrl: { type: String, default: '' },
+    originalPrice: { type: Number, default: 0 },
     price: { type: Number, required: true },
     quantity: { type: Number, default: 0 }
   },
@@ -14,6 +15,7 @@ const variantSchema = new mongoose.Schema(
 const productSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
+    originalPrice: { type: Number, default: 0 },
     price: { type: Number, required: true },
     description: { type: String, default: '' },
     detail: { type: String, default: '' },

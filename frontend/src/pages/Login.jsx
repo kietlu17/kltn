@@ -55,7 +55,8 @@ export default function Login({ expectedRole = null }) {
       ? 'Truy cập bảng điều khiển cửa hàng, đơn hàng và tồn kho.'
       : 'Thanh toán nhanh, ưu đãi chọn lọc và người bán uy tín.';
 
-  async function loginHandler() {
+  async function loginHandler(event) {
+    event?.preventDefault();
     if (!email || !password) {
       showToast('Vui lòng nhập email và mật khẩu', 'error');
       return;
@@ -97,19 +98,19 @@ export default function Login({ expectedRole = null }) {
 
   return (
     <div className="auth-page">
-      <div className="auth-card">
+      <form className="auth-card" onSubmit={loginHandler}>
         <h2>{heading}</h2>
         <label>Email</label>
         <input placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
         <label>Mật khẩu</label>
         <input placeholder="Mật khẩu" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
-        <button className="btn btn-primary btn-full" onClick={loginHandler}>Đăng nhập</button>
+        <button className="btn btn-primary btn-full" type="submit">Đăng nhập</button>
         {!isAdmin && (
           <p className="muted">
             Chưa có tài khoản? <Link to={registerPath}>Đăng ký</Link>
           </p>
         )}
-      </div>
+      </form>
       <div className="auth-side">
         <h3>Chào mừng quay lại Shopee Lite</h3>
         <p>{description}</p>

@@ -11,6 +11,7 @@ const categoryRoutes = require('./src/routes/categoryRoutes');
 const { initProducer } = require('./src/kafka/producer');
 const { initConsumer } = require('./src/kafka/consumer');
 const { backfillModerationStatus } = require('./src/services/moderationBackfill');
+const { getProductImageStream } = require('./src/services/objectStorage');
 
 const app = express();
 app.use(cors());
@@ -23,6 +24,20 @@ if (!fs.existsSync(uploadsDir)) {
 }
 
 app.use('/uploads', express.static(uploadsDir));
+app.get('/uploads/*', async (req, res, next) => {
+  try {
+    const object = await getProductImageStream(req.params[0]);
+    res.setHeader('Content-Type', object.contentType);
+    if (object.contentLength != null) res.setHeader('Content-Length', object.contentLength);
+    res.setHeader('Cache-Control', object.cacheControl || 'public, max-age=31536000, immutable');
+    object.body.pipe(res);
+  } catch (err) {
+    if (err?.$metadata?.httpStatusCode === 404 || err?.name === 'NoSuchKey') {
+      return res.status(404).json({ message: 'Image not found' });
+    }
+    return next(err);
+  }
+});
 app.use('/products', productRoutes);
 app.use('/categories', categoryRoutes);
 

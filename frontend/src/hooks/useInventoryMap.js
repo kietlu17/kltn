@@ -27,17 +27,25 @@ export default function useInventoryMap(products = []) {
       return;
     }
     let active = true;
-    Promise.all(
-      productIds.map((productId) =>
-        api
-          .get(`/inventory/products/${productId}`)
-          .then((res) => (Array.isArray(res.data) ? res.data : [res.data]))
-          .catch(() => [])
-      )
-    ).then((groups) => {
+
+    const loadLegacyInventory = () =>
+      Promise.all(
+        productIds.map((productId) =>
+          api
+            .get(`/inventory/products/${productId}`)
+            .then((res) => (Array.isArray(res.data) ? res.data : [res.data]))
+            .catch(() => [])
+        )
+      ).then((groups) => groups.flat());
+
+    api
+      .get('/inventory/products', { params: { ids: productIds.join(',') } })
+      .then((res) => (Array.isArray(res.data?.items) ? res.data.items : []))
+      .catch(loadLegacyInventory)
+      .then((rows) => {
       if (!active) return;
       const next = new Map();
-      groups.flat().forEach((item) => {
+      rows.forEach((item) => {
         next.set(inventoryKey(item.productId, item.variantId), item);
       });
       setInventoryMap(next);
