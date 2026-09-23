@@ -1,0 +1,54 @@
+import re
+import unicodedata
+from typing import Literal, TypedDict
+
+from pydantic import BaseModel, Field, model_validator
+
+
+def explicit_price_limits(message: str) -> dict:
+    """Enforce unambiguous shopper price caps even when the planner omits them."""
+    text = unicodedata.normalize("NFD", message.lower()).replace("đ", "d")
+    text = "".join(c for c in text if unicodedata.category(c) != "Mn")
+    limits = {}
+    pattern = r"\b(duoi|khong qua|toi da|tren|toi thieu)\s+([0-9]+(?:[.,][0-9]+)*)\s*(trieu|nghin|ngan|tr|k|vnd|dong|d)?\b"
+    for match in re.finditer(pattern, text):
+        direction, number, unit = match.groups()
+        if unit in {"trieu", "tr", "nghin", "ngan", "k"}:
+            value = float(number.replace(",", ".")) if number.count(",") + number.count(".") <= 1 else None
+            multiplier = 1_000_000 if unit in {"trieu", "tr"} else 1000
+        else:
+            value = float(number.replace(".", "").replace(",", ""))
+            multiplier = 1
+        if value is not None and value * multiplier <= 1e12:
+            limits["min_price" if direction in {"tren", "toi thieu"} else "max_price"] = value * multiplier
+    return limits
+
+
+class SearchPlan(BaseModel):
+    intent: Literal["search", "similar", "clarify"] = "search"
+    query: str = Field(default="", max_length=1500)
+    min_price: float | None = Field(default=None, ge=0, le=1e12)
+    max_price: float | None = Field(default=None, ge=0, le=1e12)
+    variant_terms: list[str] = Field(default_factory=list, max_length=8)
+    reference_product_id: str | None = Field(default=None, pattern=r"^[a-fA-F0-9]{24}$")
+    clarification: str = Field(default="", max_length=500)
+    use_previous_image: bool = False
+
+    @model_validator(mode="after")
+    def ordered_prices(self):
+        if self.min_price is not None and self.max_price is not None and self.min_price > self.max_price:
+            raise ValueError("Invalid price range")
+        return self
+
+
+class ChatState(TypedDict, total=False):
+    message: str
+    image: str | None
+    reference_product_id: str | None
+    history: list[dict]
+    previous_plan: dict
+    previous_products: list[dict]
+    visual_description: str
+    plan: dict
+    products: list[dict]
+    answer: str

@@ -220,12 +220,6 @@ export default function SellerDashboard() {
         </div>
 
         <div className="card">
-          <h3>Livestream</h3>
-          <p className="muted">Mở live, lấy token LiveKit self-host và ghim sản phẩm để bán trong phiên live.</p>
-          <Link to="/seller/livestreams" className="btn btn-primary">Mở Live Studio</Link>
-        </div>
-
-        <div className="card">
           <h3>Ví shop</h3>
           <p className="muted">Số dư khả dụng và các khoản settlement dự kiến về ví.</p>
           <div className="seller-stats">

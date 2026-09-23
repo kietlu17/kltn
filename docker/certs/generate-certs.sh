@@ -10,7 +10,7 @@ if [ ! -f "$CA_DIR/ca.key" ] || [ ! -f "$CA_DIR/ca.crt" ]; then
   openssl req -x509 -new -nodes -key "$CA_DIR/ca.key" -sha256 -days 3650 -out "$CA_DIR/ca.crt" -subj "/CN=ecommerce-local-ca"
 fi
 
-SERVICES="api-gateway auth-service user-service shop-service product-service cart-service order-service inventory-service voucher-service review-service payment-service wallet-service payment-gateway chat-service livestream-service ai-cohost-service"
+SERVICES="api-gateway auth-service user-service shop-service product-service cart-service order-service inventory-service voucher-service review-service payment-service wallet-service payment-gateway chat-service chatbot-service"
 
 for svc in $SERVICES; do
   svc_dir="$CERT_ROOT/$svc"

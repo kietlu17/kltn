@@ -1,0 +1,14 @@
+fastapi==0.141.1
+uvicorn==0.53.0
+httpx==0.28.1
+beautifulsoup4==4.13.4
+reportlab==5.0.1
+pypdf==6.19.0
+langgraph==1.2.11
+langchain-core==1.6.3
+langchain-google-genai==4.4.0
+qdrant-client==1.19.0
+Pillow>=12.0,<13
+aiokafka==0.12.0
+openai-whisper==20250625
+transformers==4.57.6

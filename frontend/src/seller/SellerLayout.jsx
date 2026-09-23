@@ -26,7 +26,6 @@ export default function SellerLayout() {
           <Link to="/seller/categories">Danh mục</Link>
           <Link to="/seller/orders">Đơn hàng</Link>
           <Link to="/seller/vouchers">Mã giảm giá</Link>
-          <Link to="/seller/livestreams">Livestream</Link>
           <Link to="/seller/chat">Chat</Link>
           <Link to="/seller/products/create">Tạo sản phẩm</Link>
           <button className="seller-nav-button" onClick={handleLogout}>Đăng xuất</button>

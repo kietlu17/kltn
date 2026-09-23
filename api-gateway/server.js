@@ -6,7 +6,6 @@ const jwt = require('jsonwebtoken');
 const fs = require('fs');
 const https = require('https');
 const { createProxyMiddleware, fixRequestBody } = require('http-proxy-middleware');
-const httpProxy = require('http-proxy');
 const fetchImpl = require('node-fetch');
 
 const app = express();
@@ -20,6 +19,8 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
+// Image uploads use base64 JSON. Keep the larger limit scoped to the assistant.
+app.use('/assistant', express.json({ limit: '8mb' }));
 app.use(express.json());
 app.use(morgan('dev'));
 
@@ -28,7 +29,7 @@ const RATE_LIMIT_MAX_REQUESTS = Number(process.env.RATE_LIMIT_MAX_REQUESTS || 60
 const AUTH_RATE_LIMIT_WINDOW_MS = Number(process.env.AUTH_RATE_LIMIT_WINDOW_MS || 60 * 1000);
 const AUTH_RATE_LIMIT_MAX_REQUESTS = Number(process.env.AUTH_RATE_LIMIT_MAX_REQUESTS || 30);
 const RATE_LIMIT_EXEMPT_PATH_PREFIXES = String(
-  process.env.RATE_LIMIT_EXEMPT_PATH_PREFIXES || '/uploads,/realtime'
+  process.env.RATE_LIMIT_EXEMPT_PATH_PREFIXES || '/uploads'
 )
   .split(',')
   .map((item) => item.trim())
@@ -36,6 +37,7 @@ const RATE_LIMIT_EXEMPT_PATH_PREFIXES = String(
 const rateStore = new Map();
 
 const targets = {
+  assistant: process.env.CHATBOT_SERVICE_URL || 'http://localhost:3021',
   auth: process.env.AUTH_SERVICE_URL || 'http://localhost:3001',
   users: process.env.USER_SERVICE_URL || 'http://localhost:3002',
   shops: process.env.SHOP_SERVICE_URL || 'http://localhost:3003',
@@ -48,9 +50,7 @@ const targets = {
   wallet: process.env.WALLET_SERVICE_URL || 'http://localhost:3011',
   paymentGateway: process.env.PAYMENT_GATEWAY_URL || 'http://localhost:3012',
   reviews: process.env.REVIEW_SERVICE_URL || 'http://localhost:3008',
-  chat: process.env.CHAT_SERVICE_URL || 'http://localhost:3009',
-  realtime: process.env.REALTIME_SERVICE_URL || 'http://localhost:3015',
-  lives: process.env.LIVESTREAM_SERVICE_URL || 'http://localhost:3014'
+  chat: process.env.CHAT_SERVICE_URL || 'http://localhost:3009'
 };
 
 function createMtlsAgent() {
@@ -70,17 +70,6 @@ function createMtlsAgent() {
 }
 
 const mtlsAgent = createMtlsAgent();
-const realtimeWsProxy = httpProxy.createProxyServer({
-  target: targets.realtime,
-  ws: true,
-  changeOrigin: true
-});
-
-realtimeWsProxy.on('error', (err, req, socket) => {
-  console.error('Realtime websocket proxy failed', err.message);
-  if (socket && !socket.destroyed) socket.destroy();
-});
-
 function buildProxy(target, overrides = {}) {
   const config = {
     target,
@@ -98,11 +87,14 @@ function buildProxy(target, overrides = {}) {
 }
 
 const PUBLIC_PATHS = [
+  { method: 'POST', path: '/assistant/chat' },
+  { method: 'POST', path: '/assistant/transcribe' },
+  { method: 'GET', path: '/assistant/products' },
+  { method: 'GET', path: '/assistant/health' },
   { method: 'POST', path: '/auth/login' },
   { method: 'POST', path: '/auth/register' },
   { method: 'POST', path: '/auth/session' },
   { method: 'GET', path: '/shops' },
-  { method: 'POST', path: '/lives/provider/livekit/webhook' },
   { method: 'POST', path: '/orders/shipping/callback' },
   { method: 'POST', path: '/payments/wallet/cod-remittances' },
   { method: 'POST', path: '/payments/sepay/webhook' }
@@ -207,16 +199,6 @@ function getRequiredRoles(req) {
   if (/^\/shops\/[^/]+\/invoice-feature/.test(path)) return ['seller', 'admin'];
   if (path.startsWith('/cart')) return ['buyer', 'admin'];
   if (path.startsWith('/chat')) return ['buyer', 'seller', 'admin'];
-  if (path.startsWith('/lives')) {
-    if (path.startsWith('/lives/provider/')) return null;
-    if (method === 'GET') {
-      if (path === '/lives/seller/me') return ['seller', 'admin'];
-      return null;
-    }
-    if (path.endsWith('/viewer-heartbeat')) return null;
-    if (path.endsWith('/viewer-token')) return ['buyer', 'admin'];
-    return ['seller', 'admin'];
-  }
   if (path.startsWith('/reviews')) return ['buyer', 'admin'];
   if (path.startsWith('/payments/wallet/platform-wallet')) return ['admin'];
   if (path.startsWith('/payments/wallet/cod-remittances')) return ['admin'];
@@ -339,6 +321,14 @@ app.use(async (req, res, next) => {
 });
 
 app.use('/auth', buildProxy(targets.auth));
+app.use('/assistant', buildProxy(targets.assistant, {
+  proxyTimeout: 365000,
+  timeout: 370000,
+  onError: (err, req, res) => {
+    console.error('Shopping assistant proxy failed', err.message);
+    if (!res.headersSent) res.status(503).json({ message: 'Trợ lý chưa sẵn sàng. Vui lòng thử lại sau.' });
+  }
+}));
 app.use('/users', buildProxy(targets.users));
 app.use('/shops', buildProxy(targets.shops));
 app.use('/products', buildProxy(targets.products));
@@ -354,23 +344,7 @@ app.use('/payments/sepay', buildProxy(targets.paymentGateway));
 app.use('/payments', buildProxy(targets.payments));
 app.use('/reviews', buildProxy(targets.reviews));
 app.use('/chat', buildProxy(targets.chat));
-const realtimeProxy = buildProxy(targets.realtime, {
-  pathRewrite: { '^/realtime': '' }
-});
-
-app.use('/realtime', realtimeProxy);
-app.use('/lives', buildProxy(targets.lives));
-
 const PORT = process.env.PORT || 3000;
-const server = app.listen(PORT, () => {
+app.listen(PORT, () => {
   console.log(`API Gateway running on port ${PORT}`);
-});
-
-server.on('upgrade', (req, socket, head) => {
-  if (req.url?.startsWith('/realtime')) {
-    req.url = req.url.replace(/^\/realtime/, '') || '/';
-    realtimeWsProxy.ws(req, socket, head);
-    return;
-  }
-  socket.destroy();
 });

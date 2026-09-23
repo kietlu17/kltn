@@ -78,6 +78,55 @@ async function getReviewsByProduct(req, res) {
   }
 }
 
+function parseProductIds(value, max = 200) {
+  return [...new Set(String(value || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter((item) => /^[a-f\d]{24}$/i.test(item)))]
+    .slice(0, max);
+}
+
+async function getReviewSummaries(req, res) {
+  try {
+    const productIds = parseProductIds(req.query.ids);
+    if (!productIds.length) {
+      return res.json({ items: [], globalAverageRating: null, globalReviewCount: 0 });
+    }
+
+    const [summary = {}] = await Review.aggregate([{
+      $facet: {
+        items: [
+          { $match: { productId: { $in: productIds } } },
+          { $group: {
+            _id: '$productId',
+            averageRating: { $avg: '$rating' },
+            reviewCount: { $sum: 1 }
+          } }
+        ],
+        global: [
+          { $group: {
+            _id: null,
+            averageRating: { $avg: '$rating' },
+            reviewCount: { $sum: 1 }
+          } }
+        ]
+      }
+    }]);
+    const global = summary.global?.[0];
+    return res.json({
+      items: (summary.items || []).map((item) => ({
+        productId: String(item._id),
+        averageRating: Number(item.averageRating.toFixed(4)),
+        reviewCount: item.reviewCount
+      })),
+      globalAverageRating: global ? Number(global.averageRating.toFixed(4)) : null,
+      globalReviewCount: global?.reviewCount || 0
+    });
+  } catch (err) {
+    return res.status(500).json({ message: 'Get review summaries failed', error: err.message });
+  }
+}
+
 async function createReview(req, res) {
   try {
     const { userId, userName, rating, comment } = req.body;
@@ -114,4 +163,4 @@ async function createReview(req, res) {
   }
 }
 
-module.exports = { getReviewsByProduct, createReview };
+module.exports = { getReviewsByProduct, getReviewSummaries, createReview };

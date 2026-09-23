@@ -4,4 +4,9 @@ node_modules
 **/.git
 npm-debug.log
 **/npm-debug.log
+**/__pycache__
+**/.venv
+chatbot-service/data
+frontend/test-results
+frontend/playwright-report
 product-service/uploads

@@ -26,7 +26,6 @@ export default function Home() {
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState(null);
   const [categories, setCategories] = useState([]);
-  const [activeLives, setActiveLives] = useState([]);
   const { addItem } = useCart();
   const { user } = useAuth();
   const { showToast } = useToast();
@@ -58,10 +57,6 @@ export default function Home() {
 
   useEffect(() => {
     api.get('/categories').then((res) => setCategories(res.data)).catch(() => setCategories([]));
-  }, []);
-
-  useEffect(() => {
-    api.get('/lives/active').then((res) => setActiveLives(res.data || [])).catch(() => setActiveLives([]));
   }, []);
 
   async function addToCart(product) {
@@ -179,7 +174,7 @@ export default function Home() {
               ))
             ) : (
               <div className="banner-product banner-product-fallback">
-                <span>Live sale</span>
+                <span>Hot deal</span>
               </div>
             )}
             <div className="banner-deal-card">
@@ -208,26 +203,6 @@ export default function Home() {
       </section>
 
       <section className="container">
-        {activeLives.length > 0 && (
-          <div className="search-section-block">
-            <div className="section-header">
-              <h3>Livestream đang diễn ra</h3>
-              <span className="section-link">{activeLives.length} live</span>
-            </div>
-            <div className="shop-grid">
-              {activeLives.slice(0, 6).map((live) => (
-                <Link key={live.id || live._id} to={`/live/${live.id || live._id}`} className="shop-card">
-                  <div>
-                    <h4>{live.title}</h4>
-                    <p className="muted">{live.description || 'Shop đang phát trực tiếp.'}</p>
-                  </div>
-                  <span className="shop-link-text">Xem live</span>
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
-
         <div className="section-header">
           <h2>{query ? `Kết quả cho "${query}"` : 'Gợi ý dành cho bạn'}</h2>
           <span className="section-link">Xem tất cả</span>
