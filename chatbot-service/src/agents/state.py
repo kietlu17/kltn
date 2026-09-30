@@ -48,7 +48,22 @@ class ChatState(TypedDict, total=False):
     history: list[dict]
     previous_plan: dict
     previous_products: list[dict]
+    focused_product_id: str
+    focused_product_ids: list[str]
     visual_description: str
     plan: dict
     products: list[dict]
     answer: str
+    session_id: str
+    authenticated_user_id: str
+    actor_role: str
+    variant_id: str | None
+    address_id: str | None
+    payment_method: str | None
+    voucher_code: str | None
+    action_request_id: str | None
+    confirm_action_id: str | None
+    cancel_action_id: str | None
+    pending_action: dict | None
+    action_result: dict
+    commerce_intent: str

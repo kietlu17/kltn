@@ -87,7 +87,6 @@ function buildProxy(target, overrides = {}) {
 }
 
 const PUBLIC_PATHS = [
-  { method: 'POST', path: '/assistant/chat' },
   { method: 'POST', path: '/assistant/transcribe' },
   { method: 'GET', path: '/assistant/products' },
   { method: 'GET', path: '/assistant/health' },

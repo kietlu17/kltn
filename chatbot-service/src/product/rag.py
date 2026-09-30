@@ -112,21 +112,20 @@ class ProductRAG:
         if not query.strip():
             return {"products": [], "answer": "Bạn muốn tìm sản phẩm nào?"}
 
-        queries = [query[:10000]]
-        if reference:
-            for caption in await self.vectors.source_visuals(reference):
-                queries.append((caption + "\nYêu cầu: " + plan["query"])[:3000])
-        if state.get("visual_description"):
-            queries.append((state["visual_description"] + "\nYêu cầu: " + plan["query"])[:3000])
-
-        embeddings = await self.models.embed_queries(queries)
+        visual_description = state.get("visual_description", "").strip()
+        if visual_description and visual_description.casefold() not in query.casefold():
+            query += "\nMô tả ảnh: " + visual_description
+        # One composite query means one Gemini embedding request. Qdrant can use
+        # that same vector against both text and image-caption documents.
+        vector = (await self.models.embed_queries([query[:10000]]))[0]
+        kinds = ("text", "image_description") if (reference or visual_description) else ("text",)
         ranks = {}
         cards = []
         for offset in (0, 80, 160):
-            for index, vector in enumerate(embeddings):
+            for kind in kinds:
                 hits = await self.vectors.query(
                     vector,
-                    kind="image_description" if index else "text",
+                    kind=kind,
                     exclude=reference,
                     category=category,
                     offset=offset,

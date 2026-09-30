@@ -201,7 +201,7 @@ class Runner:
             "shop_id": shop_id,
             "buyer_token": buyer_token,
             "buyer_id": buyer_id,
-            "address": address,
+            "address": address[-1] if isinstance(address, list) and address else address,
             "product_id": product_id,
             "variant_id": variant_id,
             "price": price,

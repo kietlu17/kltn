@@ -226,12 +226,20 @@ services:
     environment:
       PORT: 3005
       MONGO_URI: mongodb://mongo:27017/cart-service
+      PRODUCT_SERVICE_URL: https://product-service:3004
+      INVENTORY_SERVICE_URL: https://inventory-service:3007
+      CART_MAX_LINE_QUANTITY: ${CART_MAX_LINE_QUANTITY:-100}
       TLS_ENABLED: "true"
       TLS_REQUEST_CLIENT_CERT: "true"
       TLS_REJECT_UNAUTHORIZED: "true"
       TLS_CA_PATH: /certs/ca/ca.crt
       TLS_CERT_PATH: /certs/cart-service/tls.crt
       TLS_KEY_PATH: /certs/cart-service/tls.key
+      MTLS_ENABLED: "true"
+      MTLS_REJECT_UNAUTHORIZED: "true"
+      MTLS_CA_PATH: /certs/ca/ca.crt
+      MTLS_CLIENT_CERT_PATH: /certs/cart-service/tls.crt
+      MTLS_CLIENT_KEY_PATH: /certs/cart-service/tls.key
     volumes:
       - certs_data:/certs:ro
     depends_on:
@@ -239,6 +247,10 @@ services:
         condition: service_completed_successfully
       mongo:
         condition: service_healthy
+      product-service:
+        condition: service_started
+      inventory-service:
+        condition: service_started
 
   order-service:
     build:
@@ -255,6 +267,10 @@ services:
       PG_PASSWORD: postgres
       INVENTORY_SERVICE_URL: https://inventory-service:3007
       VOUCHER_SERVICE_URL: https://voucher-service:3013
+      PRODUCT_SERVICE_URL: https://product-service:3004
+      USER_SERVICE_URL: https://user-service:3002
+      ORDER_SERVICE_URL: https://order-service:3006
+      CHECKOUT_QUOTE_TTL_SECONDS: ${CHECKOUT_QUOTE_TTL_SECONDS:-600}
       KAFKA_BROKER: kafka-e:29092
       SETTLEMENT_DELAY_DAYS: ${SETTLEMENT_DELAY_DAYS:-15}
       TLS_ENABLED: "true"
@@ -276,6 +292,10 @@ services:
       postgres:
         condition: service_healthy
       kafka_e:
+        condition: service_started
+      product-service:
+        condition: service_started
+      user-service:
         condition: service_started
       inventory-service:
         condition: service_started
@@ -406,7 +426,21 @@ services:
     environment: &chatbot-environment
       CHATBOT_EMBEDDING_MODEL: ${CHATBOT_EMBEDDING_MODEL:-gemini-embedding-001}
       CHATBOT_EMBEDDING_DIMENSIONS: ${CHATBOT_EMBEDDING_DIMENSIONS:-768}
-      CHATBOT_PRODUCT_MAX_ROUNDS: ${CHATBOT_PRODUCT_MAX_ROUNDS:-2}
+      CHATBOT_PRODUCT_MAX_ROUNDS: ${CHATBOT_PRODUCT_MAX_ROUNDS:-1}
+      CHATBOT_PRODUCT_LLM_EVALUATOR: ${CHATBOT_PRODUCT_LLM_EVALUATOR:-always}
+      CHATBOT_MODEL_MAX_RETRIES: ${CHATBOT_MODEL_MAX_RETRIES:-1}
+      CHATBOT_LLM_COOLDOWN_SECONDS: ${CHATBOT_LLM_COOLDOWN_SECONDS:-60}
+      CHATBOT_EMBED_CACHE_SIZE: ${CHATBOT_EMBED_CACHE_SIZE:-512}
+      CHATBOT_EVENT_BATCH_SIZE: ${CHATBOT_EVENT_BATCH_SIZE:-20}
+      CHATBOT_EVENT_BATCH_MS: ${CHATBOT_EVENT_BATCH_MS:-1000}
+      CHATBOT_INDEX_RETRY_SECONDS: ${CHATBOT_INDEX_RETRY_SECONDS:-15}
+      CHATBOT_MAX_CAPTION_IMAGES: ${CHATBOT_MAX_CAPTION_IMAGES:-0}
+      CHATBOT_CONTEXT_HISTORY_MESSAGES: ${CHATBOT_CONTEXT_HISTORY_MESSAGES:-8}
+      CHATBOT_CONTEXT_HISTORY_CHARS: ${CHATBOT_CONTEXT_HISTORY_CHARS:-6000}
+      CHATBOT_SESSION_PRODUCT_LIMIT: ${CHATBOT_SESSION_PRODUCT_LIMIT:-6}
+      CHATBOT_SHOPPING_CONTEXT_TTL_SECONDS: ${CHATBOT_SHOPPING_CONTEXT_TTL_SECONDS:-21600}
+      CHATBOT_IMAGE_CONTEXT_TTL_SECONDS: ${CHATBOT_IMAGE_CONTEXT_TTL_SECONDS:-3600}
+      CHATBOT_PENDING_ACTION_TTL_SECONDS: ${CHATBOT_PENDING_ACTION_TTL_SECONDS:-600}
       CHATBOT_IMAGE_EMBED_URL: http://image-embedding:3022
       CHATBOT_IMAGE_MODEL: ${CHATBOT_IMAGE_MODEL:-openai/clip-vit-base-patch32}
       CHATBOT_IMAGE_REVISION: ${CHATBOT_IMAGE_REVISION:-3d74acf9a28c67741b2f4f2ea7635f0aaf6f0268}
@@ -420,7 +454,7 @@ services:
       CHATBOT_SIMILAR_MIN_SCORE: ${CHATBOT_SIMILAR_MIN_SCORE:-0.5}
       CHATBOT_DATA_DIR: /data
       CHATBOT_SYNC_SECONDS: ${CHATBOT_SYNC_SECONDS:-300}
-      CHATBOT_IMAGE_HOSTS: ${CHATBOT_IMAGE_HOSTS:-}
+      CHATBOT_IMAGE_HOSTS: ${CHATBOT_IMAGE_HOSTS:-salt.tikicdn.com}
       CHATBOT_POLICY_PDF_PATHS: ${CHATBOT_POLICY_PDF_PATHS:-/policies/shopee-help}
       CHATBOT_POLICY_EMBED_BATCH_SIZE: ${CHATBOT_POLICY_EMBED_BATCH_SIZE:-50}
       CHATBOT_POLICY_EMBED_RETRIES: ${CHATBOT_POLICY_EMBED_RETRIES:-10}
@@ -429,6 +463,10 @@ services:
       PRODUCT_SERVICE_URL: https://product-service:3004
       INVENTORY_SERVICE_URL: https://inventory-service:3007
       REVIEW_SERVICE_URL: https://review-service:3008
+      CART_SERVICE_URL: https://cart-service:3005
+      ORDER_SERVICE_URL: https://order-service:3006
+      VOUCHER_SERVICE_URL: https://voucher-service:3013
+      USER_SERVICE_URL: https://user-service:3002
       CHATBOT_RERANK_CANDIDATES: ${CHATBOT_RERANK_CANDIDATES:-30}
       CHATBOT_RERANK_BAYESIAN_PRIOR: ${CHATBOT_RERANK_BAYESIAN_PRIOR:-20}
       PRODUCT_IMAGE_PUBLIC_BASE_URL: ${PRODUCT_IMAGE_PUBLIC_BASE_URL:-http://localhost:9000/product-images}
@@ -450,6 +488,14 @@ services:
       inventory-service:
         condition: service_started
       review-service:
+        condition: service_started
+      cart-service:
+        condition: service_started
+      voucher-service:
+        condition: service_started
+      order-service:
+        condition: service_started
+      user-service:
         condition: service_started
 
   image-embedding:

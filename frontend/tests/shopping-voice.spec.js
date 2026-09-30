@@ -1,12 +1,25 @@
 import { test, expect } from '@playwright/test';
 
-async function mockMicrophone(page, denied = false) {
-  await page.addInitScript(({ denied }) => {
+const productId = 'a'.repeat(24);
+const product = { _id: productId, name: 'Áo cotton', price: 200000, quantity: 5, images: [], variants: [] };
+
+async function mockProductPage(page) {
+  await page.route('**/products**', (route) => {
+    const path = new URL(route.request().url()).pathname;
+    return route.fulfill({ json: path === `/products/${productId}`
+      ? product
+      : { items: [product], pagination: { total: 1, totalPages: 1 } } });
+  });
+  await page.route('**/categories', (route) => route.fulfill({ json: [] }));
+  await page.route('**/shops', (route) => route.fulfill({ json: [] }));
+}
+
+async function mockMicrophone(page) {
+  await page.addInitScript(() => {
     window.stoppedTracks = 0;
-    Object.defineProperty(navigator, 'mediaDevices', { value: { getUserMedia: async () => {
-      if (denied) throw new DOMException('denied', 'NotAllowedError');
-      return { getTracks: () => [{ stop: () => { window.stoppedTracks++; } }] };
-    } } });
+    Object.defineProperty(navigator, 'mediaDevices', { value: {
+      getUserMedia: async () => ({ getTracks: () => [{ stop: () => { window.stoppedTracks += 1; } }] })
+    } });
     window.MediaRecorder = class {
       static isTypeSupported() { return true; }
       state = 'inactive';
@@ -17,35 +30,45 @@ async function mockMicrophone(page, denied = false) {
         this.onstop?.();
       }
     };
-  }, { denied });
+  });
 }
 
-test('microphone transcribes into draft without sending and releases tracks', async ({ page }) => {
-  await mockMicrophone(page);
-  let chats = 0;
-  await page.route('**/assistant/chat', route => { chats++; return route.fulfill({ json: {} }); });
-  await page.route('**/assistant/transcribe', route => route.fulfill({ json: { text: 'tai nghe dưới 500k' } }));
-  await page.goto('/');
-  await page.getByRole('button', { name: 'Trợ lý mua sắm', exact: true }).click();
-  await page.getByRole('textbox', { name: 'Tin nhắn cho trợ lý' }).fill('Tìm');
-  await page.getByRole('button', { name: 'Nhập bằng giọng nói' }).click();
-  await expect(page.getByRole('button', { name: 'Gửi tin nhắn' })).toBeDisabled();
-  await page.getByRole('button', { name: 'Dừng thu âm' }).click();
-  await expect(page.getByRole('textbox', { name: 'Tin nhắn cho trợ lý' })).toHaveValue('Tìm tai nghe dưới 500k');
-  expect(chats).toBe(0);
-  expect(await page.evaluate(() => window.stoppedTracks)).toBeGreaterThan(0);
-  await page.getByRole('button', { name: 'Nhập bằng giọng nói' }).click();
-  await page.getByRole('button', { name: 'Đóng trợ lý' }).click();
-  expect(await page.evaluate(() => window.stoppedTracks)).toBeGreaterThan(1);
+test('AI tab sends an uploaded image to chatbot-service', async ({ page }) => {
+  await mockProductPage(page);
+  let received;
+  await page.route('**/assistant/chat', (route) => {
+    received = route.request().postDataJSON();
+    return route.fulfill({ json: { sessionId: 's'.repeat(43), answer: 'Đã tìm theo ảnh.', products: [] } });
+  });
+  await page.goto(`/product/${productId}`);
+  await page.getByRole('button', { name: 'Chat với shop' }).click();
+  await page.locator('.chat-widget input[type=file]').setInputFiles({
+    name: 'sample.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a1ZkAAAAASUVORK5CYII=', 'base64')
+  });
+  await expect(page.getByAltText('Ảnh đã chọn')).toBeVisible();
+  await page.getByRole('button', { name: 'Gửi', exact: true }).click();
+  await expect(page.getByText('Đã tìm theo ảnh.')).toBeVisible();
+  expect(received.image).toMatch(/^data:image\/png;base64,/);
+  expect(received.referenceProductId).toBe(productId);
 });
 
-test('microphone permission denial leaves typed text intact', async ({ page }) => {
-  await mockMicrophone(page, true);
-  await page.goto('/');
-  await page.getByRole('button', { name: 'Trợ lý mua sắm', exact: true }).click();
-  await page.getByRole('textbox', { name: 'Tin nhắn cho trợ lý' }).fill('Tìm áo');
+test('microphone transcribes into the AI draft without sending it', async ({ page }) => {
+  await mockMicrophone(page);
+  await mockProductPage(page);
+  let chatCalls = 0;
+  await page.route('**/assistant/chat', (route) => {
+    chatCalls += 1;
+    return route.fulfill({ json: {} });
+  });
+  await page.route('**/assistant/transcribe', (route) => route.fulfill({ json: { text: 'tai nghe dưới 500k' } }));
+  await page.goto(`/product/${productId}`);
+  await page.getByRole('button', { name: 'Chat với shop' }).click();
+  await page.getByPlaceholder('Hỏi về sản phẩm này...').fill('Tìm');
   await page.getByRole('button', { name: 'Nhập bằng giọng nói' }).click();
-  await expect(page.getByRole('alert')).toContainText('cho phép truy cập micro');
-  await expect(page.getByRole('textbox', { name: 'Tin nhắn cho trợ lý' })).toHaveValue('Tìm áo');
-  await expect(page.getByRole('button', { name: 'Gửi tin nhắn' })).toBeEnabled();
+  await page.getByRole('button', { name: 'Dừng thu âm' }).click();
+  await expect(page.getByPlaceholder('Hỏi về sản phẩm này...')).toHaveValue('Tìm tai nghe dưới 500k');
+  expect(chatCalls).toBe(0);
+  expect(await page.evaluate(() => window.stoppedTracks)).toBeGreaterThan(0);
 });

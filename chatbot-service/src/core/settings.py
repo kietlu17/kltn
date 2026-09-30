@@ -13,12 +13,21 @@ class Settings:
     product_url: str = field(default_factory=lambda: os.getenv("PRODUCT_SERVICE_URL", "http://localhost:3004").rstrip("/"))
     inventory_url: str = field(default_factory=lambda: os.getenv("INVENTORY_SERVICE_URL", "http://localhost:3007").rstrip("/"))
     review_url: str = field(default_factory=lambda: os.getenv("REVIEW_SERVICE_URL", "http://localhost:3008").rstrip("/"))
+    cart_url: str = field(default_factory=lambda: os.getenv("CART_SERVICE_URL", "http://localhost:3005").rstrip("/"))
+    order_url: str = field(default_factory=lambda: os.getenv("ORDER_SERVICE_URL", "http://localhost:3006").rstrip("/"))
+    user_url: str = field(default_factory=lambda: os.getenv("USER_SERVICE_URL", "http://localhost:3002").rstrip("/"))
+    voucher_url: str = field(default_factory=lambda: os.getenv("VOUCHER_SERVICE_URL", "http://localhost:3013").rstrip("/"))
     data_dir: str = field(default_factory=lambda: os.getenv("CHATBOT_DATA_DIR", "./data"))
     sync_seconds: int = field(default_factory=lambda: int(os.getenv("CHATBOT_SYNC_SECONDS", "300")))
     timeout: float = field(default_factory=lambda: float(os.getenv("CHATBOT_MODEL_TIMEOUT", "120")))
+    # langchain-google-genai treats 0 as "use Google defaults" (five retries).
+    # A value of 1 is one initial request with no SDK retry.
+    model_max_retries: int = field(default_factory=lambda: max(1, min(2, int(os.getenv("CHATBOT_MODEL_MAX_RETRIES", "1")))))
+    embedding_cache_size: int = field(default_factory=lambda: max(0, int(os.getenv("CHATBOT_EMBED_CACHE_SIZE", "512"))))
     image_public_base: str = field(default_factory=lambda: os.getenv("PRODUCT_IMAGE_PUBLIC_BASE_URL", "http://localhost:9000/product-images").rstrip("/"))
     image_hosts: tuple = field(default_factory=lambda: tuple(x.strip().lower() for x in os.getenv("CHATBOT_IMAGE_HOSTS", "").split(",") if x.strip()))
     max_images: int = field(default_factory=lambda: int(os.getenv("CHATBOT_MAX_PRODUCT_IMAGES", "5")))
+    max_caption_images: int = field(default_factory=lambda: max(0, int(os.getenv("CHATBOT_MAX_CAPTION_IMAGES", "5"))))
     max_image_bytes: int = 5 * 1024 * 1024
     session_ttl: int = 24 * 3600
 

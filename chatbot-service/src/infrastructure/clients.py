@@ -101,6 +101,12 @@ class CatalogAPI:
             raise RuntimeError("Invalid review summary response")
         return body
 
+    async def reviews(self, product_id: str) -> list[dict]:
+        response = await self.http.get(f"{self.settings.review_url}/reviews/product/{product_id}")
+        response.raise_for_status()
+        body = response.json()
+        return body if isinstance(body, list) else []
+
     async def image(self, url: str) -> str:
         public = self.settings.image_public_base
         if url.startswith("/uploads/"):
@@ -126,3 +132,191 @@ class CatalogAPI:
     async def close(self):
         await self.http.aclose()
         await self.images.aclose()
+
+
+class CommerceError(RuntimeError):
+    def __init__(self, status: int, message: str, code: str = ""):
+        super().__init__(message)
+        self.status = status
+        self.code = code
+
+
+class CommerceAPI:
+    """Authenticated service-to-service client for deterministic shopping actions."""
+
+    def __init__(self, settings: Settings):
+        self.settings = settings
+        verify = True
+        if os.getenv("MTLS_ENABLED") == "true":
+            verify = ssl.create_default_context(cafile=os.environ["MTLS_CA_PATH"])
+            verify.load_cert_chain(os.environ["MTLS_CLIENT_CERT_PATH"], os.environ["MTLS_CLIENT_KEY_PATH"])
+        self.http = httpx.AsyncClient(verify=verify, timeout=30)
+
+    @staticmethod
+    def _headers(user_id: str, action_key: str = "") -> dict:
+        headers = {"x-user-id": user_id, "x-user-role": "buyer"}
+        if action_key:
+            headers["Idempotency-Key"] = action_key
+        return headers
+
+    @staticmethod
+    async def _json(response: httpx.Response) -> dict | list:
+        try:
+            body = response.json()
+        except ValueError:
+            body = {}
+        if response.is_error:
+            raise CommerceError(
+                response.status_code,
+                body.get("message", "Dịch vụ mua hàng tạm thời không xử lý được yêu cầu."),
+                body.get("code", ""),
+            )
+        return body
+
+    async def cart(self, user_id: str) -> dict:
+        response = await self.http.get(
+            f"{self.settings.cart_url}/cart/user", headers=self._headers(user_id)
+        )
+        return await self._json(response)
+
+    async def add_to_cart(
+        self, user_id: str, product_id: str, variant_id: str | None, quantity: int, action_key: str
+    ) -> dict:
+        response = await self.http.post(
+            f"{self.settings.cart_url}/cart/add",
+            headers=self._headers(user_id),
+            json={
+                "userId": user_id,
+                "productId": product_id,
+                "variantId": variant_id,
+                "quantity": quantity,
+                "actionKey": action_key,
+            },
+        )
+        return await self._json(response)
+
+    async def remove_cart_line(self, user_id: str, product_id: str, variant_id: str | None) -> None:
+        response = await self.http.put(
+            f"{self.settings.cart_url}/cart/items",
+            headers=self._headers(user_id),
+            json={
+                "userId": user_id,
+                "productId": product_id,
+                "variantId": variant_id,
+                "targetQuantity": 0,
+            },
+        )
+        await self._json(response)
+
+    async def set_cart_line(
+        self,
+        user_id: str,
+        product_id: str,
+        variant_id: str | None,
+        quantity: int,
+        expected_quantity: int | None = None,
+    ) -> dict:
+        payload = {
+            "userId": user_id,
+            "productId": product_id,
+            "variantId": variant_id,
+            "targetQuantity": quantity,
+        }
+        if expected_quantity is not None:
+            payload["expectedCurrentQuantity"] = expected_quantity
+        response = await self.http.put(
+            f"{self.settings.cart_url}/cart/items",
+            headers=self._headers(user_id),
+            json=payload,
+        )
+        return await self._json(response)
+
+    async def replace_cart_line(
+        self,
+        user_id: str,
+        old_product_id: str,
+        old_variant_id: str | None,
+        new_product_id: str,
+        new_variant_id: str | None,
+        quantity: int,
+    ) -> dict:
+        if old_product_id == new_product_id and str(old_variant_id or "") == str(new_variant_id or ""):
+            return await self.set_cart_line(user_id, old_product_id, old_variant_id, quantity)
+        cart = await self.cart(user_id)
+        existing_new = next((
+            item for item in cart.get("products", [])
+            if str(item.get("productId")) == str(new_product_id)
+            and str(item.get("variantId") or "") == str(new_variant_id or "")
+        ), None)
+        previous_new_quantity = int(existing_new.get("quantity", 0)) if existing_new else 0
+        await self.set_cart_line(
+            user_id, new_product_id, new_variant_id, previous_new_quantity + quantity,
+            previous_new_quantity,
+        )
+        try:
+            return await self.set_cart_line(user_id, old_product_id, old_variant_id, 0, quantity)
+        except CommerceError:
+            await self.set_cart_line(
+                user_id, new_product_id, new_variant_id, previous_new_quantity,
+                previous_new_quantity + quantity,
+            )
+            raise
+
+    async def addresses(self, user_id: str) -> list[dict]:
+        response = await self.http.get(
+            f"{self.settings.user_url}/users/{user_id}/addresses",
+            headers=self._headers(user_id),
+        )
+        body = await self._json(response)
+        return body if isinstance(body, list) else []
+
+    async def checkout_vouchers(self, user_id: str, items: list[dict]) -> list[dict]:
+        response = await self.http.post(
+            f"{self.settings.voucher_url}/vouchers/checkout",
+            headers=self._headers(user_id),
+            json={"userId": user_id, "items": items},
+        )
+        body = await self._json(response)
+        return body if isinstance(body, list) else []
+
+    async def checkout_quote(
+        self,
+        user_id: str,
+        session_id: str,
+        products: list[dict],
+        address_id: str,
+        payment_method: str,
+        voucher_code: str | None,
+    ) -> dict:
+        response = await self.http.post(
+            f"{self.settings.order_url}/orders/checkout/quotes",
+            headers=self._headers(user_id),
+            json={
+                "userId": user_id,
+                "sessionId": session_id,
+                "products": products,
+                "addressId": address_id,
+                "paymentMethod": payment_method,
+                "voucherCode": voucher_code,
+            },
+        )
+        body = await self._json(response)
+        return body if isinstance(body, dict) else {}
+
+    async def confirm_checkout(
+        self, user_id: str, session_id: str, quote_id: str, confirmation_token: str
+    ) -> dict:
+        response = await self.http.post(
+            f"{self.settings.order_url}/orders/checkout/quotes/{quote_id}/confirm",
+            headers=self._headers(user_id),
+            json={
+                "userId": user_id,
+                "sessionId": session_id,
+                "confirmationToken": confirmation_token,
+            },
+        )
+        body = await self._json(response)
+        return body if isinstance(body, dict) else {}
+
+    async def close(self):
+        await self.http.aclose()

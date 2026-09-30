@@ -1,5 +1,7 @@
 """LangChain-backed Gemini chat, vision and text embeddings."""
+import asyncio
 import math
+from collections import OrderedDict
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
@@ -22,7 +24,7 @@ class ModelClients:
             temperature=0,
             max_tokens=8192,
             timeout=settings.timeout,
-            max_retries=2,
+            max_retries=settings.model_max_retries,
         )
         self.embeddings = GoogleGenerativeAIEmbeddings(
             model=f"models/{settings.embedding_model}",
@@ -30,6 +32,8 @@ class ModelClients:
             output_dimensionality=settings.embedding_dimensions,
             request_options={"timeout": settings.timeout},
         )
+        self._query_embedding_cache = OrderedDict()
+        self._query_embedding_lock = asyncio.Lock()
 
     @staticmethod
     def _messages(messages):
@@ -78,8 +82,26 @@ class ModelClients:
     async def embed_queries(self, texts):
         if not texts:
             return []
-        vectors = [await self.embeddings.aembed_query(text) for text in texts]
-        return self._validate(vectors, self.settings.embedding_dimensions)
+        vectors = []
+        async with self._query_embedding_lock:
+            for text in texts:
+                key = str(text).strip()
+                cached = self._query_embedding_cache.get(key)
+                if cached is not None:
+                    self._query_embedding_cache.move_to_end(key)
+                    vectors.append(list(cached))
+                    continue
+                vector = self._validate(
+                    [await self.embeddings.aembed_query(key)],
+                    self.settings.embedding_dimensions,
+                )[0]
+                vectors.append(vector)
+                if self.settings.embedding_cache_size:
+                    self._query_embedding_cache[key] = tuple(vector)
+                    self._query_embedding_cache.move_to_end(key)
+                    while len(self._query_embedding_cache) > self.settings.embedding_cache_size:
+                        self._query_embedding_cache.popitem(last=False)
+        return vectors
 
     async def embed(self, texts, *, task_type="RETRIEVAL_QUERY"):
         if task_type == "RETRIEVAL_QUERY":

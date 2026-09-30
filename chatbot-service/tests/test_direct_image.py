@@ -41,10 +41,9 @@ class DirectImageTests(unittest.IsolatedAsyncioTestCase):
         models.embed_queries.assert_not_awaited()
         text.query.assert_not_awaited()
 
-    async def test_constraints_and_reference_use_regular_planner(self):
+    async def test_constraints_and_reference_use_rule_parser(self):
         models = AsyncMock()
         models.describe.return_value = "Áo đỏ"
-        models.structured.return_value = SearchPlan(query="áo đỏ")
         agent = ProductAgent(AsyncMock(), models, AsyncMock(), AsyncMock())
         for state in [
             {"message": "Tìm sản phẩm giống ảnh này dưới 500k", "image": "image"},
@@ -54,7 +53,7 @@ class DirectImageTests(unittest.IsolatedAsyncioTestCase):
         ]:
             result = await agent.understand(state)
             self.assertFalse(result["visual_only"])
-        self.assertEqual(models.structured.await_count, 4)
+        models.structured.assert_not_awaited()
 
     async def test_visual_failure_is_not_reported_as_no_matches(self):
         visual = AsyncMock()

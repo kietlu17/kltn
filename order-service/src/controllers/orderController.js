@@ -6,6 +6,7 @@ const fetchImpl = require('node-fetch');
 const Order = require('../models/Order');
 const Shipment = require('../models/Shipment');
 const Dispute = require('../models/Dispute');
+const { canonicalizeProducts, ownedAddress } = require('../services/commerceData');
 const {
   publishOrderCreated,
   publishOrderCancelled,
@@ -363,22 +364,41 @@ async function cancelOrderWithCompensation(order, options = {}) {
 
 async function createOrder(req, res) {
   try {
-    const { userId, products, shippingAddress, paymentMethod, voucherCode, invoiceRequest } = req.body;
+    const {
+      userId,
+      products: requestedProducts,
+      shippingAddress: requestedShippingAddress,
+      paymentMethod: requestedPaymentMethod,
+      voucherCode,
+      invoiceRequest
+    } = req.body;
     const idempotencyKey = normalizeIdempotencyKey(req.headers['idempotency-key']);
     const actorRole = req.headers['x-user-role'] || '';
     const actorUserId = req.headers['x-user-id'] || '';
-    if (!userId || !Array.isArray(products)) {
+    const paymentMethod = String(requestedPaymentMethod || '').toLowerCase();
+    if (!userId || !Array.isArray(requestedProducts)) {
       return res.status(400).json({ message: 'userId and products are required' });
+    }
+    if (!actorUserId || !['buyer', 'admin'].includes(actorRole)) {
+      return res.status(401).json({ message: 'Authenticated buyer is required' });
     }
     if (actorRole === 'buyer' && String(userId) !== String(actorUserId)) {
       return res.status(403).json({ message: 'Forbidden' });
     }
-    if (!shippingAddress) {
+    if (!requestedShippingAddress) {
       return res.status(400).json({ message: 'shippingAddress is required' });
     }
     if (!paymentMethod) {
       return res.status(400).json({ message: 'paymentMethod is required' });
     }
+    if (!['cod', 'wallet', 'bank_transfer'].includes(paymentMethod)) {
+      return res.status(400).json({ message: 'Unsupported paymentMethod' });
+    }
+    const products = await canonicalizeProducts(requestedProducts, { singleShop: true });
+    const shippingAddress = await ownedAddress(
+      userId,
+      requestedShippingAddress._id || requestedShippingAddress.id
+    );
     const shopIds = new Set(products.map((item) => item.shopId).filter((shopId) => shopId));
     if (shopIds.size === 0) {
       return res.status(400).json({ message: 'shopId is required for order items' });
@@ -480,6 +500,10 @@ async function createOrder(req, res) {
     }
     return res.status(201).json(order.toJSON());
   } catch (err) {
+    const status = Number(err?.status);
+    if (Number.isInteger(status) && status >= 400 && status < 600) {
+      return res.status(status).json({ message: err.message, ...(err.code ? { code: err.code } : {}) });
+    }
     return res.status(500).json({ message: 'Create order failed', error: err.message });
   }
 }

@@ -330,11 +330,6 @@ export default function ProductDetail() {
   }
 
   const handleOpenChat = () => {
-    if (!user?.id || user?.role !== 'buyer') {
-      showToast('Vui lòng đăng nhập tài khoản người mua để chat', 'error');
-      navigate('/login');
-      return;
-    }
     setChatOpen(true);
   };
 

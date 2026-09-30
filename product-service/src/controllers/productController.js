@@ -1,7 +1,11 @@
 const Product = require('../models/Product');
 const Category = require('../models/Category');
 const mongoose = require('mongoose');
-const { publishProductCreated, publishProductUpdated } = require('../kafka/producer');
+const {
+  publishProductCreated,
+  publishProductUpdated,
+  publishProductDeleted
+} = require('../kafka/producer');
 const { evaluateProductContent } = require('../moderation/keywordRules');
 const { uploadProductFile } = require('../services/objectStorage');
 
@@ -541,6 +545,11 @@ async function deleteProduct(req, res) {
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
     }
+    try {
+      await publishProductDeleted(product);
+    } catch (eventErr) {
+      console.error('Publish product.deleted failed', eventErr.message);
+    }
     return res.json({ message: 'Product deleted' });
   } catch (err) {
     return res.status(500).json({ message: 'Delete product failed', error: err.message });
@@ -592,6 +601,11 @@ async function moderateProduct(req, res) {
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
     }
+    try {
+      await publishProductUpdated(product);
+    } catch (eventErr) {
+      console.error('Publish moderated product.updated failed', eventErr.message);
+    }
     return res.json(product);
   } catch (err) {
     return res.status(500).json({ message: 'Moderate product failed', error: err.message });
@@ -603,6 +617,11 @@ async function deleteProductByAdmin(req, res) {
     const product = await Product.findByIdAndDelete(req.params.id);
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
+    }
+    try {
+      await publishProductDeleted(product);
+    } catch (eventErr) {
+      console.error('Publish product.deleted failed', eventErr.message);
     }
     return res.json({ message: 'Product deleted' });
   } catch (err) {

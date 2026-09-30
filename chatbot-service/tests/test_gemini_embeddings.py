@@ -31,6 +31,16 @@ class GeminiEmbeddingTests(unittest.IsolatedAsyncioTestCase):
             with self.assertRaises(RuntimeError):
                 await client.embed_queries(["a"])
 
+    async def test_repeated_query_uses_in_memory_embedding_cache(self):
+        client, embeddings = self.build_client()
+        embeddings.aembed_query = AsyncMock(return_value=[0, 0, 2])
+
+        first = await client.embed_queries(["tai nghe dưới 500k"])
+        second = await client.embed_queries(["tai nghe dưới 500k"])
+
+        self.assertEqual(first, second)
+        embeddings.aembed_query.assert_awaited_once_with("tai nghe dưới 500k")
+
     def test_dimension_and_model_changes_isolate_collections(self):
         self.assertNotEqual(Settings().collection, "catalog_deaac8531440")
         self.assertNotEqual(

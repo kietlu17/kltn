@@ -1,7 +1,10 @@
 ﻿import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import api, { resolveImageUrl } from '../services/api';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useCart } from '../context/CartContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
+import MicrophoneButton from './MicrophoneButton.jsx';
 
 const defaultAiMessage = {
   id: 'ai-welcome',
@@ -16,9 +19,13 @@ function formatPrice(value) {
 
 export default function ChatWidget({ product, shopId, shopName, onClose }) {
   const { user } = useAuth();
+  const { refreshCart } = useCart();
   const { showToast } = useToast();
+  const navigate = useNavigate();
   const [mode, setMode] = useState('ai');
   const [input, setInput] = useState('');
+  const [attachment, setAttachment] = useState(null);
+  const [voiceBusy, setVoiceBusy] = useState(false);
   const [aiMessages, setAiMessages] = useState([defaultAiMessage]);
   const [humanMessages, setHumanMessages] = useState([]);
   const [conversation, setConversation] = useState(null);
@@ -26,6 +33,9 @@ export default function ChatWidget({ product, shopId, shopName, onClose }) {
   const [connecting, setConnecting] = useState(false);
   const scrollRef = useRef(null);
   const pollRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const aiSessionRef = useRef(null);
+  const currentProductId = String(product?._id || product?.id || '');
 
   const productSnapshot = useMemo(() => {
     if (!product) return null;
@@ -46,6 +56,12 @@ export default function ChatWidget({ product, shopId, shopName, onClose }) {
     const raw = product?.images?.[0] || product?.imageUrl || '';
     return resolveImageUrl(raw);
   }, [product]);
+
+  useEffect(() => {
+    aiSessionRef.current = null;
+    setAiMessages([defaultAiMessage]);
+    setAttachment(null);
+  }, [currentProductId]);
 
   useEffect(() => {
     if (mode !== 'human') {
@@ -114,29 +130,85 @@ export default function ChatWidget({ product, shopId, shopName, onClose }) {
     }
   }, [aiMessages, humanMessages, mode]);
 
+  const sendAi = async (text, referenceProductId = currentProductId, action = {}) => {
+    const trimmed = String(text || '').trim();
+    const selectedImage = attachment;
+    if ((!trimmed && !selectedImage) || loading || voiceBusy) return;
+    setAiMessages((prev) => [
+      ...prev,
+      {
+        id: `ai-user-${Date.now()}`,
+        role: 'user',
+        text: trimmed || 'Tìm sản phẩm giống ảnh này',
+        image: selectedImage?.data || null
+      }
+    ]);
+    setAttachment(null);
+    setLoading(true);
+    try {
+      const response = await api.post('/assistant/chat', {
+        message: trimmed,
+        image: selectedImage?.data || null,
+        sessionId: aiSessionRef.current,
+        referenceProductId: referenceProductId || null,
+        ...action
+      }, { timeout: 370000 });
+      const data = response.data || {};
+      aiSessionRef.current = data.sessionId || aiSessionRef.current;
+      setAiMessages((prev) => [...prev, {
+        id: `ai-bot-${Date.now()}`,
+        role: 'assistant',
+        text: data.answer || '...',
+        products: data.products || [],
+        pendingAction: data.pendingAction || null
+      }]);
+
+      if (data.actionResult?.status === 'completed' || data.actionResult?.cartChanged) {
+        await refreshCart();
+        if (data.actionResult.tool === 'open_orders') {
+          onClose?.();
+          navigate('/orders', {
+            state: { source: 'assistant', orderIds: data.actionResult.orderIds || [] }
+          });
+        }
+      }
+      if (data.actionResult?.status === 'handoff_required') {
+        if (data.actionResult.tool === 'open_checkout') {
+          const selectedProductIds = Array.isArray(data.actionResult.selectedProductIds)
+            ? data.actionResult.selectedProductIds.filter((item) => typeof item === 'string')
+            : [];
+          localStorage.setItem('checkoutSelection', JSON.stringify(selectedProductIds));
+          onClose?.();
+          navigate('/checkout', { state: {
+            selectedProductIds,
+            paymentMethod: data.actionResult.paymentMethod,
+            voucherCode: data.actionResult.voucherCode || '',
+            addressId: data.actionResult.addressId || '',
+            source: 'assistant'
+          } });
+        } else if (data.actionResult.tool === 'open_addresses') {
+          onClose?.();
+          navigate('/addresses', { state: { source: 'assistant' } });
+        }
+      }
+    } catch (err) {
+      setAttachment(selectedImage);
+      showToast(
+        err?.response?.data?.detail || err?.response?.data?.message || 'Không thể nhận phản hồi AI',
+        'error'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSend = async () => {
     const trimmed = input.trim();
-    if (!trimmed) return;
+    if (!trimmed && (mode !== 'ai' || !attachment)) return;
     setInput('');
 
     if (mode === 'ai') {
-      const nextId = `ai-user-${Date.now()}`;
-      setAiMessages((prev) => [...prev, { id: nextId, role: 'user', text: trimmed }]);
-      setLoading(true);
-      try {
-        const response = await api.post('/chat/ai/respond', {
-          question: trimmed,
-          product: productSnapshot
-        });
-        setAiMessages((prev) => [
-          ...prev,
-          { id: `ai-bot-${Date.now()}`, role: 'assistant', text: response.data?.answer || '...' }
-        ]);
-      } catch (err) {
-        showToast(err?.response?.data?.message || 'Không thể nhận phản hồi AI', 'error');
-      } finally {
-        setLoading(false);
-      }
+      await sendAi(trimmed);
       return;
     }
 
@@ -158,6 +230,27 @@ export default function ChatWidget({ product, shopId, shopName, onClose }) {
   };
 
   const messages = mode === 'ai' ? aiMessages : humanMessages;
+
+  const chooseImage = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024) {
+      showToast('Chọn ảnh JPG, PNG hoặc WebP, tối đa 5 MB.', 'error');
+      return;
+    }
+    try {
+      const data = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      setAttachment({ data, name: file.name });
+    } catch {
+      showToast('Không đọc được ảnh. Bạn thử chọn lại nhé.', 'error');
+    }
+  };
 
   return (
     <div className="chat-widget">
@@ -193,7 +286,13 @@ export default function ChatWidget({ product, shopId, shopName, onClose }) {
         <button
           type="button"
           className={`chat-tab ${mode === 'human' ? 'active' : ''}`}
-          onClick={() => setMode('human')}
+          onClick={() => {
+            if (!user?.id || user?.role !== 'buyer') {
+              showToast('Vui lòng đăng nhập tài khoản người mua để chat với người bán', 'error');
+              return;
+            }
+            setMode('human');
+          }}
         >
           Chat với người bán
         </button>
@@ -210,13 +309,114 @@ export default function ChatWidget({ product, shopId, shopName, onClose }) {
               key={msg.id}
               className={`chat-message ${msg.role === 'assistant' || msg.senderRole === 'seller' ? 'incoming' : 'outgoing'}`}
             >
+              {msg.image && <img className="chat-sent-image" src={msg.image} alt="Ảnh đã gửi" />}
               <span>{msg.text}</span>
+              {mode === 'ai' && msg.products?.length > 0 && (
+                <div className="chat-ai-products">
+                  {msg.products.map((item) => (
+                    <div className="chat-ai-product" key={item.id}>
+                      <Link to={`/product/${item.id}`} onClick={onClose}>
+                        <strong>{item.name}</strong>
+                        {Number.isFinite(Number(item.price)) && (
+                          <small>{formatPrice(item.price)}</small>
+                        )}
+                      </Link>
+                      <button
+                        type="button"
+                        disabled={loading}
+                        onClick={() => sendAi(`Thêm ${item.name} vào giỏ`, item.id, {
+                          actionRequestId: crypto.randomUUID()
+                        })}
+                      >
+                        Thêm giỏ
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {mode === 'ai' && msg.pendingAction?.type === 'checkout_confirmation' && (
+                <div className="chat-ai-confirm">
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={() => sendAi('Xác nhận đặt hàng', null, {
+                      confirmActionId: msg.pendingAction.quoteId
+                    })}
+                  >
+                    Xác nhận đặt hàng
+                  </button>
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={() => sendAi('Hủy', null, {
+                      cancelActionId: msg.pendingAction.quoteId
+                    })}
+                  >
+                    Hủy
+                  </button>
+                </div>
+              )}
+              {mode === 'ai' && msg.pendingAction?.type === 'cart_mutation_confirmation' && (
+                <div className="chat-ai-confirm">
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={() => sendAi('Xác nhận', null, {
+                      confirmActionId: msg.pendingAction.actionId
+                    })}
+                  >
+                    Xác nhận thay đổi giỏ
+                  </button>
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={() => sendAi('Hủy', null, {
+                      cancelActionId: msg.pendingAction.actionId
+                    })}
+                  >
+                    Hủy
+                  </button>
+                </div>
+              )}
             </div>
           ))
         )}
       </div>
 
+      {mode === 'ai' && attachment && (
+        <div className="chat-image-preview">
+          <img src={attachment.data} alt="Ảnh đã chọn" />
+          <span>{attachment.name}</span>
+          <button type="button" onClick={() => setAttachment(null)} aria-label="Bỏ ảnh">×</button>
+        </div>
+      )}
       <div className="chat-widget-input">
+        {mode === 'ai' && (
+          <>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              hidden
+              onChange={chooseImage}
+            />
+            <button
+              type="button"
+              className="chat-image-button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={loading || voiceBusy}
+              aria-label="Gửi ảnh cho trợ lý"
+            >
+              Ảnh
+            </button>
+            <MicrophoneButton
+              disabled={loading}
+              onText={(text) => setInput((current) => `${current}${current ? ' ' : ''}${text}`)}
+              onError={(message) => message && showToast(message, 'error')}
+              onBusy={setVoiceBusy}
+            />
+          </>
+        )}
         <input
           placeholder={mode === 'ai' ? 'Hỏi về sản phẩm này...' : 'Nhắn cho người bán...'}
           value={input}
@@ -224,9 +424,9 @@ export default function ChatWidget({ product, shopId, shopName, onClose }) {
           onKeyDown={(event) => {
             if (event.key === 'Enter') handleSend();
           }}
-          disabled={loading}
+          disabled={loading || voiceBusy}
         />
-        <button type="button" className="btn btn-primary" onClick={handleSend} disabled={loading}>
+        <button type="button" className="btn btn-primary" onClick={handleSend} disabled={loading || voiceBusy}>
           Gửi
         </button>
       </div>

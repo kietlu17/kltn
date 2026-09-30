@@ -18,10 +18,13 @@ const {
   simulateShipmentStatus,
   receiveShippingCallback
 } = require('../controllers/orderController');
+const { createCheckoutQuote, confirmCheckout } = require('../controllers/checkoutController');
 
 const router = express.Router();
 
 router.post('/', createOrder);
+router.post('/checkout/quotes', createCheckoutQuote);
+router.post('/checkout/quotes/:id/confirm', confirmCheckout);
 router.post('/:id/cancel', cancelOrder);
 router.post('/:id/confirm', confirmOrder);
 router.post('/:id/shipments', createShipment);

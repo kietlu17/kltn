@@ -1,13 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import api, { resolveImageUrl } from '../services/api';
 import './ShoppingAssistant.css';
 import MicrophoneButton from './MicrophoneButton';
+import { useCart } from '../context/CartContext.jsx';
 
 const welcome = { role: 'assistant', text: 'Chào bạn! Bạn đang tìm món gì? Gửi mô tả hoặc ảnh, tôi sẽ giúp tìm sản phẩm phù hợp trên sàn.' };
 
 export default function ShoppingAssistant() {
+  const { refreshCart } = useCart();
   const location = useLocation();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([welcome]);
   const [input, setInput] = useState('');
@@ -59,8 +62,9 @@ export default function ShoppingAssistant() {
     }
   }
 
-  async function send(text = input, referenceProductId = null) {
-    if (voiceBusy || pending.current || (!text.trim() && !attachment && !referenceProductId)) return;
+  async function send(text = input, referenceProductId = null, action = {}) {
+    const hasAction = Boolean(action.confirmActionId || action.cancelActionId);
+    if (voiceBusy || pending.current || (!text.trim() && !attachment && !referenceProductId && !hasAction)) return;
     pending.current = true;
     setBusy(true);
     setError('');
@@ -74,10 +78,43 @@ export default function ShoppingAssistant() {
     try {
       const { data } = await api.post('/assistant/chat', {
         message: text.trim(), image: selectedImage?.data || null,
-        sessionId: session.current, referenceProductId,
+        sessionId: session.current, referenceProductId, ...action,
       }, { timeout: 370000, signal: controller.signal });
       session.current = data.sessionId;
-      setMessages((previous) => [...previous, { role: 'assistant', text: data.answer, products: data.products || [] }]);
+      setMessages((previous) => [...previous, {
+        role: 'assistant',
+        text: data.answer,
+        products: data.products || [],
+        pendingAction: data.pendingAction || null,
+      }]);
+      if (data.actionResult?.status === 'completed' || data.actionResult?.cartChanged) {
+        await refreshCart();
+        if (data.actionResult.tool === 'open_orders') {
+          setOpen(false);
+          navigate('/orders', { state: { source: 'assistant', orderIds: data.actionResult.orderIds || [] } });
+        }
+      }
+      if (data.actionResult?.status === 'handoff_required') {
+        if (data.actionResult.tool === 'open_checkout') {
+          const selectedProductIds = Array.isArray(data.actionResult.selectedProductIds)
+            ? data.actionResult.selectedProductIds.filter((item) => typeof item === 'string')
+            : [];
+          localStorage.setItem('checkoutSelection', JSON.stringify(selectedProductIds));
+          setOpen(false);
+          navigate('/checkout', {
+            state: {
+              selectedProductIds,
+              paymentMethod: data.actionResult.paymentMethod,
+              voucherCode: data.actionResult.voucherCode || '',
+              addressId: data.actionResult.addressId || '',
+              source: 'assistant'
+            }
+          });
+        } else if (data.actionResult.tool === 'open_addresses') {
+          setOpen(false);
+          navigate('/addresses', { state: { source: 'assistant' } });
+        }
+      }
     } catch (err) {
       if (controller.signal.aborted) return;
       if (err.response?.status === 410) session.current = null;
@@ -140,14 +177,50 @@ export default function ShoppingAssistant() {
                           {product.imageUrl ? <img src={resolveImageUrl(product.imageUrl)} alt={product.name} loading="lazy" />
                             : <span className="sa-no-image" aria-hidden="true">◇</span>}
                           <div><strong>{product.name}</strong>
-                            <span className="sa-price">{Number(product.price).toLocaleString('vi-VN')} ₫</span>
+                            {Number.isFinite(Number(product.price)) && (
+                              <span className="sa-price">{Number(product.price).toLocaleString('vi-VN')} ₫</span>
+                            )}
                             {product.variants?.[0]?.id && <small>Có biến thể phù hợp · Xem lựa chọn</small>}
                           </div>
                         </Link>
-                        <button type="button" disabled={busy}
-                          onClick={() => send(`Tìm sản phẩm tương tự ${product.name}`, product.id)}>Tìm tương tự</button>
+                        <div className="sa-product-actions">
+                          <button type="button" disabled={busy}
+                            onClick={() => send(`Thêm ${product.name} vào giỏ`, product.id, {
+                              actionRequestId: crypto.randomUUID(),
+                            })}>Thêm giỏ</button>
+                          <button type="button" disabled={busy}
+                            onClick={() => send(`Tìm sản phẩm tương tự ${product.name}`, product.id)}>Tìm tương tự</button>
+                        </div>
                       </article>
                     ))}
+                  </div>
+                )}
+                {message.pendingAction?.type === 'checkout_confirmation' && (
+                  <div className="sa-confirm-actions">
+                    <button type="button" disabled={busy} onClick={() => send(
+                      'Xác nhận đặt hàng',
+                      null,
+                      { confirmActionId: message.pendingAction.quoteId },
+                    )}>Xác nhận đặt hàng</button>
+                    <button type="button" disabled={busy} onClick={() => send(
+                      'Hủy',
+                      null,
+                      { cancelActionId: message.pendingAction.quoteId },
+                    )}>Hủy</button>
+                  </div>
+                )}
+                {message.pendingAction?.type === 'cart_mutation_confirmation' && (
+                  <div className="sa-confirm-actions">
+                    <button type="button" disabled={busy} onClick={() => send(
+                      'Xác nhận',
+                      null,
+                      { confirmActionId: message.pendingAction.actionId },
+                    )}>Xác nhận thay đổi giỏ</button>
+                    <button type="button" disabled={busy} onClick={() => send(
+                      'Hủy',
+                      null,
+                      { cancelActionId: message.pendingAction.actionId },
+                    )}>Hủy</button>
                   </div>
                 )}
               </div>

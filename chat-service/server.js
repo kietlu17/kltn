@@ -147,60 +147,6 @@ router.post('/conversations/:id/messages', async (req, res) => {
   }
 });
 
-router.post('/ai/respond', async (req, res) => {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    return res.status(501).json({ message: 'GEMINI_API_KEY is not configured' });
-  }
-  const { question, product } = req.body || {};
-  if (!question) {
-    return res.status(400).json({ message: 'question is required' });
-  }
-  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
-  const productSummary = product
-    ? `Product name: ${product.name || 'N/A'}\nPrice: ${product.price || 'N/A'}\nStock: ${product.stock ?? product.quantity ?? 'N/A'}\nCategory: ${product.category || 'N/A'}\nShop: ${product.shopName || 'N/A'}\nDescription: ${product.description || 'N/A'}\nDetails: ${product.detail || 'N/A'}`
-    : 'No product context provided.';
-  const prompt = [
-    'You are a helpful shopping assistant for the shop. Use the product info below to answer the customer question.',
-    'If the question is unrelated, be polite and ask for clarification.',
-    'Product info:',
-    productSummary,
-    'Customer question:',
-    question
-  ].join('\n');
-
-  try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [{ text: prompt }]
-            }
-          ]
-        })
-      }
-    );
-
-    if (!response.ok) {
-      const text = await response.text();
-      return res.status(response.status).json({ message: text || 'Gemini request failed' });
-    }
-
-    const data = await response.json();
-    const answer =
-      data?.candidates?.[0]?.content?.parts?.map((part) => part.text).join('')
-      || data?.candidates?.[0]?.content?.parts?.[0]?.text
-      || '';
-    return res.json({ answer: answer || 'No response generated.' });
-  } catch (err) {
-    return res.status(500).json({ message: 'Gemini request failed', error: err.message });
-  }
-});
-
 app.use('/chat', router);
 
 async function connectMongo() {

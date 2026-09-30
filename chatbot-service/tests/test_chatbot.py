@@ -1,7 +1,9 @@
 import base64
 import io
+import os
 import sqlite3
 import tempfile
+import time
 import unittest
 from unittest.mock import AsyncMock, patch
 
@@ -15,7 +17,7 @@ from src.agents.product import ProductAgent, RetrievalDecision
 from src.agents.state import SearchPlan, explicit_price_limits
 from src.core.settings import Settings
 from src.infrastructure.clients import CatalogAPI, normalize_image
-from src.main import Sessions, app
+from src.main import ChatRequest, Sessions, app, compact_history, compact_session_products
 from src.product.catalog import VectorCatalog, content_hash, eligible_cards
 from src.product.indexer import CatalogIndexer
 from src.product.rag import ProductRAG
@@ -99,6 +101,51 @@ class CatalogTests(unittest.TestCase):
                 sessions.load("one")
             sessions.db.close()
 
+    def test_session_context_fields_expire_independently(self):
+        with tempfile.TemporaryDirectory() as directory:
+            sessions = Sessions(Settings(data_dir=directory))
+            sessions.save("one", {
+                "history": [{"role": "user", "content": "tai nghe"}],
+                "plan": {"query": "tai nghe"},
+                "products": [{"id": PRODUCT_ID, "name": "Tai nghe"}],
+                "visual_description": "Tai nghe màu đen",
+                "image_vector": [1.0],
+                "image_namespace": "images",
+                "pending_action": {"type": "checkout_confirmation"},
+                "_context_expires": {"visual": 0, "pending_action": 0, "shopping": time.time() + 60},
+            })
+
+            state = sessions.load("one")
+
+            self.assertEqual(state["plan"]["query"], "tai nghe")
+            self.assertNotIn("visual_description", state)
+            self.assertNotIn("pending_action", state)
+            sessions.db.close()
+
+    def test_context_compaction_limits_history_and_product_payloads(self):
+        with patch.dict(os.environ, {
+            "CHATBOT_CONTEXT_HISTORY_MESSAGES": "2",
+            "CHATBOT_CONTEXT_HISTORY_CHARS": "1000",
+            "CHATBOT_SESSION_PRODUCT_LIMIT": "1",
+        }):
+            history = compact_history([
+                {"role": "user", "content": "cũ"},
+                {"role": "assistant", "content": "trả lời cũ"},
+                {"role": "user", "content": "mới"},
+            ])
+            products = compact_session_products([{
+                "id": PRODUCT_ID,
+                "name": "Tai nghe",
+                "price": 100000,
+                "description": "x" * 5000,
+                "variants": [{"id": VARIANT_ID}],
+            }, {"id": SECOND_ID, "name": "Khác"}])
+
+        self.assertEqual([item["content"] for item in history], ["trả lời cũ", "mới"])
+        self.assertEqual(products, [{
+            "id": PRODUCT_ID, "name": "Tai nghe", "price": 100000, "displayRank": 1,
+        }])
+
 
 class PipelineTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
@@ -149,25 +196,61 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((await self.vectors.client.count(self.settings.collection)).count, 2)
         self.assertEqual(self.models.describe.await_count, 2)
 
+    async def test_zero_caption_limit_embeds_text_without_describing_images(self):
+        settings = Settings(data_dir=self.temp.name, embedding_dimensions=3, max_caption_images=0)
+        indexer = CatalogIndexer(settings, self.api, self.models, self.vectors)
+        try:
+            item = {**product(), "images": ["https://salt.tikicdn.com/product.jpg"]}
+            self.api.product.return_value = item
+            result = await indexer.process_events([("product.updated", PRODUCT_ID)])
+            self.assertEqual(result["updated"], 1)
+            self.api.image.assert_not_awaited()
+            self.models.describe.assert_not_awaited()
+            self.assertEqual(len(self.models.embed_documents.await_args.args[0]), 1)
+        finally:
+            indexer.db.close()
+
+    async def test_product_events_batch_only_changed_products(self):
+        products = {PRODUCT_ID: product(), SECOND_ID: product(SECOND_ID)}
+        self.api.product.side_effect = lambda product_id: products.get(product_id)
+
+        result = await self.indexer.process_events([
+            ("product.created", PRODUCT_ID),
+            ("product.created", SECOND_ID),
+        ])
+        self.assertEqual(result["updated"], 2)
+        self.assertEqual(self.models.embed_documents.await_count, 1)
+        self.assertEqual(len(self.models.embed_documents.await_args.args[0]), 2)
+
+        await self.indexer.process_events([
+            ("product.created", PRODUCT_ID),
+            ("product.updated", SECOND_ID),
+        ])
+        self.assertEqual(self.models.embed_documents.await_count, 1)
+
+        products[PRODUCT_ID] = {**product(), "description": "changed"}
+        await self.indexer.process_events([("product.updated", PRODUCT_ID)])
+        self.assertEqual(self.models.embed_documents.await_count, 2)
+        self.assertEqual(len(self.models.embed_documents.await_args.args[0]), 1)
+
+        await self.indexer.process_events([("product.deleted", PRODUCT_ID)])
+        self.assertEqual(await self.vectors.product_ids(), {SECOND_ID})
+
     async def test_product_agent_filters_before_generation(self):
         await self.indexer.reconcile()
-        self.models.structured.side_effect = [
-            SearchPlan(query="áo cotton dưới 300k", max_price=300000),
-            RetrievalDecision(action="accept", answer="Áo cotton này phù hợp ngân sách.",
-                              product_ids=[PRODUCT_ID]),
-        ]
+        self.models.structured.return_value = RetrievalDecision(
+            action="accept", answer="Áo cotton này phù hợp ngân sách.", product_ids=[PRODUCT_ID]
+        )
         self.api.fresh.return_value = ([product()], {(PRODUCT_ID, ""): 2})
-        result = await ProductAgent(self.api, self.models, self.vectors).graph.ainvoke(
+        result = await ProductAgent(
+            self.api, self.models, self.vectors, use_llm_evaluator=True
+        ).graph.ainvoke(
             {"message": "Áo dưới 300k", "history": []})
         self.assertEqual(result["products"][0]["id"], PRODUCT_ID)
         self.assertEqual(result["answer"], "Áo cotton này phù hợp ngân sách.")
 
     async def test_image_description_and_new_topic_clear_visual_context(self):
         self.models.describe.return_value = "Áo đỏ cổ tròn"
-        self.models.structured.side_effect = [
-            SearchPlan(query="áo đỏ", use_previous_image=True),
-            SearchPlan(query="máy tính"),
-        ]
         agent = ProductAgent(self.api, self.models, self.vectors)
         state = await agent.understand({"message": "tìm mẫu này màu đỏ", "image": "image-bytes"})
         self.assertEqual(state["visual_description"], "Áo đỏ cổ tròn")
@@ -176,7 +259,6 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_followup_uses_only_known_product_reference(self):
         agent = ProductAgent(self.api, self.models, self.vectors)
-        self.models.structured.return_value = SearchPlan(intent="similar", reference_product_id=SECOND_ID)
         state = await agent.understand(
             {"message": "cái thứ hai", "previous_products": [{"id": SECOND_ID, "name": "Áo"}]})
         self.assertEqual(state["plan"]["reference_product_id"], SECOND_ID)
@@ -222,6 +304,11 @@ class EndpointTests(unittest.TestCase):
         self.assertEqual(self.client.post("/assistant/chat", json={"image": "not base64!"}).status_code, 400)
         self.assertEqual(self.client.get("/assistant/products/invalid/similar").status_code, 422)
 
+    def test_cart_action_tokens_are_valid_confirmation_ids(self):
+        token = "cart_action:AbCdEfGhIjKlMnOp"
+        self.assertEqual(ChatRequest(confirmActionId=token).confirmActionId, token)
+        self.assertEqual(ChatRequest(cancelActionId=token).cancelActionId, token)
+
     def test_chat_session_reuse_and_no_shared_history(self):
         graph = AsyncMock()
         graph.ainvoke.return_value = {"answer": "Xin chào", "products": [], "plan": {"intent": "clarify"}}
@@ -242,6 +329,47 @@ class EndpointTests(unittest.TestCase):
         self.assertEqual(app.state.busy_sessions, set())
         with sqlite3.connect(self.temp.name + "/sessions.sqlite") as connection:
             self.assertEqual(connection.execute("SELECT count(*) FROM sessions").fetchone()[0], 0)
+
+    def test_named_product_focus_and_card_fields_survive_followups(self):
+        graph = AsyncMock()
+
+        async def invoke(state):
+            if state["message"] == "sách thiếu nhi":
+                return {
+                    "answer": "Gợi ý",
+                    "products": [
+                        {"id": PRODUCT_ID, "name": "I Love Christmas", "price": 191500, "imageUrl": "a.jpg", "variants": []},
+                        {"id": SECOND_ID, "name": "I Love My Monster", "price": 209000, "imageUrl": "b.jpg", "variants": []},
+                    ],
+                    "plan": {"intent": "search"},
+                }
+            if state["message"].startswith("Love Christmas"):
+                return {
+                    "answer": "Chi tiết",
+                    "products": state["previous_products"],
+                    "plan": {"intent": "clarify"},
+                }
+            return {"answer": "Chi tiết", "products": [], "plan": {"intent": "clarify"}}
+
+        graph.ainvoke.side_effect = invoke
+        app.state.agent.graph = graph
+        first = self.client.post("/assistant/chat", json={"message": "sách thiếu nhi"}).json()
+        self.client.post("/assistant/chat", json={
+            "message": "Love Christmas nói về gì",
+            "sessionId": first["sessionId"],
+        })
+        self.client.post("/assistant/chat", json={
+            "message": "thêm vào giỏ",
+            "sessionId": first["sessionId"],
+        })
+
+        followup_state = graph.ainvoke.await_args_list[1].args[0]
+        action_state = graph.ainvoke.await_args_list[2].args[0]
+        self.assertEqual(followup_state["previous_products"][0]["price"], 191500)
+        self.assertEqual(followup_state["previous_products"][0]["displayRank"], 1)
+        self.assertNotIn("variants", followup_state["previous_products"][0])
+        self.assertEqual(followup_state["focused_product_id"], PRODUCT_ID)
+        self.assertEqual(action_state["focused_product_id"], PRODUCT_ID)
 
 
 if __name__ == "__main__":

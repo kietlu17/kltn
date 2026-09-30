@@ -38,15 +38,19 @@ export default function Checkout() {
 
   const [products, setProducts] = useState([]);
   const [addresses, setAddresses] = useState([]);
-  const [selectedAddressId, setSelectedAddressId] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('cod');
+  const [selectedAddressId, setSelectedAddressId] = useState(() => location.state?.addressId || '');
+  const [paymentMethod, setPaymentMethod] = useState(() =>
+    ['cod', 'bank_transfer', 'wallet'].includes(location.state?.paymentMethod)
+      ? location.state.paymentMethod
+      : 'cod'
+  );
   const [walletBalance, setWalletBalance] = useState(null);
   const [walletAvailable, setWalletAvailable] = useState(false);
   const [walletLoading, setWalletLoading] = useState(false);
   const [walletError, setWalletError] = useState('');
   const [bankQrRequests, setBankQrRequests] = useState([]);
   const [vouchers, setVouchers] = useState([]);
-  const [selectedVoucherCode, setSelectedVoucherCode] = useState('');
+  const [selectedVoucherCode, setSelectedVoucherCode] = useState(() => location.state?.voucherCode || '');
   const [voucherLoading, setVoucherLoading] = useState(false);
   const [checkoutProgress, setCheckoutProgress] = useState(null);
   const [invoiceRequested, setInvoiceRequested] = useState(false);
@@ -95,11 +99,15 @@ export default function Checkout() {
       .then((res) => {
         const data = res.data || [];
         setAddresses(data);
+        const requestedAddress = data.find(
+          (item) => String(item._id || item.id) === String(location.state?.addressId || '')
+        );
         const defaultAddress = data.find((item) => item.isDefault);
-        setSelectedAddressId(defaultAddress?._id || defaultAddress?.id || '');
+        const selected = requestedAddress || defaultAddress;
+        setSelectedAddressId(selected?._id || selected?.id || '');
       })
       .catch(() => setAddresses([]));
-  }, [user]);
+  }, [user, location.state?.addressId]);
 
   async function loadWallet({ silent = false } = {}) {
     if (!user?.id) {

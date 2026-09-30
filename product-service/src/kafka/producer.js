@@ -30,6 +30,12 @@ async function initProducer() {
   console.log('Product Service Kafka producer connected');
 }
 
+async function closeProducer() {
+  if (!producer) return;
+  await producer.disconnect();
+  producer = null;
+}
+
 async function publishProductCreated(product) {
   if (!producer) {
     throw new Error('Kafka producer not initialized');
@@ -60,4 +66,25 @@ async function publishProductUpdated(product) {
   });
 }
 
-module.exports = { initProducer, publishProductCreated, publishProductUpdated };
+async function publishProductDeleted(product) {
+  if (!producer) {
+    throw new Error('Kafka producer not initialized');
+  }
+  await producer.send({
+    topic: 'product.deleted',
+    messages: [
+      {
+        key: String(product._id),
+        value: JSON.stringify({ id: String(product._id) })
+      }
+    ]
+  });
+}
+
+module.exports = {
+  initProducer,
+  closeProducer,
+  publishProductCreated,
+  publishProductUpdated,
+  publishProductDeleted
+};
