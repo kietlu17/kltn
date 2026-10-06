@@ -533,7 +533,11 @@ services:
       dockerfile: chatbot-service/Dockerfile
     restart: unless-stopped
     command: ["python", "-m", "src.product.indexer"]
-    environment: *chatbot-environment
+    environment:
+      <<: *chatbot-environment
+      CHATBOT_EMBED_BATCH_SIZE: ${CHATBOT_EMBED_BATCH_SIZE:-70}
+      CHATBOT_EMBED_BATCH_INTERVAL_SECONDS: ${CHATBOT_EMBED_BATCH_INTERVAL_SECONDS:-61}
+      CHATBOT_EMBED_RATE_LIMIT_RETRIES: ${CHATBOT_EMBED_RATE_LIMIT_RETRIES:-5}
     volumes:
       - certs_data:/certs:ro
       - chatbot_data:/data
@@ -727,15 +731,13 @@ services:
       payment-gateway:
         condition: service_started
 
-  ngrok:
-    image: ngrok/ngrok:3
-    container_name: ngrok
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
     restart: unless-stopped
-    command: http api-gateway:3000 --log=stdout
+    command: tunnel --no-autoupdate run
     environment:
-      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
-    ports:
-      - "4040:4040"
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
     depends_on:
       api-gateway:
         condition: service_started

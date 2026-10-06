@@ -254,13 +254,16 @@ async function markRequestFailed(request, reason, metadata = {}) {
 async function processSepayWebhook(payload, headers = {}) {
   const config = assertSepayConfig();
   const expectedKey = config.webhookApiKey;
-  if (expectedKey) {
-    const authHeader = parseAuthorizationHeader(headers.authorization || headers.Authorization);
-    if (authHeader !== `Apikey ${expectedKey}`) {
-      const err = new Error('Unauthorized webhook');
-      err.status = 401;
-      throw err;
-    }
+  if (!expectedKey) {
+    const err = new Error('Missing SEPAY_WEBHOOK_API_KEY');
+    err.status = 503;
+    throw err;
+  }
+  const authHeader = parseAuthorizationHeader(headers.authorization || headers.Authorization);
+  if (authHeader !== `Apikey ${expectedKey}`) {
+    const err = new Error('Unauthorized webhook');
+    err.status = 401;
+    throw err;
   }
 
   const transactionId = payload?.id != null ? String(payload.id) : '';

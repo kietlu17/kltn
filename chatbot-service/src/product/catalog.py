@@ -3,6 +3,7 @@ import html
 import json
 import os
 import re
+import unicodedata
 from uuid import NAMESPACE_URL, uuid5
 
 from langchain_core.documents import Document
@@ -11,6 +12,110 @@ from qdrant_client import AsyncQdrantClient, models
 
 def plain_text(value, limit=6000):
     return re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]*>", " ", str(value or "")))).strip()[:limit]
+
+
+def normalized_text(value) -> str:
+    text = unicodedata.normalize("NFD", plain_text(value).casefold()).replace("đ", "d")
+    return re.sub(r"\s+", " ", "".join(char for char in text if not unicodedata.combining(char))).strip()
+
+
+PRODUCT_TYPES = (
+    ("ao_thun", ("ao thun", "ao phong", "t shirt", "t-shirt", "polo")),
+    ("ao_so_mi", ("ao so mi",)),
+    ("ao_khoac", ("ao khoac",)),
+    ("balo", ("balo",)),
+    ("tai_nghe", ("tai nghe", "earphone", "headphone")),
+    ("tui", ("tui xach", "tui deo", "cap laptop", "cap da")),
+    ("quan", ("quan ", "quan short", "quan dui")),
+    ("giay", ("giay ", "sneaker", "sandal", "dep ")),
+    ("dong_ho", ("dong ho",)),
+    ("laptop", ("laptop", "macbook")),
+    ("dien_thoai", ("dien thoai", "smartphone")),
+    ("do_boi", ("do boi",)),
+    ("sach", ("sach ",)),
+)
+COLORS = {
+    "den": "den", "trang": "trang", "do": "do", "vang": "vang", "hong": "hong",
+    "tim": "tim", "cam": "cam", "nau": "nau", "xam": "xam", "ghi": "ghi",
+    "be": "be", "bac": "bac", "xanh": "xanh",
+}
+SIZE_PATTERN = re.compile(r"\b(?:size|co)\s*(xs|s|m|l|xl|xxl|xxxl|\d{1,3}(?:\.\d+)?)\b", re.I)
+
+
+def _tokens_in(text: str, mapping: dict[str, str]) -> list[str]:
+    return list(dict.fromkeys(value for token, value in mapping.items()
+                              if re.search(rf"(?<!\w){re.escape(token)}(?!\w)", text)))
+
+
+def infer_product_type(value) -> str:
+    original = plain_text(value).casefold()
+    if re.search(r"(?<!\w)ba\s+lô(?!\w)", original):
+        return "balo"
+    text = normalized_text(value)
+    for product_type, terms in PRODUCT_TYPES:
+        if any(term in text for term in terms):
+            return product_type
+    return "khac"
+
+
+def product_metadata(product: dict) -> dict:
+    variants = product.get("variants") or []
+    searchable = " ".join([plain_text(product.get("name")), plain_text(product.get("description")),
+                            *(plain_text(item.get("name")) for item in variants)])
+    normalized = normalized_text(searchable)
+    audience = []
+    if re.search(r"(?<!\w)(nam|men)(?!\w)", normalized):
+        audience.append("nam")
+    if re.search(r"(?<!\w)(nu|women)(?!\w)", normalized):
+        audience.append("nu")
+    if "tre em" in normalized or "kid" in normalized:
+        audience.append("tre_em")
+    if "unisex" in normalized or not audience:
+        audience.append("unisex")
+
+    colors = _tokens_in(normalized, COLORS)
+    sizes = [match.upper() for match in SIZE_PATTERN.findall(normalized)]
+    prices = []
+    for item in variants or [product]:
+        try:
+            prices.append(float(item.get("price", product.get("price", 0)) or 0))
+        except (TypeError, ValueError):
+            pass
+    explicit_brand = plain_text(product.get("brand") or product.get("brandName"), 100)
+    brand_match = re.search(r"(?:thương hiệu|brand)\s*[:\-]\s*([^.;|\n]{1,100})",
+                            " ".join([plain_text(product.get("description")), plain_text(product.get("detail"))]), re.I)
+    brand = explicit_brand or (plain_text(brand_match.group(1), 100) if brand_match else "")
+    return {
+        "productType": infer_product_type(product.get("name", "")),
+        "audience": list(dict.fromkeys(audience)),
+        "brand": brand,
+        "colors": colors,
+        "sizes": list(dict.fromkeys(sizes)),
+        "minPrice": min(prices, default=0.0),
+        "maxPrice": max(prices, default=0.0),
+    }
+
+
+def metadata_hash(product: dict) -> str:
+    data = {
+        "base": product_metadata(product),
+        "variants": [variant_metadata(item, product) for item in product.get("variants", [])],
+    }
+    return hashlib.sha256(json.dumps(data, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+
+
+def variant_metadata(variant: dict, product: dict) -> dict:
+    text = normalized_text(variant.get("name", ""))
+    try:
+        price = float(variant.get("price", product.get("price", 0)) or 0)
+    except (TypeError, ValueError):
+        price = 0.0
+    return {
+        "variantId": str(variant.get("_id", "")),
+        "colors": _tokens_in(text, COLORS),
+        "sizes": list(dict.fromkeys(match.upper() for match in SIZE_PATTERN.findall(text))),
+        "price": price,
+    }
 
 
 def product_document(product: dict) -> Document:
@@ -22,8 +127,56 @@ def product_document(product: dict) -> Document:
     ])
     return Document(page_content=text, metadata={
         "productId": str(product["_id"]), "shopId": str(product.get("shopId", "")),
-        "categoryId": str(product.get("categoryId") or ""),
+        "categoryId": str(product.get("categoryId") or ""), **product_metadata(product),
     })
+
+
+def product_documents(product: dict) -> list[tuple[str, Document]]:
+    """Create stable, independently searchable chunks for one product."""
+    base = product_document(product).metadata
+    chunks = [("title", Document(page_content=f"Tên sản phẩm: {plain_text(product.get('name'))}",
+                                  metadata={**base, "kind": "text", "chunkType": "title"}))]
+    description = plain_text(product.get("description"), 2500)
+    detail = plain_text(product.get("detail"), 6000)
+    description_text = "\n".join(part for part in (
+        f"Mô tả: {description}" if description else "",
+        f"Chi tiết: {detail}" if detail else "",
+    ) if part)
+    if description_text:
+        chunks.append(("description", Document(
+            page_content=description_text,
+            metadata={**base, "kind": "text", "chunkType": "description"},
+        )))
+    for index, variant in enumerate(product.get("variants", [])):
+        variant_id = str(variant.get("_id") or index)
+        variant_meta = variant_metadata(variant, product)
+        text = f"Biến thể của {plain_text(product.get('name'))}: {plain_text(variant.get('name'), 300)}"
+        chunks.append((f"variant:{variant_id}", Document(
+            page_content=text,
+            metadata={**base, **variant_meta, "kind": "text", "chunkType": "variant"},
+        )))
+    return chunks
+
+
+def query_metadata(plan: dict) -> dict:
+    query = normalized_text(plan.get("query", ""))
+    product_type = infer_product_type(query)
+    audiences = []
+    if re.search(r"(?<!\w)nam(?!\w)", query):
+        audiences = ["nam", "unisex"]
+    elif re.search(r"(?<!\w)nu(?!\w)", query):
+        audiences = ["nu", "unisex"]
+    terms = " ".join(normalized_text(term) for term in plan.get("variant_terms", []))
+    return {
+        "product_type": None if product_type == "khac" else product_type,
+        "audiences": audiences,
+        "colors": _tokens_in(terms, COLORS),
+        "sizes": list(dict.fromkeys(match.upper() for match in SIZE_PATTERN.findall(
+            " ".join(f"size {term}" for term in plan.get("variant_terms", []))
+        ))),
+        "min_price": plan.get("min_price"),
+        "max_price": plan.get("max_price"),
+    }
 
 
 def image_records(product: dict, limit: int) -> list[dict]:
@@ -41,7 +194,8 @@ def image_records(product: dict, limit: int) -> list[dict]:
 
 
 def content_hash(product: dict, max_images: int) -> str:
-    data = {"document": product_document(product).model_dump(), "images": image_records(product, max_images)}
+    # Filter metadata (especially prices) can change without changing embedding text.
+    data = {"document": product_document(product).page_content, "images": image_records(product, max_images)}
     return hashlib.sha256(json.dumps(data, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
 
 
@@ -60,12 +214,15 @@ class VectorCatalog:
             await self.client.create_collection(self.collection, vectors_config=models.VectorParams(
                 size=dimensions, distance=models.Distance.COSINE,
             ))
-            for field in ("productId", "kind", "categoryId", "shopId"):
-                await self.client.create_payload_index(self.collection, field, models.PayloadSchemaType.KEYWORD)
         else:
             info = await self.client.get_collection(self.collection)
             if info.config.params.vectors.size != dimensions:
                 raise RuntimeError("Embedding dimension mismatch: use a new collection version")
+        for field in ("productId", "kind", "chunkType", "categoryId", "shopId", "productType",
+                      "audience", "brand", "colors", "sizes", "variantId"):
+            await self.client.create_payload_index(self.collection, field, models.PayloadSchemaType.KEYWORD)
+        for field in ("minPrice", "maxPrice", "price"):
+            await self.client.create_payload_index(self.collection, field, models.PayloadSchemaType.FLOAT)
 
     async def upsert(self, points: list[models.PointStruct]):
         await self.client.upsert(self.collection, points=points, wait=True)
@@ -85,11 +242,23 @@ class VectorCatalog:
             if offset is None:
                 return result
 
-    async def query(self, vector, *, kind=None, exclude=None, category=None, offset=0, limit=80):
+    async def query(self, vector, *, kind=None, exclude=None, category=None, metadata=None, offset=0, limit=80):
         must = []
         for key, value in (("kind", kind), ("categoryId", category)):
             if value:
                 must.append(models.FieldCondition(key=key, match=models.MatchValue(value=value)))
+        metadata = metadata or {}
+        for key, value in (("productType", metadata.get("product_type")),
+                           ("colors", metadata.get("colors")), ("sizes", metadata.get("sizes"))):
+            if value:
+                match = models.MatchAny(any=value) if isinstance(value, list) else models.MatchValue(value=value)
+                must.append(models.FieldCondition(key=key, match=match))
+        if metadata.get("audiences"):
+            must.append(models.FieldCondition(key="audience", match=models.MatchAny(any=metadata["audiences"])))
+        if metadata.get("max_price") is not None:
+            must.append(models.FieldCondition(key="minPrice", range=models.Range(lte=metadata["max_price"])))
+        if metadata.get("min_price") is not None:
+            must.append(models.FieldCondition(key="maxPrice", range=models.Range(gte=metadata["min_price"])))
         query_filter = models.Filter(must=must)
         if exclude:
             query_filter.must_not = [models.FieldCondition(key="productId", match=models.MatchValue(value=exclude))]

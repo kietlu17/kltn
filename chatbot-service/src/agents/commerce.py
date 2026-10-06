@@ -65,6 +65,10 @@ def resolve_product_references(
         for word, index in ordinal_words.items()
         if re.search(rf"\b(?:(?:{position_markers})\s+(?:thu\s+)?|thu\s+){word}\b", text)
     ]
+    if ordered and re.search(r"\b(?:(?:cai|mon|san pham|sp)\s+)?(?:duoi|cuoi|sau cung)\b", text):
+        positions.append(len(ordered) - 1)
+    if ordered and re.search(r"\b(?:(?:cai|mon|san pham|sp)\s+)?(?:tren|dau tien)\b", text):
+        positions.append(0)
     if re.search(r"\bso sanh\b", text):
         positions += [int(number) - 1 for number in re.findall(r"\b[1-6]\b", text)]
     for index in sorted(set(positions)):
@@ -156,6 +160,10 @@ class CommerceAgent:
             if state.get("cancel_action_id") or text in self.CANCELLATIONS or text in self.NO:
                 return "cancel_pending"
             return "configure_quantity"
+        if pending.get("type") == "cart_product_selection":
+            if state.get("cancel_action_id") or text in self.CANCELLATIONS or text in self.NO:
+                return "cancel_pending"
+            return "add_to_cart"
         if pending.get("type") == "cart_mutation_confirmation":
             requested = state.get("confirm_action_id")
             if (requested and str(requested) == str(pending.get("actionId"))) or text in self.CART_CONFIRMATIONS:
@@ -170,6 +178,11 @@ class CommerceAgent:
             if state.get("cancel_action_id") or text in self.CANCELLATIONS or text in self.NO:
                 return "cancel_pending"
             return "await_checkout_confirmation"
+        if pending.get("type") == "checkout_offer":
+            if text in self.YES or CHECKOUT_PATTERN.search(text):
+                return "accept_checkout_offer"
+            if state.get("cancel_action_id") or text in self.CANCELLATIONS or text in self.NO:
+                return "decline_checkout_offer"
         if pending and text in {"huy", "huy thao tac", "khong mua nua"}:
             return "cancel_pending"
         if pending.get("type") == "cart_configuration":
@@ -272,6 +285,10 @@ class CommerceAgent:
                 return self._await_cart_mutation(state)
             if intent == "await_checkout_confirmation":
                 return self._await_checkout_confirmation(state)
+            if intent == "accept_checkout_offer":
+                return await self._accept_checkout_offer(state, user_id)
+            if intent == "decline_checkout_offer":
+                return self._decline_checkout_offer()
             if intent == "cancel_pending":
                 return self._cancel_pending()
             if intent in handlers:
@@ -403,11 +420,29 @@ class CommerceAgent:
         }
 
     async def _add_to_cart(self, state: dict, user_id: str) -> dict:
+        pending = state.get("pending_action") or {}
+        pending_selection = pending if pending.get("type") == "cart_product_selection" else {}
+        quantity = int(pending_selection.get("quantity") or self._quantity(state.get("message", ""), 1) or 1)
         product_id = self._product_id(state)
         if not product_id:
             return {
                 "answer": "Bạn hãy chọn đúng một sản phẩm cần thêm vào giỏ.",
                 "products": state.get("previous_products", []),
+                "pending_action": {
+                    "type": "cart_product_selection",
+                    "quantity": quantity,
+                    "candidateIds": [
+                        str(item.get("id")) for item in state.get("previous_products", []) if item.get("id")
+                    ],
+                },
+                "action_result": {"status": "clarification_required", "intent": "add_to_cart"},
+            }
+        allowed_ids = {str(item) for item in pending_selection.get("candidateIds", [])}
+        if allowed_ids and product_id not in allowed_ids:
+            return {
+                "answer": "Bạn hãy chọn một sản phẩm trong danh sách đang hiển thị.",
+                "products": state.get("previous_products", []),
+                "pending_action": pending_selection,
                 "action_result": {"status": "clarification_required", "intent": "add_to_cart"},
             }
         product = await self.catalog.product(product_id)
@@ -421,8 +456,8 @@ class CommerceAgent:
         if not variant_id and len(candidates) == 1:
             variant_id = str(candidates[0].get("_id") or candidates[0].get("id"))
         elif variants and not variant_id:
-            return self._variant_question(product, candidates, "add", self._quantity(state.get("message", ""), 1) or 1)
-        return await self._complete_add(state, user_id, product, variant_id, self._quantity(state.get("message", ""), 1) or 1)
+            return self._variant_question(product, candidates, "add", quantity)
+        return await self._complete_add(state, user_id, product, variant_id, quantity)
 
     def _variant_question(self, product: dict, variants: list[dict], operation: str, quantity: int, old_line: dict | None = None) -> dict:
         product_id = str(product.get("_id") or product.get("id"))
@@ -710,7 +745,24 @@ class CommerceAgent:
             except CommerceError as exc:
                 answer += f" Tuy nhiên chưa thể chuẩn bị thanh toán: {exc}"
                 action_result["checkoutStatus"] = "unavailable"
+        if operation == "add_to_cart":
+            context = {"type": "checkout_offer", "cartLine": context}
         return {"answer": answer, "products": [], "pending_action": context, "action_result": action_result}
+
+    async def _accept_checkout_offer(self, state: dict, user_id: str) -> dict:
+        return await self._checkout(
+            {**state, "message": "thanh toán", "pending_action": None, "reference_product_id": None},
+            user_id,
+        )
+
+    @staticmethod
+    def _decline_checkout_offer() -> dict:
+        return {
+            "answer": "Được, sản phẩm vẫn được giữ trong giỏ hàng. Bạn có thể tiếp tục mua sắm hoặc thanh toán sau.",
+            "products": [],
+            "pending_action": None,
+            "action_result": {"status": "declined", "intent": "checkout"},
+        }
 
     @staticmethod
     def _line_id(line: dict) -> str:

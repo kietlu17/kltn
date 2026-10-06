@@ -5,7 +5,7 @@ import os
 
 from langchain_core.runnables import RunnableLambda
 
-from .catalog import eligible_cards, product_document
+from .catalog import eligible_cards, product_document, query_metadata
 
 log = logging.getLogger(__name__)
 
@@ -119,7 +119,9 @@ class ProductRAG:
         # that same vector against both text and image-caption documents.
         vector = (await self.models.embed_queries([query[:10000]]))[0]
         kinds = ("text", "image_description") if (reference or visual_description) else ("text",)
+        metadata = query_metadata(plan)
         ranks = {}
+        ranks_by_kind = {kind: {} for kind in kinds}
         cards = []
         for offset in (0, 80, 160):
             for kind in kinds:
@@ -128,15 +130,20 @@ class ProductRAG:
                     kind=kind,
                     exclude=reference,
                     category=category,
+                    metadata=metadata,
                     offset=offset,
                 )
-                seen = set()
                 for rank, hit in enumerate(hits, offset + 1):
                     product_id = hit.payload["productId"]
-                    if product_id in seen:
-                        continue
-                    seen.add(product_id)
-                    ranks[product_id] = ranks.get(product_id, 0) + 1 / (60 + rank)
+                    # A product with many chunks must not outrank another product merely
+                    # because it has more text. Keep only its best hit per modality.
+                    ranks_by_kind[kind][product_id] = max(
+                        ranks_by_kind[kind].get(product_id, 0), 1 / (60 + rank)
+                    )
+            ranks = {}
+            for kind_ranks in ranks_by_kind.values():
+                for product_id, score in kind_ranks.items():
+                    ranks[product_id] = ranks.get(product_id, 0) + score
             ordered_ids = sorted(ranks, key=ranks.get, reverse=True)
             cards = await self._fresh_cards(ordered_ids, plan, exclude=reference)
             if len(cards) >= self.candidate_pool:

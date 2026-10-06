@@ -224,7 +224,13 @@ class ProductAgent:
 
     async def classify_action(self, state):
         intent = self.commerce_agent.detect(state) if self.commerce_agent else ""
-        return {"commerce_intent": intent}
+        result = {"commerce_intent": intent}
+        pending = state.get("pending_action") or {}
+        if pending.get("type") == "checkout_offer" and not intent:
+            # A checkout offer is optional. A new product question supersedes it
+            # instead of leaving a stale yes/no action in the session.
+            result["pending_action"] = None
+        return result
 
     @staticmethod
     def entry_route(state):

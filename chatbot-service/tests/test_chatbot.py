@@ -18,7 +18,7 @@ from src.agents.state import SearchPlan, explicit_price_limits
 from src.core.settings import Settings
 from src.infrastructure.clients import CatalogAPI, normalize_image
 from src.main import ChatRequest, Sessions, app, compact_history, compact_session_products
-from src.product.catalog import VectorCatalog, content_hash, eligible_cards
+from src.product.catalog import VectorCatalog, content_hash, eligible_cards, infer_product_type
 from src.product.indexer import CatalogIndexer
 from src.product.rag import ProductRAG
 
@@ -34,6 +34,10 @@ def product(product_id=PRODUCT_ID):
 
 
 class CatalogTests(unittest.TestCase):
+    def test_product_type_keeps_ba_lo_distinct_from_ba_lo_shirt(self):
+        self.assertEqual(infer_product_type("Ba Lô laptop nam"), "balo")
+        self.assertEqual(infer_product_type("Áo ba lỗ nam"), "khac")
+
     def test_explicit_vietnamese_budgets(self):
         for message, cap in [("tai nghe dưới 500 nghìn đồng", 500000),
                              ("không quá 1,5 triệu", 1500000),
@@ -170,8 +174,10 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await self.vectors.product_ids(), {PRODUCT_ID})
         self.api.all_products.return_value = [{**product(), "description": "Nội dung mới"}]
         await self.indexer.reconcile()
-        hits = await self.vectors.query([1.0, 0.0, 0.0])
-        self.assertIn("Nội dung mới", hits[0].payload["text"])
+        points, _ = await self.vectors.client.scroll(self.settings.collection, with_payload=True,
+                                                     with_vectors=False, limit=20)
+        description = next(point for point in points if point.payload["chunkType"] == "description")
+        self.assertIn("Nội dung mới", description.payload["text"])
         await self.vectors.client.delete_collection(self.settings.collection)
         await self.indexer.reconcile()
         self.api.all_products.return_value = []
@@ -193,7 +199,7 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         await self.indexer.reconcile()
         self.api.all_products.return_value = [{**item, "images": ["/uploads/b.png"]}]
         await self.indexer.reconcile()
-        self.assertEqual((await self.vectors.client.count(self.settings.collection)).count, 2)
+        self.assertEqual((await self.vectors.client.count(self.settings.collection)).count, 3)
         self.assertEqual(self.models.describe.await_count, 2)
 
     async def test_zero_caption_limit_embeds_text_without_describing_images(self):
@@ -206,7 +212,7 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(result["updated"], 1)
             self.api.image.assert_not_awaited()
             self.models.describe.assert_not_awaited()
-            self.assertEqual(len(self.models.embed_documents.await_args.args[0]), 1)
+            self.assertEqual(len(self.models.embed_documents.await_args.args[0]), 2)
         finally:
             indexer.db.close()
 
@@ -220,7 +226,7 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         ])
         self.assertEqual(result["updated"], 2)
         self.assertEqual(self.models.embed_documents.await_count, 1)
-        self.assertEqual(len(self.models.embed_documents.await_args.args[0]), 2)
+        self.assertEqual(len(self.models.embed_documents.await_args.args[0]), 4)
 
         await self.indexer.process_events([
             ("product.created", PRODUCT_ID),
@@ -231,7 +237,12 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         products[PRODUCT_ID] = {**product(), "description": "changed"}
         await self.indexer.process_events([("product.updated", PRODUCT_ID)])
         self.assertEqual(self.models.embed_documents.await_count, 2)
-        self.assertEqual(len(self.models.embed_documents.await_args.args[0]), 1)
+        self.assertEqual(len(self.models.embed_documents.await_args.args[0]), 2)
+
+        products[SECOND_ID] = {**products[SECOND_ID], "price": 350000}
+        result = await self.indexer.process_events([("product.updated", SECOND_ID)])
+        self.assertEqual(result["metadataUpdated"], 1)
+        self.assertEqual(self.models.embed_documents.await_count, 2)
 
         await self.indexer.process_events([("product.deleted", PRODUCT_ID)])
         self.assertEqual(await self.vectors.product_ids(), {SECOND_ID})

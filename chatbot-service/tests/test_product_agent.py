@@ -18,6 +18,17 @@ PID, OTHER = "a" * 24, "b" * 24
 
 
 class AgentTests(unittest.IsolatedAsyncioTestCase):
+    async def test_new_query_clears_optional_checkout_offer(self):
+        agent = ProductAgent(AsyncMock(), AsyncMock(), AsyncMock(), commerce=AsyncMock())
+
+        result = await agent.classify_action({
+            "message": "tìm balo đi làm",
+            "pending_action": {"type": "checkout_offer", "cartLine": {"productId": PID}},
+        })
+
+        self.assertEqual(result["commerce_intent"], "")
+        self.assertIsNone(result["pending_action"])
+
     async def test_short_followups_accumulate_product_color_and_use_case(self):
         models = AsyncMock()
         agent = ProductAgent(AsyncMock(), models, AsyncMock())

@@ -64,6 +64,30 @@ class CommerceAgentTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(call[4], second["pending_action"]["actionId"])
         self.assertIn("SAVE10", confirmed["answer"])
         self.assertTrue(confirmed["action_result"]["checkoutSuggested"])
+        self.assertEqual(confirmed["pending_action"]["type"], "checkout_offer")
+        self.assertEqual(self.agent.detect({
+            "message": "có", "pending_action": confirmed["pending_action"],
+        }), "accept_checkout_offer")
+
+        accepted = await self.agent.execute({
+            **self.base,
+            "commerce_intent": "accept_checkout_offer",
+            "message": "có",
+            "pending_action": confirmed["pending_action"],
+        })
+        self.assertEqual(accepted["action_result"]["tool"], "open_checkout")
+        self.assertIsNone(accepted["pending_action"])
+
+    async def test_checkout_offer_can_be_declined_without_changing_cart(self):
+        pending = {"type": "checkout_offer", "cartLine": {"productId": PRODUCT_ID}}
+        state = {**self.base, "message": "không", "pending_action": pending}
+
+        self.assertEqual(self.agent.detect(state), "decline_checkout_offer")
+        result = await self.agent.execute({**state, "commerce_intent": "decline_checkout_offer"})
+
+        self.assertEqual(result["action_result"]["status"], "declined")
+        self.assertIsNone(result["pending_action"])
+        self.commerce.add_to_cart.assert_not_awaited()
 
     async def test_buy_by_unique_name_reuses_color_and_size_context(self):
         coolmax_id = "f" * 24
@@ -123,6 +147,33 @@ class CommerceAgentTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(resolve_product_references("mua 2 cái", products), [])
         self.assertEqual(resolve_product_references("mua cái thứ 2", products), [OTHER_ID])
         self.assertEqual(self.agent.detect({"message": "mua 2 cái", "previous_products": products}), "add_to_cart")
+
+    async def test_ambiguous_buy_keeps_quantity_and_bottom_product_followup(self):
+        products = [
+            {"id": PRODUCT_ID, "name": "Quần short nam cotton big size"},
+            {"id": OTHER_ID, "name": "Quần short thun nam vải cotton"},
+        ]
+        first_state = {**self.base, "message": "mua 2 cái cotton", "previous_products": products}
+        first = await self.agent.execute({**first_state, "commerce_intent": "add_to_cart"})
+
+        self.assertEqual(first["pending_action"]["type"], "cart_product_selection")
+        self.assertEqual(first["pending_action"]["quantity"], 2)
+        self.assertEqual(resolve_product_reference("cái dưới", products), OTHER_ID)
+
+        self.catalog.product.return_value = {
+            "_id": OTHER_ID, "name": products[1]["name"], "price": 85000, "variants": [],
+        }
+        followup = {
+            **self.base,
+            "message": "cái dưới",
+            "previous_products": products,
+            "pending_action": first["pending_action"],
+        }
+        self.assertEqual(self.agent.detect(followup), "add_to_cart")
+        result = await self.agent.execute({**followup, "commerce_intent": "add_to_cart"})
+
+        self.assertEqual(result["pending_action"]["productId"], OTHER_ID)
+        self.assertEqual(result["pending_action"]["quantity"], 2)
 
     async def test_quantity_remove_and_replace_use_fresh_cart_line(self):
         line = {"productId": PRODUCT_ID, "variantId": VARIANT_ID, "quantity": 1}
