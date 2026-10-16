@@ -35,7 +35,9 @@ export default function AdminLayout() {
       <aside className="seller-sidebar admin-sidebar">
         <h3>Cổng quản trị</h3>
         <nav>
-          <Link to="/admin/dashboard">Bảng điều khiển</Link>
+          <Link to="/admin/dashboard/overview" className={location.pathname.includes('/admin/dashboard/overview') ? 'active' : ''}>
+            Tổng quan
+          </Link>
           {links.map((item) => (
             <Link key={item.key} to={item.to || `/admin/dashboard/${item.key}`} className={isActive(item) ? 'active' : ''}>
               {item.label}

@@ -48,11 +48,61 @@ function formatLegalEntityType(type) {
   return 'Chưa cập nhật';
 }
 
+const dashboardOrderStatuses = [
+  { key: 'delivered', label: 'Hoàn tất', color: '#16a34a' },
+  { key: 'shipped', label: 'Đang giao', color: '#2563eb' },
+  { key: 'confirmed', label: 'Đã xác nhận', color: '#7c3aed' },
+  { key: 'pending', label: 'Chờ xử lý', color: '#f59e0b' },
+  { key: 'cancelled', label: 'Đã hủy', color: '#ef4444' }
+];
+
+function getOrderDate(order) {
+  const date = new Date(order?.created_at || order?.createdAt || 0);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function getOrderShopId(order) {
+  let products = order?.products;
+  if (typeof products === 'string') {
+    try {
+      products = JSON.parse(products);
+    } catch {
+      products = [];
+    }
+  }
+  return Array.isArray(products) ? products.find((item) => item?.shopId)?.shopId : null;
+}
+
+function getStatusGroup(status) {
+  if (status === 'delivered' || status === 'paid') return 'delivered';
+  if (status === 'shipped') return 'shipped';
+  if (status === 'confirmed') return 'confirmed';
+  if (status === 'cancelled' || status === 'payment_failed' || status === 'refunded') return 'cancelled';
+  return 'pending';
+}
+
+function formatCompactCurrency(value) {
+  return new Intl.NumberFormat('vi-VN', {
+    notation: 'compact',
+    maximumFractionDigits: 1
+  }).format(Number(value || 0));
+}
+
+function TrendBadge({ value }) {
+  const normalized = Number.isFinite(value) ? value : 0;
+  const trendClass = normalized > 0 ? 'positive' : normalized < 0 ? 'negative' : 'neutral';
+  return (
+    <span className={`admin-trend ${trendClass}`}>
+      {normalized > 0 ? '↑' : normalized < 0 ? '↓' : '•'} {Math.abs(normalized).toLocaleString('vi-VN', { maximumFractionDigits: 1 })}%
+    </span>
+  );
+}
+
 export default function AdminDashboard() {
   const { tab } = useParams();
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const activeTab = tab || 'users';
+  const activeTab = tab || 'overview';
 
   const [users, setUsers] = useState([]);
   const [pendingProducts, setPendingProducts] = useState([]);
@@ -63,6 +113,11 @@ export default function AdminDashboard() {
   const [categoryForm, setCategoryForm] = useState({});
   const [platformWallet, setPlatformWallet] = useState(null);
   const [platformWalletError, setPlatformWalletError] = useState('');
+  const [overviewLoading, setOverviewLoading] = useState(false);
+  const [overviewError, setOverviewError] = useState('');
+  const [userSearch, setUserSearch] = useState('');
+  const [userRoleFilter, setUserRoleFilter] = useState('all');
+  const [userStatusFilter, setUserStatusFilter] = useState('all');
 
   const loadUsers = () => api.get('/auth/admin/users').then((res) => setUsers(res.data || [])).catch(() => setUsers([]));
   const loadPendingProducts = () => api.get('/products/admin/pending').then((res) => setPendingProducts(res.data || [])).catch(() => setPendingProducts([]));
@@ -80,11 +135,37 @@ export default function AdminDashboard() {
       setPlatformWalletError(err?.response?.data?.message || 'Không lấy được ví sàn');
     });
 
+  const loadOverview = async () => {
+    setOverviewLoading(true);
+    setOverviewError('');
+    const requests = await Promise.allSettled([
+      api.get('/auth/admin/users'),
+      api.get('/products/admin/pending'),
+      api.get('/orders/admin/orders'),
+      api.get('/orders/admin/disputes'),
+      api.get('/shops/admin/invoice-feature-requests')
+    ]);
+    const setters = [setUsers, setPendingProducts, setOrders, setDisputes, setInvoiceRequests];
+    let failedRequests = 0;
+    requests.forEach((result, index) => {
+      if (result.status === 'fulfilled') {
+        setters[index](result.value.data || []);
+      } else {
+        failedRequests += 1;
+      }
+    });
+    if (failedRequests) {
+      setOverviewError(`Không thể tải ${failedRequests}/5 nguồn dữ liệu. Các chỉ số còn lại vẫn được hiển thị.`);
+    }
+    setOverviewLoading(false);
+  };
+
   useEffect(() => {
-    if (!tab) navigate('/admin/dashboard/users', { replace: true });
+    if (!tab) navigate('/admin/dashboard/overview', { replace: true });
   }, [tab, navigate]);
 
   useEffect(() => {
+    if (activeTab === 'overview') loadOverview();
     if (activeTab === 'users') loadUsers();
     if (activeTab === 'products') loadPendingProducts();
     if (activeTab === 'orders') loadOrders();
@@ -106,6 +187,100 @@ export default function AdminDashboard() {
     }),
     [users, pendingProducts, orders, disputes, invoiceRequests, platformWallet, categories]
   );
+
+  const overview = useMemo(() => {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const currentStart = new Date(startOfToday);
+    currentStart.setDate(currentStart.getDate() - 6);
+    const previousStart = new Date(currentStart);
+    previousStart.setDate(previousStart.getDate() - 7);
+
+    const validOrders = orders.filter((order) => !['cancelled', 'payment_failed', 'refunded'].includes(order.status));
+    const sumRevenue = (items) => items.reduce((sum, order) => sum + Number(order.total_price || order.totalPrice || 0), 0);
+    const currentOrders = validOrders.filter((order) => {
+      const date = getOrderDate(order);
+      return date && date >= currentStart;
+    });
+    const previousOrders = validOrders.filter((order) => {
+      const date = getOrderDate(order);
+      return date && date >= previousStart && date < currentStart;
+    });
+    const currentRevenue = sumRevenue(currentOrders);
+    const previousRevenue = sumRevenue(previousOrders);
+    const percentageChange = (current, previous) => {
+      if (!previous) return current ? 100 : 0;
+      return ((current - previous) / previous) * 100;
+    };
+
+    const revenueByDay = Array.from({ length: 7 }, (_, index) => {
+      const date = new Date(currentStart);
+      date.setDate(date.getDate() + index);
+      const nextDate = new Date(date);
+      nextDate.setDate(nextDate.getDate() + 1);
+      const dayOrders = validOrders.filter((order) => {
+        const orderDate = getOrderDate(order);
+        return orderDate && orderDate >= date && orderDate < nextDate;
+      });
+      return {
+        label: date.toLocaleDateString('vi-VN', { weekday: 'short' }),
+        dateLabel: date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }),
+        revenue: sumRevenue(dayOrders),
+        orders: dayOrders.length
+      };
+    });
+
+    const statusCounts = dashboardOrderStatuses.map((status) => ({
+      ...status,
+      count: orders.filter((order) => getStatusGroup(order.status) === status.key).length
+    }));
+    const statusTotal = Math.max(orders.length, 1);
+    let statusOffset = 0;
+    const donutSegments = statusCounts.map((status) => {
+      const start = statusOffset;
+      statusOffset += (status.count / statusTotal) * 360;
+      return `${status.color} ${start}deg ${statusOffset}deg`;
+    });
+
+    const shopMap = new Map();
+    validOrders.forEach((order) => {
+      const shopId = getOrderShopId(order);
+      if (!shopId) return;
+      const current = shopMap.get(String(shopId)) || { shopId: String(shopId), orders: 0, revenue: 0 };
+      current.orders += 1;
+      current.revenue += Number(order.total_price || order.totalPrice || 0);
+      shopMap.set(String(shopId), current);
+    });
+
+    return {
+      buyers: users.filter((user) => user.role === 'buyer'),
+      sellers: users.filter((user) => user.role === 'seller'),
+      lockedUsers: users.filter((user) => user.isActive === false),
+      validOrders,
+      totalRevenue: sumRevenue(validOrders),
+      averageOrderValue: validOrders.length ? sumRevenue(validOrders) / validOrders.length : 0,
+      deliveredOrders: orders.filter((order) => ['delivered', 'paid'].includes(order.status)).length,
+      revenueTrend: percentageChange(currentRevenue, previousRevenue),
+      orderTrend: percentageChange(currentOrders.length, previousOrders.length),
+      revenueByDay,
+      maxDailyRevenue: Math.max(...revenueByDay.map((item) => item.revenue), 1),
+      statusCounts,
+      donutBackground: orders.length ? `conic-gradient(${donutSegments.join(', ')})` : '#e5e7eb',
+      topShops: Array.from(shopMap.values()).sort((a, b) => b.revenue - a.revenue).slice(0, 5),
+      openDisputes: disputes.filter((item) => item.status === 'open').length,
+      pendingInvoiceRequests: invoiceRequests.filter((item) => item.status === 'pending').length
+    };
+  }, [users, orders, disputes, invoiceRequests]);
+
+  const filteredUsers = useMemo(() => {
+    const keyword = userSearch.trim().toLowerCase();
+    return users.filter((user) => {
+      const matchesKeyword = !keyword || String(user.email || '').toLowerCase().includes(keyword) || String(user.shopId || '').toLowerCase().includes(keyword);
+      const matchesRole = userRoleFilter === 'all' || user.role === userRoleFilter;
+      const matchesStatus = userStatusFilter === 'all' || (userStatusFilter === 'active' ? user.isActive !== false : user.isActive === false);
+      return matchesKeyword && matchesRole && matchesStatus;
+    });
+  }, [users, userSearch, userRoleFilter, userStatusFilter]);
 
   async function setUserLock(user, isActive) {
     try {
@@ -230,9 +405,146 @@ export default function AdminDashboard() {
 
   return (
     <div className="container page-section">
+      {activeTab === 'overview' && (
+        <div className="admin-overview">
+          <div className="admin-overview-header">
+            <div>
+              <span className="admin-eyebrow">TRUNG TÂM ĐIỀU HÀNH</span>
+              <h1>Tổng quan sàn thương mại</h1>
+              <p>Theo dõi tăng trưởng, vận hành người mua và chất lượng người bán trong một màn hình.</p>
+            </div>
+            <div className="admin-overview-actions">
+              <span>Cập nhật {new Date().toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}</span>
+              <button type="button" className="btn btn-outline" onClick={loadOverview} disabled={overviewLoading}>
+                {overviewLoading ? 'Đang tải...' : 'Làm mới dữ liệu'}
+              </button>
+            </div>
+          </div>
+
+          {overviewError && <div className="admin-data-warning">{overviewError}</div>}
+
+          <section className="admin-kpi-grid" aria-label="Chỉ số kinh doanh chính">
+            <article className="admin-kpi-card accent-orange">
+              <div className="admin-kpi-heading"><span>Doanh số hợp lệ</span><span className="admin-kpi-icon">₫</span></div>
+              <strong>{formatCurrency(overview.totalRevenue)}</strong>
+              <div className="admin-kpi-foot"><TrendBadge value={overview.revenueTrend} /><span>so với 7 ngày trước</span></div>
+            </article>
+            <article className="admin-kpi-card accent-blue">
+              <div className="admin-kpi-heading"><span>Đơn hàng</span><span className="admin-kpi-icon">#</span></div>
+              <strong>{orders.length.toLocaleString('vi-VN')}</strong>
+              <div className="admin-kpi-foot"><TrendBadge value={overview.orderTrend} /><span>{overview.deliveredOrders} đã hoàn tất</span></div>
+            </article>
+            <article className="admin-kpi-card accent-violet">
+              <div className="admin-kpi-heading"><span>Người mua</span><span className="admin-kpi-icon">B</span></div>
+              <strong>{overview.buyers.length.toLocaleString('vi-VN')}</strong>
+              <div className="admin-kpi-foot"><span className="admin-kpi-note">{overview.buyers.filter((user) => user.isActive !== false).length} đang hoạt động</span></div>
+            </article>
+            <article className="admin-kpi-card accent-green">
+              <div className="admin-kpi-heading"><span>Người bán</span><span className="admin-kpi-icon">S</span></div>
+              <strong>{overview.sellers.length.toLocaleString('vi-VN')}</strong>
+              <div className="admin-kpi-foot"><span className="admin-kpi-note">{overview.sellers.filter((user) => user.isActive !== false).length} đang hoạt động</span></div>
+            </article>
+          </section>
+
+          <section className="admin-dashboard-grid">
+            <article className="admin-dashboard-card admin-revenue-card">
+              <div className="admin-card-header">
+                <div><h3>Doanh số 7 ngày gần nhất</h3><p>Đơn hợp lệ, không gồm đơn hủy hoặc hoàn tiền</p></div>
+                <div className="admin-card-summary"><span>AOV</span><strong>{formatCurrency(overview.averageOrderValue)}</strong></div>
+              </div>
+              <div className="admin-revenue-chart" role="img" aria-label="Biểu đồ doanh số bảy ngày gần nhất">
+                {overview.revenueByDay.map((item) => (
+                  <div className="admin-revenue-column" key={item.dateLabel} title={`${item.dateLabel}: ${formatCurrency(item.revenue)}`}>
+                    <div className="admin-bar-value">{item.revenue ? formatCompactCurrency(item.revenue) : '0'}</div>
+                    <div className="admin-bar-track"><span style={{ height: `${Math.max((item.revenue / overview.maxDailyRevenue) * 100, item.revenue ? 8 : 2)}%` }} /></div>
+                    <strong>{item.label}</strong>
+                    <small>{item.dateLabel}</small>
+                  </div>
+                ))}
+              </div>
+            </article>
+
+            <article className="admin-dashboard-card admin-status-card">
+              <div className="admin-card-header"><div><h3>Trạng thái đơn hàng</h3><p>Phân bố toàn bộ đơn trên hệ thống</p></div></div>
+              <div className="admin-donut-layout">
+                <div className="admin-donut" style={{ background: overview.donutBackground }}>
+                  <div><strong>{orders.length}</strong><span>Tổng đơn</span></div>
+                </div>
+                <div className="admin-chart-legend">
+                  {overview.statusCounts.map((status) => (
+                    <div key={status.key}><span className="admin-legend-dot" style={{ background: status.color }} /><span>{status.label}</span><strong>{status.count}</strong></div>
+                  ))}
+                </div>
+              </div>
+            </article>
+
+            <article className="admin-dashboard-card">
+              <div className="admin-card-header"><div><h3>Cơ cấu người dùng</h3><p>Sức khỏe cộng đồng mua và bán</p></div><button type="button" className="admin-text-button" onClick={() => navigate('/admin/dashboard/users')}>Quản lý</button></div>
+              <div className="admin-user-breakdown">
+                {[
+                  { label: 'Người mua', value: overview.buyers.length, color: '#7c3aed' },
+                  { label: 'Người bán', value: overview.sellers.length, color: '#16a34a' },
+                  { label: 'Đang bị khóa', value: overview.lockedUsers.length, color: '#ef4444' }
+                ].map((item) => (
+                  <div key={item.label}>
+                    <div className="admin-breakdown-label"><span>{item.label}</span><strong>{item.value}</strong></div>
+                    <div className="admin-progress"><span style={{ width: `${users.length ? (item.value / users.length) * 100 : 0}%`, background: item.color }} /></div>
+                  </div>
+                ))}
+              </div>
+            </article>
+
+            <article className="admin-dashboard-card">
+              <div className="admin-card-header"><div><h3>Cần xử lý</h3><p>Các vấn đề ảnh hưởng trải nghiệm sàn</p></div></div>
+              <div className="admin-alert-list">
+                <button type="button" onClick={() => navigate('/admin/dashboard/products')}><span className="admin-alert-icon orange">P</span><span><strong>Sản phẩm chờ duyệt</strong><small>Kiểm soát chất lượng niêm yết</small></span><b>{pendingProducts.length}</b></button>
+                <button type="button" onClick={() => navigate('/admin/dashboard/disputes')}><span className="admin-alert-icon red">!</span><span><strong>Tranh chấp đang mở</strong><small>Ưu tiên bảo vệ người mua</small></span><b>{overview.openDisputes}</b></button>
+                <button type="button" onClick={() => navigate('/admin/dashboard/invoice_requests')}><span className="admin-alert-icon blue">i</span><span><strong>Yêu cầu hóa đơn</strong><small>Chờ thẩm định người bán</small></span><b>{overview.pendingInvoiceRequests}</b></button>
+              </div>
+            </article>
+
+            <article className="admin-dashboard-card admin-top-shops-card">
+              <div className="admin-card-header"><div><h3>Người bán nổi bật</h3><p>Xếp hạng theo doanh số hợp lệ</p></div><button type="button" className="admin-text-button" onClick={() => { setUserRoleFilter('seller'); navigate('/admin/dashboard/users'); }}>Xem tất cả</button></div>
+              {overview.topShops.length ? (
+                <div className="admin-shop-ranking">
+                  {overview.topShops.map((shop, index) => (
+                    <div key={shop.shopId}>
+                      <span className="admin-rank">{index + 1}</span>
+                      <span className="admin-shop-avatar">{shop.shopId.slice(0, 1).toUpperCase()}</span>
+                      <span className="admin-shop-name"><strong>{shop.shopId}</strong><small>{shop.orders} đơn hợp lệ</small></span>
+                      <strong>{formatCurrency(shop.revenue)}</strong>
+                    </div>
+                  ))}
+                </div>
+              ) : <div className="admin-empty-mini">Chưa có dữ liệu doanh số người bán.</div>}
+            </article>
+          </section>
+        </div>
+      )}
+
       {activeTab === 'users' && (
         <>
-          <SectionHeader title="Quản lý người dùng" subtitle={`${activeCounts.users} tài khoản`} />
+          <SectionHeader title="Quản lý người mua & người bán" subtitle={`${filteredUsers.length}/${activeCounts.users} tài khoản`} />
+          <div className="admin-user-summary">
+            <div><span>Người mua</span><strong>{overview.buyers.length}</strong></div>
+            <div><span>Người bán</span><strong>{overview.sellers.length}</strong></div>
+            <div><span>Tài khoản hoạt động</span><strong>{users.filter((user) => user.isActive !== false).length}</strong></div>
+            <div><span>Cần rà soát</span><strong>{overview.lockedUsers.length}</strong></div>
+          </div>
+          <div className="admin-user-filters">
+            <input aria-label="Tìm người dùng" value={userSearch} onChange={(event) => setUserSearch(event.target.value)} placeholder="Tìm theo email hoặc mã shop..." />
+            <select aria-label="Lọc theo vai trò" value={userRoleFilter} onChange={(event) => setUserRoleFilter(event.target.value)}>
+              <option value="all">Tất cả vai trò</option>
+              <option value="buyer">Người mua</option>
+              <option value="seller">Người bán</option>
+              <option value="admin">Quản trị viên</option>
+            </select>
+            <select aria-label="Lọc theo trạng thái" value={userStatusFilter} onChange={(event) => setUserStatusFilter(event.target.value)}>
+              <option value="all">Tất cả trạng thái</option>
+              <option value="active">Đang hoạt động</option>
+              <option value="locked">Đã khóa</option>
+            </select>
+          </div>
           <div className="seller-table admin-table admin-users-table">
             <div className="seller-table-row seller-table-head">
               <div>Email</div>
@@ -240,11 +552,11 @@ export default function AdminDashboard() {
               <div>Trạng thái</div>
               <div>Thao tác</div>
             </div>
-            {users.map((user) => (
+            {filteredUsers.map((user) => (
               <div key={user.id} className="seller-table-row">
                 <div>{user.email}</div>
-                <div>{user.role}</div>
-                <div>{user.isActive ? 'hoạt động' : 'đã khóa'}</div>
+                <div><span className={`admin-role-badge ${user.role}`}>{user.role === 'buyer' ? 'Người mua' : user.role === 'seller' ? 'Người bán' : 'Quản trị'}</span></div>
+                <div><span className={`admin-status-badge ${user.isActive ? 'active' : 'locked'}`}>{user.isActive ? 'Hoạt động' : 'Đã khóa'}</span></div>
                 <div>
                   {user.role === 'admin' ? (
                     <span className="muted">Bảo vệ</span>
@@ -257,6 +569,7 @@ export default function AdminDashboard() {
               </div>
             ))}
           </div>
+          {!filteredUsers.length && <div className="admin-empty-mini">Không tìm thấy tài khoản phù hợp với bộ lọc.</div>}
         </>
       )}
 
