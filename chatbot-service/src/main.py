@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field, ValidationError, model_validator
 from qdrant_client.http.exceptions import UnexpectedResponse
 
 from .agents.product import ProductAgent
+from .agents.order import OrderAgent
 from .agents.router import RouterAgent
 from .agents.state import SearchPlan
 from .agents.commerce import resolve_product_reference, resolve_product_references
@@ -174,7 +175,8 @@ async def lifespan(app):
     policies = PolicyCatalog(settings)
     product_agent = ProductAgent(api, models, vectors, visual, commerce)
     customer_service_agent = CustomerServiceAgent(models, policies)
-    app.state.agent = RouterAgent(product_agent, customer_service_agent)
+    order_agent = OrderAgent(commerce)
+    app.state.agent = RouterAgent(product_agent, customer_service_agent, order_agent)
     app.state.sessions = Sessions(settings)
     app.state.busy_sessions = set()
     app.state.active_requests = 0
@@ -258,6 +260,7 @@ async def chat(request: ChatRequest, http_request: Request):
                  "reference_product_id": request.referenceProductId, "history": previous.get("history", []),
                  "previous_plan": previous.get("plan", {}), "previous_products": previous_products,
                  "focused_product_id": focused_product_id, "focused_product_ids": focused_product_ids,
+                 "focused_order_id": previous.get("focused_order_id", ""),
                  "visual_description": previous.get("visual_description", ""),
                  "image_vector": [] if image else previous.get("image_vector", []),
                  "image_namespace": "" if image else previous.get("image_namespace", ""),
@@ -322,7 +325,9 @@ async def chat(request: ChatRequest, http_request: Request):
             "image_vector": image_vector, "image_namespace": image_namespace,
             "user_id": actor_user_id or bound_user_id, "pending_action": pending_action,
             "focused_product_id": next_focused_product_id,
-            "focused_product_ids": next_focused_product_ids, "_context_expires": expiries})
+            "focused_product_ids": next_focused_product_ids,
+            "focused_order_id": result.get("focused_order_id", previous.get("focused_order_id", "")),
+            "_context_expires": expiries})
         public_pending = None
         if pending_action:
             public_pending = {key: value for key, value in pending_action.items() if key != "confirmationToken"}

@@ -50,6 +50,7 @@ class ChatState(TypedDict, total=False):
     previous_products: list[dict]
     focused_product_id: str
     focused_product_ids: list[str]
+    focused_order_id: str
     visual_description: str
     plan: dict
     products: list[dict]

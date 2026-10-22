@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock
 
 from qdrant_client import AsyncQdrantClient
 from langchain_google_genai.chat_models import GoogleAPIError, GoogleRateLimitError
+from pydantic import ValidationError
 
 from src.agents.product import ProductAgent, RetrievalDecision
 from src.agents.router import RouterAgent
@@ -198,13 +199,16 @@ class AgentTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_generator_cannot_start_a_second_retrieval_round(self):
         models = AsyncMock()
-        models.structured.return_value = RetrievalDecision(action="retry", query="tai nghe có mic")
+        with self.assertRaises(ValidationError):
+            RetrievalDecision(action="retry", query="tai nghe có mic")
+        models.structured.return_value = RetrievalDecision(action="accept", product_ids=[PID], answer="Sản phẩm phù hợp.")
         agent = ProductAgent(AsyncMock(), models, AsyncMock(), use_llm_evaluator=True)
         observed = []
 
         async def retrieve(state):
             observed.append(dict(state["plan"]))
-            return {"products": [], "rounds": state.get("rounds", 0) + 1, "retrieval_mode": "text"}
+            return {"products": [{"id": PID, "name": "Tai nghe"}],
+                    "rounds": state.get("rounds", 0) + 1, "retrieval_mode": "text"}
 
         agent.rag.chain = AsyncMock()
         agent.rag.chain.ainvoke.side_effect = retrieve
@@ -215,6 +219,36 @@ class AgentTests(unittest.IsolatedAsyncioTestCase):
         for item in observed:
             self.assertEqual(item["max_price"], 500000)
             self.assertEqual(item["variant_terms"], ["đen"])
+
+    async def test_empty_retrieval_does_not_call_gemini(self):
+        models = AsyncMock()
+        agent = ProductAgent(AsyncMock(), models, AsyncMock())
+        agent.rag.chain = AsyncMock()
+        agent.rag.chain.ainvoke.return_value = {
+            "products": [], "rounds": 1, "retrieval_mode": "text",
+        }
+
+        result = await agent.graph.ainvoke({"message": "tìm sản phẩm không có"})
+
+        self.assertEqual(result["rounds"], 1)
+        self.assertIn("chưa tìm được", result["answer"])
+        agent.rag.chain.ainvoke.assert_awaited_once()
+        models.structured.assert_not_awaited()
+
+    async def test_action_plan_skips_retrieval_and_gemini(self):
+        models = AsyncMock()
+        agent = ProductAgent(AsyncMock(), models, AsyncMock(), commerce=AsyncMock())
+        agent.rag.chain = AsyncMock()
+        agent.commerce_agent.detect = lambda state: "add_to_cart"
+        agent.commerce_agent.execute = AsyncMock(return_value={"answer": "Đã xử lý yêu cầu."})
+
+        result = await agent.graph.ainvoke({"message": "thêm vào giỏ"})
+
+        self.assertEqual(result["flow"], "commerce")
+        self.assertEqual(result["answer"], "Đã xử lý yêu cầu.")
+        agent.commerce_agent.execute.assert_awaited_once()
+        agent.rag.chain.ainvoke.assert_not_awaited()
+        models.structured.assert_not_awaited()
 
     async def test_accept_ignores_invented_id(self):
         models = AsyncMock()

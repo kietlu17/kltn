@@ -179,6 +179,23 @@ class CommerceAPI:
         )
         return await self._json(response)
 
+    async def user_orders(self, user_id: str) -> list[dict]:
+        response = await self.http.get(
+            f"{self.settings.order_url}/orders/user", headers=self._headers(user_id)
+        )
+        body = await self._json(response)
+        return body if isinstance(body, list) else []
+
+    async def order_shipment(self, user_id: str, order_id: int) -> dict | None:
+        response = await self.http.get(
+            f"{self.settings.order_url}/orders/shipments/order/{order_id}",
+            headers=self._headers(user_id),
+        )
+        if response.status_code == 404:
+            return None
+        body = await self._json(response)
+        return body if isinstance(body, dict) else None
+
     async def add_to_cart(
         self, user_id: str, product_id: str, variant_id: str | None, quantity: int, action_key: str
     ) -> dict:

@@ -1,21 +1,17 @@
-# Product Agent — LangChain / LangGraph / Gemini
+# Shopping Assistant — LangChain / LangGraph / Gemini
 
-Chatbot service là một Product Agent chuyên tìm và tư vấn sản phẩm bằng text hoặc ảnh.
+Chatbot service điều phối các nhánh sản phẩm, chính sách và đơn hàng. Nhánh sản phẩm kết hợp RAG với công cụ mua sắm.
 
 ## Kiến trúc
 
 ```text
-Frontend → API Gateway /assistant → RouterAgent (LangGraph)
-                                      ├── product_agent (subgraph đầu tiên)
-                                           understand
-                                               ↓
-                                           ProductRAG (LangChain LCEL)
-                                               ↓
-                                           decide_and_answer
-                                               │
-                                               └── refine → ProductRAG (tối đa 1–3 vòng)
-                                      └── customer_service_agent
-                                           retrieve_policy → answer_policy
+Frontend → API Gateway /assistant → RouterAgent: plan một lần
+                                      ├── product_agent: plan theo quy tắc
+                                      │    ├── hành động mua sắm → commerce_action
+                                      │    ├── cần làm rõ → decide_and_answer
+                                      │    └── tìm sản phẩm → ProductRAG → decide_and_answer
+                                      ├── customer_service_agent: retrieve_policy → answer_policy
+                                      └── order_agent: load_order → answer_order
 
 Text/caption → Gemini embeddings → Qdrant text collection
 Ảnh catalog/khách → CLIP → Qdrant image collection
@@ -27,7 +23,9 @@ Shopee Help API → local PDFs → policy indexer → Gemini embeddings → Qdra
 - LangGraph điều phối router và Product Agent.
 - LangChain cung cấp Gemini chat/vision, embeddings, structured output và LCEL RAG runnable.
 - Customer Service Agent chỉ trả lời dựa trên policy chunks kèm URL nguồn.
-- Gemini xử lý planning, evaluation, answer, image understanding và text embeddings.
+- Lập kế hoạch và chọn nhánh dùng quy tắc, không gọi Gemini. Tìm kiếm sản phẩm dùng một lượt truy xuất và tối đa một lần gọi Gemini để chọn kết quả, trả lời. Câu hỏi chỉ có ảnh dùng CLIP và không gọi Gemini để trả lời; ảnh kèm mô tả có thể cần thêm một lần gọi Gemini để tạo caption.
+- Gemini còn được dùng cho embeddings, trả lời chính sách và mô tả ảnh khi cần.
+- Order Agent đọc đơn hàng qua API của tài khoản đã xác thực; đây là nhánh gọi công cụ, không phải RAG.
 - CLIP vẫn tạo vector image-to-image độc lập; không phải LLM và không dùng chung vector space với Gemini.
 - Product Agent luôn đọc lại trạng thái duyệt, giá và tồn kho trước khi trả sản phẩm.
 
@@ -81,7 +79,6 @@ GEMINI_API_KEY=
 CHATBOT_GEMINI_MODEL=gemini-2.5-flash
 CHATBOT_EMBEDDING_MODEL=gemini-embedding-001
 CHATBOT_EMBEDDING_DIMENSIONS=768
-CHATBOT_PRODUCT_MAX_ROUNDS=2
 CHATBOT_RERANK_CANDIDATES=30
 CHATBOT_RERANK_BAYESIAN_PRIOR=20
 CHATBOT_IMAGE_MODEL=openai/clip-vit-base-patch32

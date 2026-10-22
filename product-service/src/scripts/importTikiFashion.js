@@ -2,6 +2,7 @@
 const mongoose = require('mongoose');
 const { connectMongo } = require('../config/db');
 const Product = require('../models/Product');
+const { htmlToPlainText } = require('../utils/catalogText');
 const Category = require('../models/Category');
 const { initProducer, closeProducer, publishProductCreated } = require('../kafka/producer');
 
@@ -107,7 +108,7 @@ function buildCopy(item, detail, audience) {
     `<p><small>Nguồn dữ liệu sản phẩm tham khảo: <a href="${escapeHtml(sourceUrl(item))}">Tiki #${detail.id || item.id}</a>. Nội dung mô tả đã được biên soạn lại.</small></p>`,
     '</section>'
   ].join('');
-  return { description, detail: detailHtml };
+  return { description, detail: htmlToPlainText(detailHtml, [description, 'Mô tả sản phẩm']) };
 }
 
 function buildVariants(detail) {
@@ -146,6 +147,9 @@ function buildProduct(item, detail, audience, categoryId) {
     price: variants.length ? Math.min(...variants.map((variant) => variant.price)) : price,
     description: copy.description,
     detail: copy.detail,
+    sourceProvider: 'tiki',
+    sourceProductId: String(detail.id || item.id),
+    sourceUrl: sourceUrl(item),
     images: image ? [image] : [],
     quantity: variants.length ? variants.reduce((total, variant) => total + variant.quantity, 0) : 30,
     sold: Math.max(0, Number(item.quantity_sold?.value || 0)),
@@ -194,7 +198,9 @@ async function ensureCategory(source) {
 async function importAudience(source) {
   const category = APPLY ? await ensureCategory(source) : { _id: 'dry-run-category' };
   const marker = new RegExp(`data-source="tiki"[^>]+data-source-id="[0-9]+"`);
-  const existingCount = APPLY ? await Product.countDocuments({ shopId: SHOP_ID, categoryId: String(category._id), detail: marker }) : 0;
+  const existingCount = APPLY ? await Product.countDocuments({ shopId: SHOP_ID, categoryId: String(category._id), $or: [
+    { sourceProvider: 'tiki' }, { detail: marker }
+  ] }) : 0;
   const needed = Math.max(0, TARGET_PER_AUDIENCE - existingCount);
   let inserted = 0;
   const preview = [];
@@ -211,6 +217,7 @@ async function importAudience(source) {
       if (APPLY) {
         const markerText = `data-source-id="${externalId}"`;
         const duplicate = await Product.findOne({ $or: [
+          { shopId: SHOP_ID, sourceProvider: 'tiki', sourceProductId: externalId },
           { detail: { $regex: markerText } },
           { shopId: SHOP_ID, name: plainText(item.name) }
         ] });
@@ -241,7 +248,7 @@ async function main() {
         const imported = await Product.find({
           shopId: SHOP_ID,
           categoryId: String(result.category._id),
-          detail: /data-source="tiki"/
+          $or: [{ sourceProvider: 'tiki' }, { detail: /data-source="tiki"/ }]
         }).sort({ createdAt: -1 }).limit(TARGET_PER_AUDIENCE);
         for (const product of imported) await publishProductCreated(product);
       }

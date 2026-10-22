@@ -3,10 +3,11 @@ const mongoose = require('mongoose');
 const { connectMongo } = require('../config/db');
 const Product = require('../models/Product');
 const Category = require('../models/Category');
+const { htmlToPlainText } = require('../utils/catalogText');
 const { initProducer, closeProducer, publishProductUpdated } = require('../kafka/producer');
 
 const APPLY = process.argv.includes('--apply');
-const ENRICHMENT_MARKER = 'data-enrichment-version="catalog-v1"';
+const ENRICHMENT_MARKER = 'catalog-v1';
 
 function escapeHtml(value) {
   return String(value || '')
@@ -90,7 +91,7 @@ function buildCopy(product, categoryName) {
   ].join(' ');
 
   const detail = [
-    `<section ${ENRICHMENT_MARKER}>`,
+    `<section data-enrichment-version="${ENRICHMENT_MARKER}">`,
     '<h2>Thông tin tổng quan</h2>',
     `<p>${escapeHtml(description)}</p>`,
     '<h3>Thông tin gốc được ghi nhận</h3>',
@@ -123,7 +124,7 @@ function buildCopy(product, categoryName) {
     '<p><small>Nội dung được chuẩn hóa từ dữ liệu catalog hiện có; không bổ sung cam kết kỹ thuật chưa được nhà bán hàng công bố.</small></p>',
     '</section>'
   ].join('');
-  return { description, detail };
+  return { description, detail: htmlToPlainText(detail, [description, 'Thông tin tổng quan']) };
 }
 
 async function main() {
@@ -135,7 +136,9 @@ async function main() {
     const candidates = products.filter((product) =>
       !isClearlyBlocked(product)
       &&
-      !String(product.detail || '').includes(ENRICHMENT_MARKER)
+      product.contentVersion !== ENRICHMENT_MARKER
+      && !String(product.detail || '').includes(`data-enrichment-version="${ENRICHMENT_MARKER}"`)
+      && product.sourceProvider !== 'tiki'
       && !String(product.detail || '').includes('data-source="tiki"')
       && (String(product.description || '').length < 250 || String(product.detail || '').length < 800)
     );
@@ -145,12 +148,13 @@ async function main() {
       if (APPLY) {
         product.description = copy.description;
         product.detail = copy.detail;
+        product.contentVersion = ENRICHMENT_MARKER;
         await product.save();
       }
       updated.push({ id: String(product._id), name: product.name, descriptionLength: copy.description.length, detailLength: copy.detail.length });
     }
     if (APPLY) {
-      const enriched = await Product.find({ detail: new RegExp('data-enrichment-version="catalog-v1"') });
+      const enriched = await Product.find({ contentVersion: ENRICHMENT_MARKER });
       for (const product of enriched) await publishProductUpdated(product);
     }
     console.log(JSON.stringify({

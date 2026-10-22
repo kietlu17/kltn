@@ -4,21 +4,22 @@
 
 ```text
 RouterAgent
-  route → product_agent → END
+  plan → product_agent | customer_service_agent | order_agent → END
 
 ProductAgent
-  understand → retrieve(ProductRAG) → decide_and_answer → END
-                         ↑                    │
-                         └──── refine ────────┘
+  security_guard → plan
+                    ├── commerce_action → END
+                    ├── decide_and_answer (cần làm rõ) → END
+                    └── retrieve(ProductRAG) → decide_and_answer → END
 ```
 
-`RouterAgent` là supervisor graph. `product_agent` là domain subgraph đầu
-tiên và dùng chung state với router; có thể thêm order/policy agent bằng route
-mới mà không đổi HTTP contract.
+`RouterAgent` là supervisor graph. Bước `plan` chọn đúng một nhánh theo nội dung câu hỏi,
+không gọi Gemini. Ba domain subgraph dùng chung state với router.
 
-`ProductAgent` có số vòng retrieval hữu hạn, mặc định 2 và tối đa 3. Node
-`refine` chỉ sửa query; giá, variant terms và product ID tham chiếu không được
-nới lỏng.
+`ProductAgent` lập kế hoạch theo quy tắc trước khi gọi công cụ. Mỗi câu hỏi tìm sản phẩm
+chỉ truy xuất một lượt và tối đa một lần gọi Gemini để chọn kết quả và viết câu trả lời.
+Không có cạnh quay lại truy xuất. Nhánh hành động mua sắm và câu hỏi cần làm rõ không
+gọi Gemini để lập kế hoạch.
 
 ## LangChain RAG
 
@@ -58,8 +59,9 @@ so sánh raw cosine score giữa hai model.
 Product subgraph now starts with a deterministic action gate:
 
 ```text
-classify_action
-  ├─ search → understand → retrieve → decide_and_answer
+plan
+  ├─ search → retrieve → decide_and_answer
+  ├─ clarify → decide_and_answer
   └─ action → commerce_action → END
 ```
 

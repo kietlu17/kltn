@@ -23,6 +23,13 @@ app.options('*', cors(corsOptions));
 app.use('/assistant', express.json({ limit: '8mb' }));
 app.use(express.json());
 app.use(morgan('dev'));
+app.use('/assistant', (req, res, next) => {
+  // Only the verified token may supply an identity to the assistant.
+  delete req.headers['x-user-id'];
+  delete req.headers['x-user-role'];
+  delete req.headers['x-user-shop-id'];
+  next();
+});
 
 const RATE_LIMIT_WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS || 60 * 1000);
 const RATE_LIMIT_MAX_REQUESTS = Number(process.env.RATE_LIMIT_MAX_REQUESTS || 600);

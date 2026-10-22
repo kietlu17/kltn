@@ -341,6 +341,30 @@ class EndpointTests(unittest.TestCase):
         with sqlite3.connect(self.temp.name + "/sessions.sqlite") as connection:
             self.assertEqual(connection.execute("SELECT count(*) FROM sessions").fetchone()[0], 0)
 
+    def test_order_focus_survives_count_question_without_caching_order_list(self):
+        graph = AsyncMock()
+        seen_states = []
+
+        async def invoke(state):
+            seen_states.append(state)
+            if state["message"] == "Đơn #79 ở đâu?":
+                return {"answer": "Đơn #79 chờ thanh toán.", "products": [], "focused_order_id": "79"}
+            return {"answer": "Bạn có 2 đơn hàng.", "products": []}
+
+        graph.ainvoke.side_effect = invoke
+        app.state.agent.graph = graph
+        headers = {"x-user-id": "buyer-1", "x-user-role": "buyer"}
+        first = self.client.post("/assistant/chat", json={"message": "Đơn #79 ở đâu?"}, headers=headers).json()
+        self.client.post("/assistant/chat", json={
+            "message": "Tôi có mấy đơn hàng?", "sessionId": first["sessionId"],
+        }, headers=headers)
+        self.client.post("/assistant/chat", json={
+            "message": "Đơn đó ở đâu?", "sessionId": first["sessionId"],
+        }, headers=headers)
+        self.assertEqual(seen_states[1]["focused_order_id"], "79")
+        self.assertEqual(seen_states[2]["focused_order_id"], "79")
+        self.assertNotIn("order_list", seen_states[2])
+
     def test_named_product_focus_and_card_fields_survive_followups(self):
         graph = AsyncMock()
 
