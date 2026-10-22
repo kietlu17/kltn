@@ -3,7 +3,9 @@ import json
 import re
 import unicodedata
 from datetime import datetime, timedelta, timezone
+from typing import Annotated
 
+from langgraph.channels import UntrackedValue
 from langgraph.graph import END, START, StateGraph
 
 from .state import ChatState
@@ -76,15 +78,15 @@ def _date(value) -> str:
 
 
 class OrderState(ChatState, total=False):
-    order_context: dict
-    shipment_context: dict | None
-    order_intent: str
-    order_selection: str
-    order_count: int
-    order_list: list[dict]
-    order_candidates: list[dict]
-    order_product_query: str
-    order_product_name: str
+    order_context: Annotated[dict, UntrackedValue(dict)]
+    shipment_context: Annotated[dict | None, UntrackedValue(dict)]
+    order_intent: Annotated[str, UntrackedValue(str)]
+    order_selection: Annotated[str, UntrackedValue(str)]
+    order_count: Annotated[int, UntrackedValue(int)]
+    order_list: Annotated[list[dict], UntrackedValue(list)]
+    order_candidates: Annotated[list[dict], UntrackedValue(list)]
+    order_product_query: Annotated[str, UntrackedValue(str)]
+    order_product_name: Annotated[str, UntrackedValue(str)]
 
 
 class OrderAgent:

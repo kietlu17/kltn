@@ -1,7 +1,8 @@
 import re
 import unicodedata
-from typing import Literal, TypedDict
+from typing import Annotated, Literal, TypedDict
 
+from langgraph.channels import UntrackedValue
 from pydantic import BaseModel, Field, model_validator
 
 
@@ -43,18 +44,20 @@ class SearchPlan(BaseModel):
 
 class ChatState(TypedDict, total=False):
     message: str
-    image: str | None
+    # Shopper image bytes are needed during a run, but must never enter a checkpoint.
+    image: Annotated[str | None, UntrackedValue(str)]
     reference_product_id: str | None
     history: list[dict]
-    previous_plan: dict
-    previous_products: list[dict]
+    previous_plan: Annotated[dict, UntrackedValue(dict)]
+    previous_products: Annotated[list[dict], UntrackedValue(list)]
     focused_product_id: str
     focused_product_ids: list[str]
     focused_order_id: str
     visual_description: str
     plan: dict
-    products: list[dict]
-    answer: str
+    remembered_products: list[dict]
+    products: Annotated[list[dict], UntrackedValue(list)]
+    answer: Annotated[str, UntrackedValue(str)]
     session_id: str
     authenticated_user_id: str
     actor_role: str
@@ -66,5 +69,8 @@ class ChatState(TypedDict, total=False):
     confirm_action_id: str | None
     cancel_action_id: str | None
     pending_action: dict | None
-    action_result: dict
+    action_result: Annotated[dict, UntrackedValue(dict)]
     commerce_intent: str
+    session_expires_at: float
+    _context_expires: dict[str, float]
+    turn_committed: bool

@@ -1,8 +1,9 @@
 """Top-level LangGraph router for domain agents."""
 import re
 import unicodedata
-from typing import Literal
+from typing import Annotated, Literal
 
+from langgraph.channels import UntrackedValue
 from langgraph.graph import END, START, StateGraph
 
 from .product import ProductAgent, ProductState
@@ -10,14 +11,15 @@ from .product import ProductAgent, ProductState
 
 class RouterState(ProductState, total=False):
     route_name: Literal["product", "customer_service", "order"]
-    policy_context: list[dict]
-    sources: list[dict]
+    policy_context: Annotated[list[dict], UntrackedValue(list)]
+    sources: Annotated[list[dict], UntrackedValue(list)]
 
 
 class RouterAgent:
     """Supervisor graph that dispatches requests to domain subgraphs."""
 
-    def __init__(self, product_agent: ProductAgent, customer_service_agent=None, order_agent=None):
+    def __init__(self, product_agent: ProductAgent, customer_service_agent=None, order_agent=None,
+                 checkpointer=None):
         self.product_agent = product_agent
         self.customer_service_agent = customer_service_agent
         self.order_agent = order_agent
@@ -39,7 +41,7 @@ class RouterAgent:
             graph.add_edge("customer_service_agent", END)
         if order_agent:
             graph.add_edge("order_agent", END)
-        self.graph = graph.compile()
+        self.graph = graph.compile(checkpointer=checkpointer)
 
     async def route(self, state):
         if self.order_agent and self._is_order(state.get("message", "")):

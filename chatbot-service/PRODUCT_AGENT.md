@@ -38,7 +38,8 @@ gọi Gemini để lập kế hoạch.
 
 - Yêu cầu chỉ có ảnh: CLIP trực tiếp, không cần gọi LLM.
 - Ảnh kèm điều kiện: Gemini multimodal tạo caption, kết hợp text RAG và CLIP.
-- Hỏi tiếp có thể dùng vector ảnh trong session; byte ảnh không được lưu.
+- Hỏi tiếp có thể dùng vector ảnh trong LangGraph checkpoint; byte ảnh được đánh dấu
+  `UntrackedValue` và không được ghi vào checkpoint.
 - Tìm tương tự theo product ID dùng tối đa ba vector ảnh nguồn và ưu tiên cùng
   category.
 

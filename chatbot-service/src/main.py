@@ -15,6 +15,7 @@ import httpx
 from fastapi import FastAPI, HTTPException, Path as ApiPath, Query, Request
 from pydantic import BaseModel, Field, ValidationError, model_validator
 from qdrant_client.http.exceptions import UnexpectedResponse
+from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 
 from .agents.product import ProductAgent
 from .agents.order import OrderAgent
@@ -114,56 +115,97 @@ class ChatRequest(BaseModel):
         return self
 
 
-class Sessions:
-    def __init__(self, settings):
-        Path(settings.data_dir).mkdir(parents=True, exist_ok=True)
-        self.db = sqlite3.connect(str(Path(settings.data_dir) / "sessions.sqlite"))
-        self.db.execute("CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, state TEXT, expires REAL)")
-        self.ttl = settings.session_ttl
+def prune_context(state: dict, now: float) -> dict:
+    """Expire conversation fields before seeding the next graph run."""
+    state = dict(state)
+    expiries = dict(state.get("_context_expires", {}))
+    if expiries.get("visual", float("inf")) <= now:
+        state.update(visual_description="", image_vector=[], image_namespace="")
+        expiries.pop("visual", None)
+    if expiries.get("pending_action", float("inf")) <= now:
+        state["pending_action"] = None
+        expiries.pop("pending_action", None)
+    if expiries.get("shopping", float("inf")) <= now:
+        state.update(plan={}, remembered_products=[], focused_product_id="", focused_product_ids=[])
+        expiries.pop("shopping", None)
+    state["_context_expires"] = expiries
+    return state
 
-    @staticmethod
-    def _prune_context(state, now):
-        state = dict(state or {})
-        expiries = dict(state.get("_context_expires", {}))
 
-        if expiries.get("visual", float("inf")) <= now:
-            for key in ("visual_description", "image_vector", "image_namespace"):
-                state.pop(key, None)
-            expiries.pop("visual", None)
+async def latest_committed_state(graph, config):
+    """Ignore checkpoints from a graph run that failed before its turn was finalized."""
+    snapshot = await graph.aget_state(config)
+    while snapshot and snapshot.values and not snapshot.values.get("turn_committed"):
+        snapshot = await graph.aget_state(snapshot.parent_config) if snapshot.parent_config else None
+    return snapshot if snapshot and snapshot.values else None
 
-        if expiries.get("pending_action", float("inf")) <= now:
-            state.pop("pending_action", None)
-            expiries.pop("pending_action", None)
 
-        if expiries.get("shopping", float("inf")) <= now:
-            for key in ("plan", "products", "focused_product_id", "focused_product_ids"):
-                state.pop(key, None)
-            expiries.pop("shopping", None)
+async def migrate_legacy_sessions(graph, settings):
+    """Import still-valid conversations from the former session table once."""
+    path = Path(settings.data_dir) / "sessions.sqlite"
+    if not path.exists():
+        return
+    now = time.time()
+    with sqlite3.connect(path) as connection:
+        rows = connection.execute(
+            "SELECT id, state, expires FROM sessions WHERE expires > ?", (now,)
+        ).fetchall()
+    for session_id, serialized, expires in rows:
+        config = {"configurable": {"thread_id": session_id}}
+        if await latest_committed_state(graph, config):
+            continue
+        previous = prune_context(json.loads(serialized), now)
+        await graph.aupdate_state(config, {
+            "history": compact_history(previous.get("history", [])),
+            "plan": previous.get("plan", {}),
+            "remembered_products": compact_session_products(previous.get("products", [])),
+            "visual_description": previous.get("visual_description", ""),
+            "image_vector": previous.get("image_vector", []),
+            "image_namespace": previous.get("image_namespace", ""),
+            "authenticated_user_id": previous.get("user_id", ""),
+            "pending_action": previous.get("pending_action"),
+            "focused_product_id": previous.get("focused_product_id", ""),
+            "focused_product_ids": previous.get("focused_product_ids", []),
+            "focused_order_id": previous.get("focused_order_id", ""),
+            "_context_expires": previous.get("_context_expires", {}),
+            "session_expires_at": expires,
+            "turn_committed": True,
+        }, as_node="product_agent")
 
-        if expiries:
-            state["_context_expires"] = expiries
-        else:
-            state.pop("_context_expires", None)
-        return state
 
-    def load(self, session_id):
-        now = time.time()
-        self.db.execute("DELETE FROM sessions WHERE expires < ?", (now,))
-        self.db.commit()
-        row = self.db.execute("SELECT state FROM sessions WHERE id=?", (session_id,)).fetchone() if session_id else None
-        if session_id and not row:
-            raise HTTPException(410, "Phiên chat đã hết hạn. Hãy bắt đầu cuộc trò chuyện mới.")
-        return self._prune_context(json.loads(row[0]), now) if row else {}
+async def purge_expired_checkpoints(graph, checkpointer, active_sessions, now):
+    """Remove expired or abandoned threads from the durable checkpoint database."""
+    await checkpointer.setup()
+    async with checkpointer.conn.execute("SELECT DISTINCT thread_id FROM checkpoints") as cursor:
+        thread_ids = [row[0] for row in await cursor.fetchall()]
+    for thread_id in thread_ids:
+        if thread_id in active_sessions:
+            continue
+        snapshot = await latest_committed_state(
+            graph, {"configurable": {"thread_id": thread_id}}
+        )
+        if not snapshot or snapshot.values.get("session_expires_at", 0) <= now:
+            await checkpointer.adelete_thread(thread_id)
 
-    def save(self, session_id, state):
-        self.db.execute("INSERT OR REPLACE INTO sessions VALUES (?,?,?)",
-                        (session_id, json.dumps(state, ensure_ascii=False), time.time() + self.ttl))
-        self.db.commit()
+
+async def checkpoint_cleanup_loop(app):
+    while True:
+        await asyncio.sleep(3600)
+        try:
+            await purge_expired_checkpoints(app.state.agent.graph, app.state.checkpointer,
+                                            app.state.busy_sessions, time.time())
+        except Exception:
+            log.exception("Checkpoint cleanup failed")
 
 
 @asynccontextmanager
 async def lifespan(app):
     settings = Settings()
+    Path(settings.data_dir).mkdir(parents=True, exist_ok=True)
+    checkpoint_context = AsyncSqliteSaver.from_conn_string(
+        str(Path(settings.data_dir) / "checkpoints.sqlite")
+    )
+    checkpointer = await checkpoint_context.__aenter__()
     api, commerce, models, vectors = (
         CatalogAPI(settings),
         CommerceAPI(settings),
@@ -176,14 +218,24 @@ async def lifespan(app):
     product_agent = ProductAgent(api, models, vectors, visual, commerce)
     customer_service_agent = CustomerServiceAgent(models, policies)
     order_agent = OrderAgent(commerce)
-    app.state.agent = RouterAgent(product_agent, customer_service_agent, order_agent)
-    app.state.sessions = Sessions(settings)
+    app.state.agent = RouterAgent(product_agent, customer_service_agent, order_agent,
+                                  checkpointer=checkpointer)
+    app.state.checkpointer = checkpointer
+    await migrate_legacy_sessions(app.state.agent.graph, settings)
     app.state.busy_sessions = set()
     app.state.active_requests = 0
+    await purge_expired_checkpoints(app.state.agent.graph, checkpointer,
+                                    app.state.busy_sessions, time.time())
+    cleanup_task = asyncio.create_task(checkpoint_cleanup_loop(app))
     try:
         yield
     finally:
-        app.state.sessions.db.close()
+        cleanup_task.cancel()
+        try:
+            await cleanup_task
+        except asyncio.CancelledError:
+            pass
+        await checkpoint_context.__aexit__(None, None, None)
         await api.close()
         await commerce.close()
         await models.close()
@@ -229,25 +281,39 @@ async def chat(request: ChatRequest, http_request: Request):
         raise HTTPException(409, "Vui lòng đợi câu trả lời trước.")
     if app.state.active_requests >= 4:
         raise HTTPException(429, "Trợ lý đang bận. Bạn thử lại sau ít phút nhé.")
-    previous = app.state.sessions.load(request.sessionId)
-    previous_products = previous.get("products", [])
-    mentioned_product_ids = resolve_product_references(request.message, previous_products)
-    previous_focused_ids = previous.get("focused_product_ids") or [previous.get("focused_product_id", "")]
-    focused_product_ids = (
-        [request.referenceProductId]
-        if request.referenceProductId
-        else mentioned_product_ids or resolve_product_references(
-            "", previous_products, focused_ids=previous_focused_ids
-        )
-    )
-    focused_product_id = focused_product_ids[-1] if focused_product_ids else ""
-    actor_user_id = str(http_request.headers.get("x-user-id", "")).strip()
-    actor_role = str(http_request.headers.get("x-user-role", "")).strip()
-    bound_user_id = str(previous.get("user_id", "")).strip()
-    if bound_user_id and bound_user_id != actor_user_id:
-        raise HTTPException(403, "Phiên chat này thuộc về một tài khoản khác.")
     app.state.busy_sessions.add(session_id)
     app.state.active_requests += 1
+    try:
+        config = {"configurable": {"thread_id": session_id}}
+        snapshot = await latest_committed_state(app.state.agent.graph, config) if request.sessionId else None
+        if request.sessionId and (
+            not snapshot or not snapshot.values
+            or snapshot.values.get("session_expires_at", 0) <= time.time()
+        ):
+            if snapshot and snapshot.values:
+                await app.state.checkpointer.adelete_thread(session_id)
+            raise HTTPException(410, "Phiên chat đã hết hạn. Hãy bắt đầu cuộc trò chuyện mới.")
+        previous = prune_context(snapshot.values, time.time()) if snapshot else {}
+        previous_products = previous.get("remembered_products", [])
+        mentioned_product_ids = resolve_product_references(request.message, previous_products)
+        previous_focused_ids = previous.get("focused_product_ids") or [previous.get("focused_product_id", "")]
+        focused_product_ids = (
+            [request.referenceProductId]
+            if request.referenceProductId
+            else mentioned_product_ids or resolve_product_references(
+                "", previous_products, focused_ids=previous_focused_ids
+            )
+        )
+        focused_product_id = focused_product_ids[-1] if focused_product_ids else ""
+        actor_user_id = str(http_request.headers.get("x-user-id", "")).strip()
+        actor_role = str(http_request.headers.get("x-user-role", "")).strip()
+        bound_user_id = str(previous.get("authenticated_user_id", "")).strip()
+        if bound_user_id and bound_user_id != actor_user_id:
+            raise HTTPException(403, "Phiên chat này thuộc về một tài khoản khác.")
+    except Exception:
+        app.state.busy_sessions.discard(session_id)
+        app.state.active_requests -= 1
+        raise
     try:
         image = None
         if request.image:
@@ -259,6 +325,12 @@ async def chat(request: ChatRequest, http_request: Request):
         state = {"message": request.message.strip(), "image": image,
                  "reference_product_id": request.referenceProductId, "history": previous.get("history", []),
                  "previous_plan": previous.get("plan", {}), "previous_products": previous_products,
+                 "plan": {}, "products": [], "answer": "", "action_result": {},
+                 "rounds": 0, "decision": "", "flow": "", "route_name": "",
+                 "retrieval_mode": "", "warnings": [], "sources": [], "policy_context": [],
+                 "security_blocked": False, "security_reasons": [],
+                 "visual_only": False, "llm_degraded": False, "commerce_intent": "",
+                 "turn_committed": False,
                  "focused_product_id": focused_product_id, "focused_product_ids": focused_product_ids,
                  "focused_order_id": previous.get("focused_order_id", ""),
                  "visual_description": previous.get("visual_description", ""),
@@ -268,8 +340,12 @@ async def chat(request: ChatRequest, http_request: Request):
                  "variant_id": request.variantId, "address_id": request.addressId,
                  "payment_method": request.paymentMethod, "voucher_code": request.voucherCode,
                  "action_request_id": request.actionRequestId, "confirm_action_id": request.confirmActionId,
-                 "cancel_action_id": request.cancelActionId, "pending_action": previous.get("pending_action")}
-        result = await asyncio.wait_for(app.state.agent.graph.ainvoke(state), timeout=360)
+                 "cancel_action_id": request.cancelActionId, "pending_action": previous.get("pending_action"),
+                 "_context_expires": previous.get("_context_expires", {})}
+        run_config = snapshot.config if snapshot else config
+        result = await asyncio.wait_for(
+            app.state.agent.graph.ainvoke(state, config=run_config, durability="exit"), timeout=360
+        )
         history = compact_history(state["history"] + [
             {"role": "user", "content": request.message or "[Ảnh sản phẩm]"},
             {"role": "assistant", "content": result["answer"]},
@@ -295,8 +371,8 @@ async def chat(request: ChatRequest, http_request: Request):
         next_focused_product_id = next_focused_product_ids[-1] if next_focused_product_ids else ""
         now = time.time()
         expiries = dict(previous.get("_context_expires", {}))
-        plan = result.get("plan", previous.get("plan", {}))
-        saved_products = products or previous.get("products", [])
+        plan = result.get("plan") or previous.get("plan", {})
+        saved_products = products or previous.get("remembered_products", [])
         if "plan" in result or products:
             expiries["shopping"] = now + _bounded_env_int(
                 "CHATBOT_SHOPPING_CONTEXT_TTL_SECONDS", 21600, 300, 86400
@@ -320,14 +396,19 @@ async def chat(request: ChatRequest, http_request: Request):
         else:
             expiries.pop("pending_action", None)
 
-        app.state.sessions.save(session_id, {"history": history, "plan": plan,
-            "products": saved_products, "visual_description": visual_description,
+        await app.state.agent.graph.aupdate_state(config, {
+            "history": history, "plan": plan, "remembered_products": saved_products,
+            "visual_description": visual_description,
             "image_vector": image_vector, "image_namespace": image_namespace,
-            "user_id": actor_user_id or bound_user_id, "pending_action": pending_action,
+            "authenticated_user_id": actor_user_id or bound_user_id,
+            "pending_action": pending_action,
             "focused_product_id": next_focused_product_id,
             "focused_product_ids": next_focused_product_ids,
             "focused_order_id": result.get("focused_order_id", previous.get("focused_order_id", "")),
-            "_context_expires": expiries})
+            "_context_expires": expiries,
+            "session_expires_at": time.time() + app.state.settings.session_ttl,
+            "turn_committed": True,
+        })
         public_pending = None
         if pending_action:
             public_pending = {key: value for key, value in pending_action.items() if key != "confirmationToken"}

@@ -29,6 +29,23 @@ Shopee Help API → local PDFs → policy indexer → Gemini embeddings → Qdra
 - CLIP vẫn tạo vector image-to-image độc lập; không phải LLM và không dùng chung vector space với Gemini.
 - Product Agent luôn đọc lại trạng thái duyệt, giá và tồn kho trước khi trả sản phẩm.
 
+## Trạng thái hội thoại
+
+`sessionId` của API là `thread_id` của LangGraph. Router graph dùng
+`AsyncSqliteSaver` để checkpoint trạng thái trong `/data/checkpoints.sqlite`;
+ứng dụng không còn lưu hội thoại bằng bảng `Sessions` riêng. Mỗi lượt mới đọc
+checkpoint đã hoàn tất gần nhất, đưa câu hỏi mới vào graph, rồi ghi lại lịch sử
+rút gọn, kế hoạch tìm kiếm, sản phẩm đang xét và thao tác chờ xác nhận.
+
+Ảnh gốc, thẻ sản phẩm đầy đủ, đoạn chính sách và dữ liệu đơn hàng trung gian là
+các trường `UntrackedValue`: chúng phục vụ lượt xử lý nhưng không được ghi vào
+checkpoint. Chỉ thẻ sản phẩm rút gọn được giữ cho câu hỏi tiếp nối. Ngữ cảnh
+mua sắm, ảnh đã mã hóa vector và thao tác chờ có
+thời hạn riêng; checkpoint hết hạn được dọn khi truy cập hoặc theo lịch. Khi
+nâng cấp, các phiên còn hiệu lực từ `/data/sessions.sqlite` được nhập một lần
+vào checkpoint để giữ cuộc hội thoại đang dùng. Frontend tiếp tục gửi và nhận
+`sessionId` như trước.
+
 ## Cấu trúc thư mục
 
 ```text

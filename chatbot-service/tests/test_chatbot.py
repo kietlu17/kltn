@@ -1,23 +1,29 @@
 import base64
 import io
+import json
 import os
 import sqlite3
 import tempfile
 import time
 import unittest
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import httpx
-from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from PIL import Image
 from qdrant_client import AsyncQdrantClient
+from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+from langgraph.graph import END, START, StateGraph
 
-from src.agents.product import ProductAgent, RetrievalDecision
-from src.agents.state import SearchPlan, explicit_price_limits
+from src.agents.product import ProductAgent, ProductState, RetrievalDecision
+from src.agents.order import OrderAgent
+from src.agents.router import RouterAgent
+from src.agents.state import ChatState, SearchPlan, explicit_price_limits
 from src.core.settings import Settings
 from src.infrastructure.clients import CatalogAPI, normalize_image
-from src.main import ChatRequest, Sessions, app, compact_history, compact_session_products
+from src.main import (ChatRequest, app, compact_history, compact_session_products,
+                      latest_committed_state, prune_context, purge_expired_checkpoints)
 from src.product.catalog import VectorCatalog, content_hash, eligible_cards, infer_product_type
 from src.product.indexer import CatalogIndexer
 from src.product.rag import ProductRAG
@@ -31,6 +37,30 @@ def product(product_id=PRODUCT_ID):
     return {"_id": product_id, "name": "Áo cotton", "description": "Thoáng mát", "detail": "<p>Vải mềm</p>",
             "price": 200000, "quantity": 100, "shopId": "shop-1", "categoryId": "fashion",
             "moderationStatus": "approved", "images": [], "variants": []}
+
+
+def stub_graph(handler):
+    """Keep endpoint tests focused on their API contract while emulating thread state."""
+    graph = AsyncMock()
+    checkpoints = {}
+
+    async def get_state(config):
+        return SimpleNamespace(values=checkpoints.get(config["configurable"]["thread_id"], {}),
+                               config=config, parent_config=None)
+
+    async def invoke(state, config=None, **kwargs):
+        result = await handler(state)
+        thread_id = config["configurable"]["thread_id"]
+        checkpoints[thread_id] = {**checkpoints.get(thread_id, {}), **state, **result}
+        return result
+
+    async def update_state(config, update):
+        checkpoints[config["configurable"]["thread_id"]].update(update)
+
+    graph.aget_state.side_effect = get_state
+    graph.ainvoke.side_effect = invoke
+    graph.aupdate_state.side_effect = update_state
+    return graph, checkpoints
 
 
 class CatalogTests(unittest.TestCase):
@@ -88,43 +118,21 @@ class CatalogTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             normalize_image(b"a" * 101, 100)
 
-    def test_sessions_are_isolated_expire_and_survive_reopen(self):
-        with tempfile.TemporaryDirectory() as directory:
-            settings = Settings(data_dir=directory)
-            sessions = Sessions(settings)
-            sessions.save("one", {"history": ["private"]})
-            self.assertEqual(sessions.load(None), {})
-            with self.assertRaises(HTTPException):
-                sessions.load("two")
-            sessions.db.close()
-            sessions = Sessions(settings)
-            self.assertEqual(sessions.load("one")["history"], ["private"])
-            sessions.db.execute("UPDATE sessions SET expires=0")
-            sessions.db.commit()
-            with self.assertRaises(HTTPException):
-                sessions.load("one")
-            sessions.db.close()
-
-    def test_session_context_fields_expire_independently(self):
-        with tempfile.TemporaryDirectory() as directory:
-            sessions = Sessions(Settings(data_dir=directory))
-            sessions.save("one", {
-                "history": [{"role": "user", "content": "tai nghe"}],
-                "plan": {"query": "tai nghe"},
-                "products": [{"id": PRODUCT_ID, "name": "Tai nghe"}],
-                "visual_description": "Tai nghe màu đen",
-                "image_vector": [1.0],
-                "image_namespace": "images",
-                "pending_action": {"type": "checkout_confirmation"},
-                "_context_expires": {"visual": 0, "pending_action": 0, "shopping": time.time() + 60},
-            })
-
-            state = sessions.load("one")
-
-            self.assertEqual(state["plan"]["query"], "tai nghe")
-            self.assertNotIn("visual_description", state)
-            self.assertNotIn("pending_action", state)
-            sessions.db.close()
+    def test_context_fields_expire_independently(self):
+        state = prune_context({
+            "history": [{"role": "user", "content": "tai nghe"}],
+            "plan": {"query": "tai nghe"},
+            "remembered_products": [{"id": PRODUCT_ID, "name": "Tai nghe"}],
+            "visual_description": "Tai nghe màu đen",
+            "image_vector": [1.0],
+            "image_namespace": "images",
+            "pending_action": {"type": "checkout_confirmation"},
+            "_context_expires": {"visual": 0, "pending_action": 0, "shopping": time.time() + 60},
+        }, time.time())
+        self.assertEqual(state["plan"]["query"], "tai nghe")
+        self.assertEqual(state["remembered_products"][0]["id"], PRODUCT_ID)
+        self.assertEqual(state["visual_description"], "")
+        self.assertIsNone(state["pending_action"])
 
     def test_context_compaction_limits_history_and_product_payloads(self):
         with patch.dict(os.environ, {
@@ -149,6 +157,141 @@ class CatalogTests(unittest.TestCase):
         self.assertEqual(products, [{
             "id": PRODUCT_ID, "name": "Tai nghe", "price": 100000, "displayRank": 1,
         }])
+
+
+class CheckpointTests(unittest.IsolatedAsyncioTestCase):
+    async def test_order_details_stay_out_of_checkpoints(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "checkpoints.sqlite")
+            config = {"configurable": {"thread_id": "owned-order"}}
+            child = StateGraph(ProductState)
+            child.add_node("answer", lambda state: {"answer": "ok"})
+            child.add_edge(START, "answer")
+            child.add_edge("answer", END)
+            commerce = AsyncMock()
+            commerce.user_orders.return_value = [{
+                "id": 79, "status": "pending_payment",
+                "products": [{"name": "PRIVATE_ORDER_ITEM"}],
+            }]
+            async with AsyncSqliteSaver.from_conn_string(path) as saver:
+                router = RouterAgent(SimpleNamespace(graph=child.compile()),
+                                     order_agent=OrderAgent(commerce), checkpointer=saver)
+                result = await router.graph.ainvoke({
+                    "message": "don 79", "authenticated_user_id": "buyer-one",
+                    "actor_role": "buyer",
+                }, config=config, durability="exit")
+                self.assertIn("79", result["answer"])
+                for checkpoint in [item async for item in saver.alist(None)]:
+                    values = checkpoint.checkpoint.get("channel_values", {})
+                    self.assertNotIn("order_context", values)
+                    self.assertNotIn("order_list", values)
+                    self.assertNotIn("answer", values)
+
+    async def test_expired_checkpoint_is_deleted_without_touching_active_thread(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "checkpoints.sqlite")
+            builder = StateGraph(ChatState)
+            builder.add_node("answer", lambda state: {"answer": "ok"})
+            builder.add_edge(START, "answer")
+            builder.add_edge("answer", END)
+            async with AsyncSqliteSaver.from_conn_string(path) as saver:
+                graph = builder.compile(checkpointer=saver)
+                for thread_id in ("expired", "busy"):
+                    config = {"configurable": {"thread_id": thread_id}}
+                    await graph.ainvoke({"message": "hi"}, config=config, durability="exit")
+                    await graph.aupdate_state(config, {
+                        "turn_committed": True, "session_expires_at": 0,
+                    })
+                await purge_expired_checkpoints(graph, saver, {"busy"}, time.time())
+                self.assertFalse((await graph.aget_state({
+                    "configurable": {"thread_id": "expired"}
+                })).values)
+                self.assertTrue((await graph.aget_state({
+                    "configurable": {"thread_id": "busy"}
+                })).values)
+
+    async def test_nested_product_graph_keeps_image_out_of_all_checkpoints(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "checkpoints.sqlite")
+            config = {"configurable": {"thread_id": "image-search"}}
+            child = StateGraph(ProductState)
+
+            child.add_node("retrieve", lambda state: {
+                "products": [{"id": PRODUCT_ID, "detail": "PRIVATE"}],
+            })
+
+            def answer(state):
+                self.assertEqual(state["image"], "RAW_IMAGE_SECRET")
+                self.assertEqual(state["products"][0]["id"], PRODUCT_ID)
+                return {"answer": "ok"}
+
+            child.add_node("answer", answer)
+            child.add_edge(START, "retrieve")
+            child.add_edge("retrieve", "answer")
+            child.add_edge("answer", END)
+            async with AsyncSqliteSaver.from_conn_string(path) as saver:
+                router = RouterAgent(SimpleNamespace(graph=child.compile()), checkpointer=saver)
+                await router.graph.ainvoke({"message": "find image", "image": "RAW_IMAGE_SECRET"},
+                                           config=config, durability="exit")
+                checkpoints = [item async for item in saver.alist(None)]
+                self.assertTrue(checkpoints)
+                for checkpoint in checkpoints:
+                    self.assertNotIn("image", checkpoint.checkpoint.get("channel_values", {}))
+                    self.assertNotIn("products", checkpoint.checkpoint.get("channel_values", {}))
+
+    async def test_state_survives_reopen_without_checkpointing_raw_image(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "checkpoints.sqlite")
+            config = {"configurable": {"thread_id": "buyer-conversation"}}
+            builder = StateGraph(ChatState)
+            builder.add_node("answer", lambda state: {
+                "answer": "Đã tìm thấy áo", "history": [{"role": "user", "content": state["message"]}],
+            })
+            builder.add_edge(START, "answer")
+            builder.add_edge("answer", END)
+            async with AsyncSqliteSaver.from_conn_string(path) as saver:
+                graph = builder.compile(checkpointer=saver)
+                await graph.ainvoke({"message": "tìm áo", "image": "RAW_IMAGE_SECRET"},
+                                    config=config, durability="exit")
+                snapshot = await graph.aget_state(config)
+                self.assertEqual(snapshot.values["history"][0]["content"], "tìm áo")
+                self.assertNotIn("image", snapshot.values)
+                self.assertNotIn("answer", snapshot.values)
+            async with AsyncSqliteSaver.from_conn_string(path) as saver:
+                graph = builder.compile(checkpointer=saver)
+                snapshot = await graph.aget_state(config)
+                self.assertNotIn("answer", snapshot.values)
+                self.assertNotIn("image", snapshot.values)
+
+    async def test_failed_exit_does_not_replace_last_successful_checkpoint(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "checkpoints.sqlite")
+            config = {"configurable": {"thread_id": "buyer-conversation"}}
+            builder = StateGraph(ChatState)
+
+            def answer(state):
+                if state["message"] == "fail":
+                    raise RuntimeError("dependency failed")
+                return {"answer": "ok"}
+
+            builder.add_node("answer", answer)
+            builder.add_edge(START, "answer")
+            builder.add_edge("answer", END)
+            async with AsyncSqliteSaver.from_conn_string(path) as saver:
+                graph = builder.compile(checkpointer=saver)
+                await graph.ainvoke({"message": "works"}, config=config, durability="exit")
+                await graph.aupdate_state(config, {"turn_committed": True})
+                with self.assertRaises(RuntimeError):
+                    await graph.ainvoke({"message": "fail", "turn_committed": False},
+                                        config=config, durability="exit")
+                snapshot = await latest_committed_state(graph, config)
+                self.assertEqual(snapshot.values["message"], "works")
+                self.assertNotIn("answer", snapshot.values)
+                await graph.ainvoke({"message": "retry", "turn_committed": False},
+                                    config=snapshot.config, durability="exit")
+                await graph.aupdate_state(config, {"turn_committed": True})
+                self.assertEqual((await latest_committed_state(graph, config)).values["message"],
+                                 "retry")
 
 
 class PipelineTests(unittest.IsolatedAsyncioTestCase):
@@ -315,14 +458,76 @@ class EndpointTests(unittest.TestCase):
         self.assertEqual(self.client.post("/assistant/chat", json={"image": "not base64!"}).status_code, 400)
         self.assertEqual(self.client.get("/assistant/products/invalid/similar").status_code, 422)
 
+    def test_checkpoint_restores_conversation_after_service_restart(self):
+        first = self.client.post("/assistant/chat", json={"message": "chao"})
+        self.assertEqual(first.status_code, 200)
+        session_id = first.json()["sessionId"]
+        self.client.__exit__(None, None, None)
+        self.client = TestClient(app)
+        self.client.__enter__()
+        second = self.client.post("/assistant/chat", json={
+            "message": "don hang cua toi o dau", "sessionId": session_id,
+        })
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(second.json()["route"], "order")
+        self.assertEqual(second.json()["sessionId"], session_id)
+        config = {"configurable": {"thread_id": session_id}}
+        snapshot = self.client.portal.call(app.state.agent.graph.aget_state, config)
+        self.assertEqual([item["content"] for item in snapshot.values["history"] if item["role"] == "user"],
+                         ["chao", "don hang cua toi o dau"])
+
+    def test_checkpoint_enforces_owner_and_expiry(self):
+        headers = {"x-user-id": "buyer-one", "x-user-role": "buyer"}
+        first = self.client.post("/assistant/chat", json={"message": "chao"}, headers=headers)
+        self.assertEqual(first.status_code, 200)
+        session_id = first.json()["sessionId"]
+        config = {"configurable": {"thread_id": session_id}}
+        other = self.client.post("/assistant/chat", json={
+            "message": "chao", "sessionId": session_id,
+        }, headers={"x-user-id": "buyer-two", "x-user-role": "buyer"})
+        self.assertEqual(other.status_code, 403)
+        self.client.portal.call(app.state.agent.graph.aupdate_state, config,
+                                {"session_expires_at": 0})
+        expired = self.client.post("/assistant/chat", json={
+            "message": "chao", "sessionId": session_id,
+        }, headers=headers)
+        self.assertEqual(expired.status_code, 410)
+
+    def test_legacy_session_is_imported_into_checkpoint(self):
+        session_id = "m" * 43
+        with sqlite3.connect(os.path.join(self.temp.name, "sessions.sqlite")) as connection:
+            connection.execute("CREATE TABLE sessions (id TEXT PRIMARY KEY, state TEXT, expires REAL)")
+            connection.execute("INSERT INTO sessions VALUES (?,?,?)", (
+                session_id,
+                json.dumps({
+                    "history": [{"role": "user", "content": "tim ao thun"}],
+                    "plan": {"intent": "search", "query": "tim ao thun"},
+                    "user_id": "buyer-one",
+                }),
+                time.time() + 3600,
+            ))
+        self.client.__exit__(None, None, None)
+        self.client = TestClient(app)
+        self.client.__enter__()
+        config = {"configurable": {"thread_id": session_id}}
+        snapshot = self.client.portal.call(app.state.agent.graph.aget_state, config)
+        self.assertEqual(snapshot.values["history"][0]["content"], "tim ao thun")
+        self.assertEqual(snapshot.values["authenticated_user_id"], "buyer-one")
+        response = self.client.post("/assistant/chat", json={
+            "message": "chao", "sessionId": session_id,
+        }, headers={"x-user-id": "buyer-one", "x-user-role": "buyer"})
+        self.assertEqual(response.status_code, 200)
+
     def test_cart_action_tokens_are_valid_confirmation_ids(self):
         token = "cart_action:AbCdEfGhIjKlMnOp"
         self.assertEqual(ChatRequest(confirmActionId=token).confirmActionId, token)
         self.assertEqual(ChatRequest(cancelActionId=token).cancelActionId, token)
 
     def test_chat_session_reuse_and_no_shared_history(self):
-        graph = AsyncMock()
-        graph.ainvoke.return_value = {"answer": "Xin chào", "products": [], "plan": {"intent": "clarify"}}
+        async def answer(state):
+            return {"answer": "Xin chào", "products": [], "plan": {"intent": "clarify"}}
+
+        graph, _ = stub_graph(answer)
         app.state.agent.graph = graph
         one = self.client.post("/assistant/chat", json={"message": "Chào"}).json()
         two = self.client.post("/assistant/chat", json={"message": "Mua áo", "sessionId": one["sessionId"]}).json()
@@ -332,17 +537,16 @@ class EndpointTests(unittest.TestCase):
         self.assertEqual(graph.ainvoke.call_args.args[0]["history"], [])
 
     def test_dependency_failure_does_not_save_failed_turn(self):
-        app.state.agent.graph = AsyncMock()
-        app.state.agent.graph.ainvoke.side_effect = httpx.ConnectError("gemini down")
+        graph, checkpoints = stub_graph(AsyncMock(side_effect=httpx.ConnectError("gemini down")))
+        app.state.agent.graph = graph
         result = self.client.post("/assistant/chat", json={"message": "Mua áo"})
         self.assertEqual(result.status_code, 503)
         self.assertEqual(app.state.active_requests, 0)
         self.assertEqual(app.state.busy_sessions, set())
-        with sqlite3.connect(self.temp.name + "/sessions.sqlite") as connection:
-            self.assertEqual(connection.execute("SELECT count(*) FROM sessions").fetchone()[0], 0)
+        self.assertEqual(checkpoints, {})
+        graph.aupdate_state.assert_not_awaited()
 
     def test_order_focus_survives_count_question_without_caching_order_list(self):
-        graph = AsyncMock()
         seen_states = []
 
         async def invoke(state):
@@ -351,7 +555,7 @@ class EndpointTests(unittest.TestCase):
                 return {"answer": "Đơn #79 chờ thanh toán.", "products": [], "focused_order_id": "79"}
             return {"answer": "Bạn có 2 đơn hàng.", "products": []}
 
-        graph.ainvoke.side_effect = invoke
+        graph, _ = stub_graph(invoke)
         app.state.agent.graph = graph
         headers = {"x-user-id": "buyer-1", "x-user-role": "buyer"}
         first = self.client.post("/assistant/chat", json={"message": "Đơn #79 ở đâu?"}, headers=headers).json()
@@ -366,8 +570,6 @@ class EndpointTests(unittest.TestCase):
         self.assertNotIn("order_list", seen_states[2])
 
     def test_named_product_focus_and_card_fields_survive_followups(self):
-        graph = AsyncMock()
-
         async def invoke(state):
             if state["message"] == "sách thiếu nhi":
                 return {
@@ -386,7 +588,7 @@ class EndpointTests(unittest.TestCase):
                 }
             return {"answer": "Chi tiết", "products": [], "plan": {"intent": "clarify"}}
 
-        graph.ainvoke.side_effect = invoke
+        graph, _ = stub_graph(invoke)
         app.state.agent.graph = graph
         first = self.client.post("/assistant/chat", json={"message": "sách thiếu nhi"}).json()
         self.client.post("/assistant/chat", json={

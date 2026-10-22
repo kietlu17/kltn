@@ -1,7 +1,9 @@
 """Customer-service agent grounded exclusively in indexed marketplace policies."""
 import re
 import unicodedata
+from typing import Annotated
 
+from langgraph.channels import UntrackedValue
 from langchain_google_genai.chat_models import GoogleRateLimitError
 from langgraph.graph import END, START, StateGraph
 
@@ -15,8 +17,8 @@ Cuối câu trả lời ghi [Nguồn 1], [Nguồn 2] tương ứng với đoạn
 
 
 class CustomerServiceState(ChatState, total=False):
-    policy_context: list[dict]
-    sources: list[dict]
+    policy_context: Annotated[list[dict], UntrackedValue(list)]
+    sources: Annotated[list[dict], UntrackedValue(list)]
     route_name: str
     warnings: list[str]
 
