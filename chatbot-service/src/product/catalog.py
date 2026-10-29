@@ -40,6 +40,11 @@ COLORS = {
     "be": "be", "bac": "bac", "xanh": "xanh",
 }
 SIZE_PATTERN = re.compile(r"\b(?:size|co)\s*(xs|s|m|l|xl|xxl|xxxl|\d{1,3}(?:\.\d+)?)\b", re.I)
+VARIANT_SIZE_SUFFIX = re.compile(
+    r"(?:(?:\s*[/,;|:-]\s*|\s+)(?:(?:size|cỡ|co)\s*)?"
+    r"(xs|s|m|l|xl|xxl|xxxl|2xl|3xl)"
+    r"|(?:\s*[/,;|:-]\s*|\s+(?:size|cỡ|co)\s*)(\d{1,3}(?:\.\d+)?))\s*$", re.I,
+)
 
 
 def _tokens_in(text: str, mapping: dict[str, str]) -> list[str]:
@@ -105,7 +110,9 @@ def metadata_hash(product: dict) -> str:
 
 
 def variant_metadata(variant: dict, product: dict) -> dict:
-    text = normalized_text(variant.get("name", ""))
+    name = plain_text(variant.get("name", ""), 300)
+    text = normalized_text(name)
+    size_suffix = VARIANT_SIZE_SUFFIX.search(name)
     try:
         price = float(variant.get("price", product.get("price", 0)) or 0)
     except (TypeError, ValueError):
@@ -113,7 +120,10 @@ def variant_metadata(variant: dict, product: dict) -> dict:
     return {
         "variantId": str(variant.get("_id", "")),
         "colors": _tokens_in(text, COLORS),
-        "sizes": list(dict.fromkeys(match.upper() for match in SIZE_PATTERN.findall(text))),
+        "sizes": list(dict.fromkeys(
+            [*(match.upper() for match in SIZE_PATTERN.findall(text)),
+             *([(size_suffix.group(1) or size_suffix.group(2)).upper()] if size_suffix else [])]
+        )),
         "price": price,
     }
 
@@ -132,28 +142,42 @@ def product_document(product: dict) -> Document:
 
 
 def product_documents(product: dict) -> list[tuple[str, Document]]:
-    """Create stable, independently searchable chunks for one product."""
+    """Index shared product content once, then one chunk per variant color group."""
     base = product_document(product).metadata
-    chunks = [("title", Document(page_content=f"Tên sản phẩm: {plain_text(product.get('name'))}",
-                                  metadata={**base, "kind": "text", "chunkType": "title"}))]
     description = plain_text(product.get("description"), 2500)
     detail = plain_text(product.get("detail"), 6000)
-    description_text = "\n".join(part for part in (
+    base_text = "\n".join(part for part in (
+        f"Tên sản phẩm: {plain_text(product.get('name'))}",
         f"Mô tả: {description}" if description else "",
         f"Chi tiết: {detail}" if detail else "",
     ) if part)
-    if description_text:
-        chunks.append(("description", Document(
-            page_content=description_text,
-            metadata={**base, "kind": "text", "chunkType": "description"},
-        )))
+    chunks = [("base", Document(page_content=base_text,
+                                metadata={**base, "kind": "text", "chunkType": "base"}))]
+    groups = {}
     for index, variant in enumerate(product.get("variants", [])):
         variant_id = str(variant.get("_id") or index)
         variant_meta = variant_metadata(variant, product)
-        text = f"Biến thể của {plain_text(product.get('name'))}: {plain_text(variant.get('name'), 300)}"
-        chunks.append((f"variant:{variant_id}", Document(
+        colors = tuple(sorted(variant_meta["colors"]))
+        group = groups.setdefault(colors, {"names": set(), "ids": [], "sizes": set(), "prices": []})
+        name = plain_text(variant.get("name"), 300)
+        semantic_name = VARIANT_SIZE_SUFFIX.sub("", name).strip(" /,;|:-") or name
+        group["names"].add(semantic_name)
+        group["ids"].append(variant_id)
+        group["sizes"].update(variant_meta["sizes"])
+        group["prices"].append(variant_meta["price"])
+    for colors, group in sorted(groups.items()):
+        group_key = "|".join(colors) or "unclassified"
+        text = "\n".join((
+            f"Tên sản phẩm: {plain_text(product.get('name'))}",
+            f"Màu: {', '.join(colors)}" if colors else "",
+            "Biến thể: " + "; ".join(sorted(group["names"])),
+        )).strip()
+        chunks.append((f"variant_group:{group_key}", Document(
             page_content=text,
-            metadata={**base, **variant_meta, "kind": "text", "chunkType": "variant"},
+            metadata={**base, "colors": list(colors), "sizes": sorted(group["sizes"]),
+                      "minPrice": min(group["prices"]), "maxPrice": max(group["prices"]),
+                      "variantIds": group["ids"], "variantGroup": group_key,
+                      "kind": "text", "chunkType": "variant_group"},
         )))
     return chunks
 
@@ -195,7 +219,9 @@ def image_records(product: dict, limit: int) -> list[dict]:
 
 def content_hash(product: dict, max_images: int) -> str:
     # Filter metadata (especially prices) can change without changing embedding text.
-    data = {"document": product_document(product).page_content, "images": image_records(product, max_images)}
+    data = {"chunkSchema": "color-groups-v1",
+            "chunks": [(key, chunk.page_content) for key, chunk in product_documents(product)],
+            "images": image_records(product, max_images)}
     return hashlib.sha256(json.dumps(data, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
 
 

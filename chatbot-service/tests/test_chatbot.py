@@ -24,7 +24,8 @@ from src.core.settings import Settings
 from src.infrastructure.clients import CatalogAPI, normalize_image
 from src.main import (ChatRequest, app, compact_history, compact_session_products,
                       latest_committed_state, prune_context, purge_expired_checkpoints)
-from src.product.catalog import VectorCatalog, content_hash, eligible_cards, infer_product_type
+from src.product.catalog import (VectorCatalog, content_hash, eligible_cards, infer_product_type,
+                                 product_documents, variant_metadata)
 from src.product.indexer import CatalogIndexer
 from src.product.rag import ProductRAG
 
@@ -64,6 +65,13 @@ def stub_graph(handler):
 
 
 class CatalogTests(unittest.TestCase):
+    def test_model_number_is_not_treated_as_a_bare_size(self):
+        item = {**product(), "name": "Điện thoại", "variants": [
+            {"_id": "phone-15", "name": "iPhone 15", "price": 10000000},
+        ]}
+        self.assertEqual(variant_metadata(item["variants"][0], item)["sizes"], [])
+        self.assertIn("iPhone 15", product_documents(item)[1][1].page_content)
+
     def test_product_type_keeps_ba_lo_distinct_from_ba_lo_shirt(self):
         self.assertEqual(infer_product_type("Ba Lô laptop nam"), "balo")
         self.assertEqual(infer_product_type("Áo ba lỗ nam"), "khac")
@@ -319,8 +327,8 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         await self.indexer.reconcile()
         points, _ = await self.vectors.client.scroll(self.settings.collection, with_payload=True,
                                                      with_vectors=False, limit=20)
-        description = next(point for point in points if point.payload["chunkType"] == "description")
-        self.assertIn("Nội dung mới", description.payload["text"])
+        base = next(point for point in points if point.payload["chunkType"] == "base")
+        self.assertIn("Nội dung mới", base.payload["text"])
         await self.vectors.client.delete_collection(self.settings.collection)
         await self.indexer.reconcile()
         self.api.all_products.return_value = []
@@ -342,7 +350,7 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         await self.indexer.reconcile()
         self.api.all_products.return_value = [{**item, "images": ["/uploads/b.png"]}]
         await self.indexer.reconcile()
-        self.assertEqual((await self.vectors.client.count(self.settings.collection)).count, 3)
+        self.assertEqual((await self.vectors.client.count(self.settings.collection)).count, 2)
         self.assertEqual(self.models.describe.await_count, 2)
 
     async def test_zero_caption_limit_embeds_text_without_describing_images(self):
@@ -355,7 +363,7 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(result["updated"], 1)
             self.api.image.assert_not_awaited()
             self.models.describe.assert_not_awaited()
-            self.assertEqual(len(self.models.embed_documents.await_args.args[0]), 2)
+            self.assertEqual(len(self.models.embed_documents.await_args.args[0]), 1)
         finally:
             indexer.db.close()
 
@@ -369,7 +377,7 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         ])
         self.assertEqual(result["updated"], 2)
         self.assertEqual(self.models.embed_documents.await_count, 1)
-        self.assertEqual(len(self.models.embed_documents.await_args.args[0]), 4)
+        self.assertEqual(len(self.models.embed_documents.await_args.args[0]), 2)
 
         await self.indexer.process_events([
             ("product.created", PRODUCT_ID),
@@ -380,7 +388,7 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         products[PRODUCT_ID] = {**product(), "description": "changed"}
         await self.indexer.process_events([("product.updated", PRODUCT_ID)])
         self.assertEqual(self.models.embed_documents.await_count, 2)
-        self.assertEqual(len(self.models.embed_documents.await_args.args[0]), 2)
+        self.assertEqual(len(self.models.embed_documents.await_args.args[0]), 1)
 
         products[SECOND_ID] = {**products[SECOND_ID], "price": 350000}
         result = await self.indexer.process_events([("product.updated", SECOND_ID)])
@@ -389,6 +397,55 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
 
         await self.indexer.process_events([("product.deleted", PRODUCT_ID)])
         self.assertEqual(await self.vectors.product_ids(), {SECOND_ID})
+
+    async def test_color_groups_share_vectors_across_sizes_and_refresh_metadata(self):
+        item = {**product(), "name": "Áo thun nam", "variants": [
+            {"_id": "black-l", "name": "Đen / L", "price": 250000},
+            {"_id": "black-xl", "name": "Đen / XL", "price": 300000},
+            {"_id": "white-m", "name": "Trắng / M", "price": 200000},
+        ]}
+        self.api.product.return_value = item
+        await self.indexer.process_events([("product.created", PRODUCT_ID)])
+        self.assertEqual(len(self.models.embed_documents.await_args.args[0]), 3)
+
+        async def payloads():
+            points, _ = await self.vectors.client.scroll(
+                self.settings.collection, with_payload=True, with_vectors=False, limit=20)
+            return [point.payload for point in points]
+
+        initial = await payloads()
+        self.assertEqual({p["chunkType"] for p in initial}, {"base", "variant_group"})
+        black = next(p for p in initial if p.get("variantGroup") == "den")
+        self.assertEqual(black["sizes"], ["L", "XL"])
+        self.assertEqual(set(black["variantIds"]), {"black-l", "black-xl"})
+        self.assertEqual((black["minPrice"], black["maxPrice"]), (250000, 300000))
+        matches = await self.vectors.query(
+            [1.0, 0.0, 0.0], kind="text",
+            metadata={"product_type": "ao_thun", "colors": ["den"], "sizes": ["XL"]})
+        self.assertEqual([point.payload.get("variantGroup") for point in matches], ["den"])
+        no_match = await self.vectors.query(
+            [1.0, 0.0, 0.0], kind="text", metadata={"colors": ["trang"], "sizes": ["XL"]})
+        self.assertEqual(no_match, [])
+
+        item["variants"].append({"_id": "black-xxl", "name": "Đen / XXL", "price": 350000})
+        self.assertEqual(content_hash(item, self.settings.max_images),
+                         content_hash({**item, "variants": item["variants"][:-1]},
+                                      self.settings.max_images))
+        result = await self.indexer.process_events([("product.updated", PRODUCT_ID)])
+        self.assertEqual(result["metadataUpdated"], 1)
+        self.assertEqual(self.models.embed_documents.await_count, 1)
+        black = next(p for p in await payloads() if p.get("variantGroup") == "den")
+        self.assertEqual(black["sizes"], ["L", "XL", "XXL"])
+        self.assertEqual(black["maxPrice"], 350000)
+        self.assertEqual(set(black["variantIds"]), {"black-l", "black-xl", "black-xxl"})
+        matches = await self.vectors.query(
+            [1.0, 0.0, 0.0], kind="text", metadata={"colors": ["den"], "sizes": ["XXL"]})
+        self.assertEqual([point.payload.get("variantGroup") for point in matches], ["den"])
+
+        item["variants"] = item["variants"][:-2] + item["variants"][-1:]
+        await self.indexer.process_events([("product.updated", PRODUCT_ID)])
+        self.assertEqual(self.models.embed_documents.await_count, 2)
+        self.assertEqual(len(await payloads()), 2)
 
     async def test_product_agent_filters_before_generation(self):
         await self.indexer.reconcile()

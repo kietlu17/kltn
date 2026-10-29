@@ -118,6 +118,14 @@ Customer Service Agent dùng câu trích xuất từ policy gần nhất và v�
 `chatbot-indexer` đọc catalog approved, tạo document/caption và embedding văn
 bản. Kafka chỉ đánh thức worker; full reconciliation vẫn chạy định kỳ.
 
+Mỗi sản phẩm có một chunk `base` chứa tên, mô tả và chi tiết, cùng một chunk
+`variant_group` cho mỗi nhóm màu. Các size, ID biến thể và khoảng giá được lưu
+trong metadata của nhóm màu. Thay đổi size hoặc giá của nhóm hiện có chỉ cập
+nhật metadata, không gọi embedding. Thay đổi nội dung hoặc thêm/bớt nhóm màu
+cần embedding lại các chunk của sản phẩm. Schema hash mới sẽ chuyển các điểm
+vector cũ khi `chatbot-indexer` chạy lại; nếu worker đang dừng để giữ quota,
+Qdrant vẫn dùng các điểm cũ cho đến khi chủ động chạy migration.
+
 `chatbot-image-indexer` tải ảnh catalog, gọi `image-embedding` để tạo CLIP
 vector và đối soát collection ảnh. Hai worker cache theo content hash trong
 SQLite và không đọc MongoDB trực tiếp.

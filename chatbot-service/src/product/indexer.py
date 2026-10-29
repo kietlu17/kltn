@@ -52,7 +52,7 @@ class CatalogIndexer:
     async def _stored_payload(self, product_id):
         if not await self.vectors.client.collection_exists(self.settings.collection):
             return None
-        for key in ("title", "text"):
+        for key in ("base", "title", "text"):
             points = await self.vectors.client.retrieve(
                 self.settings.collection,
                 ids=[point_id(product_id, key)],
@@ -92,6 +92,23 @@ class CatalogIndexer:
             models.FieldCondition(key="productId", match=models.MatchValue(value=product_id)),
         ])
         await self.vectors.client.set_payload(self.settings.collection, base, selector, wait=True)
+        for _, chunk in product_documents(product):
+            if chunk.metadata["chunkType"] != "variant_group":
+                continue
+            group_selector = models.Filter(must=[
+                models.FieldCondition(key="productId", match=models.MatchValue(value=product_id)),
+                models.FieldCondition(key="variantGroup", match=models.MatchValue(
+                    value=chunk.metadata["variantGroup"])),
+            ])
+            await self.vectors.client.set_payload(
+                self.settings.collection,
+                {field: chunk.metadata[field] for field in (
+                    "colors", "sizes", "minPrice", "maxPrice", "variantIds", "variantGroup"
+                )},
+                group_selector,
+                wait=True,
+            )
+        # Preserve metadata updates for products still stored with the legacy variant layout.
         for index, variant in enumerate(product.get("variants", [])):
             variant_id = str(variant.get("_id") or index)
             variant_selector = models.Filter(must=[

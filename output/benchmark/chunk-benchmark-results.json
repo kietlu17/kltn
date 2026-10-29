@@ -1,0 +1,3177 @@
+{
+  "model": "gemini-embedding-001",
+  "dimensions": 768,
+  "sampledProducts": 180,
+  "comparableProducts": 220,
+  "approvedProducts": 2168,
+  "queryCount": 8,
+  "labelMethod": "Heuristic product name type/gender and actual variant name color; not human judgments",
+  "limitation": "Current text index is incomplete. Scores compare only products whose existing chunks match current catalog content. Filtered scores use product type, audience, and color payload filters but omit live stock checks.",
+  "onePooledDefinition": "Unit-normalized arithmetic mean of existing chunk vectors; not an embedding of the full product text",
+  "baseAndColorGroupsDefinition": "One pooled title/description vector plus one pooled vector per distinct variant color set; size-only variants share a color group",
+  "summary": {
+    "onePooled": {
+      "precisionAt6": 0.625,
+      "recallAt10": 0.6271,
+      "ndcgAt10": 0.6912,
+      "vectorsPerProduct": 1.0
+    },
+    "titleOnly": {
+      "precisionAt6": 0.5208,
+      "recallAt10": 0.5677,
+      "ndcgAt10": 0.6114,
+      "vectorsPerProduct": 1.0
+    },
+    "titleAndDescription": {
+      "precisionAt6": 0.5417,
+      "recallAt10": 0.5506,
+      "ndcgAt10": 0.5949,
+      "vectorsPerProduct": 2.0
+    },
+    "baseAndColorGroups": {
+      "precisionAt6": 0.7292,
+      "recallAt10": 0.7535,
+      "ndcgAt10": 0.818,
+      "vectorsPerProduct": 3.53
+    },
+    "allChunks": {
+      "precisionAt6": 0.7708,
+      "recallAt10": 0.8287,
+      "ndcgAt10": 0.8758,
+      "vectorsPerProduct": 11.49
+    }
+  },
+  "filteredSummary": {
+    "onePooled": {
+      "precisionAt6": 0.8333,
+      "recallAt10": 0.8458,
+      "ndcgAt10": 0.9013
+    },
+    "titleOnly": {
+      "precisionAt6": 0.75,
+      "recallAt10": 0.7989,
+      "ndcgAt10": 0.8202
+    },
+    "titleAndDescription": {
+      "precisionAt6": 0.6458,
+      "recallAt10": 0.7885,
+      "ndcgAt10": 0.7995
+    },
+    "baseAndColorGroups": {
+      "precisionAt6": 0.8333,
+      "recallAt10": 0.8458,
+      "ndcgAt10": 0.9267
+    },
+    "allChunks": {
+      "precisionAt6": 0.8958,
+      "recallAt10": 0.8754,
+      "ndcgAt10": 0.9631
+    }
+  },
+  "cases": [
+    {
+      "query": "áo thun nam màu đen",
+      "relevantProducts": 6,
+      "strategies": {
+        "onePooled": {
+          "precisionAt6": 0.6666666666666666,
+          "recallAt10": 0.6666666666666666,
+          "ndcgAt10": 0.5896084319766757,
+          "candidateProducts": 180,
+          "top6": [
+            {
+              "id": "6ad8cc23a55a838dfd3436f9",
+              "name": "Áo Phông Nam Năng Động In Chữ Run",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343772",
+              "name": "Áo Phông Nam In Chữ Running Thể Thao",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343725",
+              "name": "Áo Tshirt Nam Cotton USA Phiên Bản Premium",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435f7",
+              "name": "Áo Phông Nam Cổ Tròn In Chữ Break The Rules",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435c8",
+              "name": "Áo Phông Nam Vải Iscra Siêu Mềm Mịn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435f1",
+              "name": "Áo Phông Nam Cotton Compact In Chữ Phản Quang",
+              "relevant": false
+            }
+          ]
+        },
+        "titleOnly": {
+          "precisionAt6": 0.5,
+          "recallAt10": 0.6666666666666666,
+          "ndcgAt10": 0.5636382420621702,
+          "candidateProducts": 180,
+          "top6": [
+            {
+              "id": "6ad8cc23a55a838dfd3436f9",
+              "name": "Áo Phông Nam Năng Động In Chữ Run",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435c8",
+              "name": "Áo Phông Nam Vải Iscra Siêu Mềm Mịn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343772",
+              "name": "Áo Phông Nam In Chữ Running Thể Thao",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343725",
+              "name": "Áo Tshirt Nam Cotton USA Phiên Bản Premium",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343603",
+              "name": "Áo Thun Nam Form Rộng In Chữ Comfortable",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343854",
+              "name": "Áo Polo Nam In Màu Thấm Hút Mồ Hôi Tốt",
+              "relevant": false
+            }
+          ]
+        },
+        "titleAndDescription": {
+          "precisionAt6": 0.5,
+          "recallAt10": 0.6666666666666666,
+          "ndcgAt10": 0.6283216323275591,
+          "candidateProducts": 180,
+          "top6": [
+            {
+              "id": "6ad8cc23a55a838dfd343772",
+              "name": "Áo Phông Nam In Chữ Running Thể Thao",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3436f9",
+              "name": "Áo Phông Nam Năng Động In Chữ Run",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435f1",
+              "name": "Áo Phông Nam Cotton Compact In Chữ Phản Quang",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343603",
+              "name": "Áo Thun Nam Form Rộng In Chữ Comfortable",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435f7",
+              "name": "Áo Phông Nam Cổ Tròn In Chữ Break The Rules",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435c8",
+              "name": "Áo Phông Nam Vải Iscra Siêu Mềm Mịn",
+              "relevant": true
+            }
+          ]
+        },
+        "baseAndColorGroups": {
+          "precisionAt6": 0.6666666666666666,
+          "recallAt10": 0.8333333333333334,
+          "ndcgAt10": 0.8529794827885765,
+          "candidateProducts": 180,
+          "top6": [
+            {
+              "id": "6ad8cc23a55a838dfd343725",
+              "name": "Áo Tshirt Nam Cotton USA Phiên Bản Premium",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435c8",
+              "name": "Áo Phông Nam Vải Iscra Siêu Mềm Mịn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343772",
+              "name": "Áo Phông Nam In Chữ Running Thể Thao",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3436f9",
+              "name": "Áo Phông Nam Năng Động In Chữ Run",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3436d2",
+              "name": "Áo Polo Thể Thao Nam Airy Cool Basic",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343655",
+              "name": "Áo Thun Nữ Đệm Vai Họa Tiết",
+              "relevant": false
+            }
+          ]
+        },
+        "allChunks": {
+          "precisionAt6": 0.6666666666666666,
+          "recallAt10": 1.0,
+          "ndcgAt10": 0.961701088650451,
+          "candidateProducts": 180,
+          "top6": [
+            {
+              "id": "6ad8cc23a55a838dfd343725",
+              "name": "Áo Tshirt Nam Cotton USA Phiên Bản Premium",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435c8",
+              "name": "Áo Phông Nam Vải Iscra Siêu Mềm Mịn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343772",
+              "name": "Áo Phông Nam In Chữ Running Thể Thao",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3436d2",
+              "name": "Áo Polo Thể Thao Nam Airy Cool Basic",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343655",
+              "name": "Áo Thun Nữ Đệm Vai Họa Tiết",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343c07",
+              "name": "Áo Phao Nam Trần Trám",
+              "relevant": false
+            }
+          ]
+        }
+      },
+      "filteredStrategies": {
+        "onePooled": {
+          "precisionAt6": 0.6666666666666666,
+          "recallAt10": 0.8333333333333334,
+          "ndcgAt10": 0.6812024645294942,
+          "candidateProducts": 13,
+          "top6": [
+            {
+              "id": "6ad8cc23a55a838dfd3436f9",
+              "name": "Áo Phông Nam Năng Động In Chữ Run",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343772",
+              "name": "Áo Phông Nam In Chữ Running Thể Thao",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435f7",
+              "name": "Áo Phông Nam Cổ Tròn In Chữ Break The Rules",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435c8",
+              "name": "Áo Phông Nam Vải Iscra Siêu Mềm Mịn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435ff",
+              "name": "Áo Thun Nữ Form Rộng In Chữ Comfortable",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3438dc",
+              "name": "Áo Polo Nam Airycool Ép Seam Lá Cổ Laser",
+              "relevant": true
+            }
+          ]
+        },
+        "titleOnly": {
+          "precisionAt6": 0.5,
+          "recallAt10": 0.8333333333333334,
+          "ndcgAt10": 0.6645057132284412,
+          "candidateProducts": 13,
+          "top6": [
+            {
+              "id": "6ad8cc23a55a838dfd3436f9",
+              "name": "Áo Phông Nam Năng Động In Chữ Run",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435c8",
+              "name": "Áo Phông Nam Vải Iscra Siêu Mềm Mịn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343772",
+              "name": "Áo Phông Nam In Chữ Running Thể Thao",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435f7",
+              "name": "Áo Phông Nam Cổ Tròn In Chữ Break The Rules",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343838",
+              "name": "Áo Polo Nam In Vạch Ngực Phối Màu",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343794",
+              "name": "Áo Polo Nam Airycool Thoáng Khí Thấm Hút Tốt",
+              "relevant": false
+            }
+          ]
+        },
+        "titleAndDescription": {
+          "precisionAt6": 0.5,
+          "recallAt10": 0.8333333333333334,
+          "ndcgAt10": 0.7725665714262703,
+          "candidateProducts": 13,
+          "top6": [
+            {
+              "id": "6ad8cc23a55a838dfd343772",
+              "name": "Áo Phông Nam In Chữ Running Thể Thao",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3436f9",
+              "name": "Áo Phông Nam Năng Động In Chữ Run",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435f7",
+              "name": "Áo Phông Nam Cổ Tròn In Chữ Break The Rules",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435c8",
+              "name": "Áo Phông Nam Vải Iscra Siêu Mềm Mịn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343838",
+              "name": "Áo Polo Nam In Vạch Ngực Phối Màu",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343794",
+              "name": "Áo Polo Nam Airycool Thoáng Khí Thấm Hút Tốt",
+              "relevant": false
+            }
+          ]
+        },
+        "baseAndColorGroups": {
+          "precisionAt6": 0.8333333333333334,
+          "recallAt10": 0.8333333333333334,
+          "ndcgAt10": 0.8486987932505933,
+          "candidateProducts": 13,
+          "top6": [
+            {
+              "id": "6ad8cc23a55a838dfd3435c8",
+              "name": "Áo Phông Nam Vải Iscra Siêu Mềm Mịn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343772",
+              "name": "Áo Phông Nam In Chữ Running Thể Thao",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3436f9",
+              "name": "Áo Phông Nam Năng Động In Chữ Run",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3436d2",
+              "name": "Áo Polo Thể Thao Nam Airy Cool Basic",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435f7",
+              "name": "Áo Phông Nam Cổ Tròn In Chữ Break The Rules",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3438dc",
+              "name": "Áo Polo Nam Airycool Ép Seam Lá Cổ Laser",
+              "relevant": true
+            }
+          ]
+        },
+        "allChunks": {
+          "precisionAt6": 0.8333333333333334,
+          "recallAt10": 0.8333333333333334,
+          "ndcgAt10": 0.8696762340896294,
+          "candidateProducts": 13,
+          "top6": [
+            {
+              "id": "6ad8cc23a55a838dfd3435c8",
+              "name": "Áo Phông Nam Vải Iscra Siêu Mềm Mịn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343772",
+              "name": "Áo Phông Nam In Chữ Running Thể Thao",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3436d2",
+              "name": "Áo Polo Thể Thao Nam Airy Cool Basic",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3436f9",
+              "name": "Áo Phông Nam Năng Động In Chữ Run",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435f7",
+              "name": "Áo Phông Nam Cổ Tròn In Chữ Break The Rules",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3438dc",
+              "name": "Áo Polo Nam Airycool Ép Seam Lá Cổ Laser",
+              "relevant": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "query": "áo thun nam màu trắng",
+      "relevantProducts": 13,
+      "strategies": {
+        "onePooled": {
+          "precisionAt6": 0.6666666666666666,
+          "recallAt10": 0.6153846153846154,
+          "ndcgAt10": 0.7951657524814091,
+          "candidateProducts": 180,
+          "top6": [
+            {
+              "id": "6ad8cc23a55a838dfd343603",
+              "name": "Áo Thun Nam Form Rộng In Chữ Comfortable",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435f1",
+              "name": "Áo Phông Nam Cotton Compact In Chữ Phản Quang",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343895",
+              "name": "Áo Ba Lỗ Nam 100% Cotton Siêu Mềm Siêu Thoáng",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3436f9",
+              "name": "Áo Phông Nam Năng Động In Chữ Run",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343838",
+              "name": "Áo Polo Nam In Vạch Ngực Phối Màu",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343725",
+              "name": "Áo Tshirt Nam Cotton USA Phiên Bản Premium",
+              "relevant": true
+            }
+          ]
+        },
+        "titleOnly": {
+          "precisionAt6": 0.6666666666666666,
+          "recallAt10": 0.5384615384615384,
+          "ndcgAt10": 0.7315449642824573,
+          "candidateProducts": 180,
+          "top6": [
+            {
+              "id": "6ad8cc23a55a838dfd343725",
+              "name": "Áo Tshirt Nam Cotton USA Phiên Bản Premium",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343603",
+              "name": "Áo Thun Nam Form Rộng In Chữ Comfortable",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343895",
+              "name": "Áo Ba Lỗ Nam 100% Cotton Siêu Mềm Siêu Thoáng",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435c8",
+              "name": "Áo Phông Nam Vải Iscra Siêu Mềm Mịn",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435f1",
+              "name": "Áo Phông Nam Cotton Compact In Chữ Phản Quang",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435f7",
+              "name": "Áo Phông Nam Cổ Tròn In Chữ Break The Rules",
+              "relevant": true
+            }
+          ]
+        },
+        "titleAndDescription": {
+          "precisionAt6": 0.8333333333333334,
+          "recallAt10": 0.5384615384615384,
+          "ndcgAt10": 0.7720617383222417,
+          "candidateProducts": 180,
+          "top6": [
+            {
+              "id": "6ad8cc23a55a838dfd343772",
+              "name": "Áo Phông Nam In Chữ Running Thể Thao",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435f1",
+              "name": "Áo Phông Nam Cotton Compact In Chữ Phản Quang",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343603",
+              "name": "Áo Thun Nam Form Rộng In Chữ Comfortable",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435f7",
+              "name": "Áo Phông Nam Cổ Tròn In Chữ Break The Rules",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3436f9",
+              "name": "Áo Phông Nam Năng Động In Chữ Run",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343725",
+              "name": "Áo Tshirt Nam Cotton USA Phiên Bản Premium",
+              "relevant": true
+            }
+          ]
+        },
+        "baseAndColorGroups": {
+          "precisionAt6": 0.6666666666666666,
+          "recallAt10": 0.5384615384615384,
+          "ndcgAt10": 0.7670273914429263,
+          "candidateProducts": 180,
+          "top6": [
+            {
+              "id": "6ad8cc23a55a838dfd343725",
+              "name": "Áo Tshirt Nam Cotton USA Phiên Bản Premium",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343772",
+              "name": "Áo Phông Nam In Chữ Running Thể Thao",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343603",
+              "name": "Áo Thun Nam Form Rộng In Chữ Comfortable",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435f1",
+              "name": "Áo Phông Nam Cotton Compact In Chữ Phản Quang",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3436f9",
+              "name": "Áo Phông Nam Năng Động In Chữ Run",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343895",
+              "name": "Áo Ba Lỗ Nam 100% Cotton Siêu Mềm Siêu Thoáng",
+              "relevant": false
+            }
+          ]
+        },
+        "allChunks": {
+          "precisionAt6": 0.8333333333333334,
+          "recallAt10": 0.6153846153846154,
+          "ndcgAt10": 0.8521705090845474,
+          "candidateProducts": 180,
+          "top6": [
+            {
+              "id": "6ad8cc23a55a838dfd343725",
+              "name": "Áo Tshirt Nam Cotton USA Phiên Bản Premium",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343772",
+              "name": "Áo Phông Nam In Chữ Running Thể Thao",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343603",
+              "name": "Áo Thun Nam Form Rộng In Chữ Comfortable",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435f1",
+              "name": "Áo Phông Nam Cotton Compact In Chữ Phản Quang",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435f7",
+              "name": "Áo Phông Nam Cổ Tròn In Chữ Break The Rules",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3436f9",
+              "name": "Áo Phông Nam Năng Động In Chữ Run",
+              "relevant": false
+            }
+          ]
+        }
+      },
+      "filteredStrategies": {
+        "onePooled": {
+          "precisionAt6": 0.8333333333333334,
+          "recallAt10": 0.6153846153846154,
+          "ndcgAt10": 0.8263333286520081,
+          "candidateProducts": 19,
+          "top6": [
+            {
+              "id": "6ad8cc23a55a838dfd343603",
+              "name": "Áo Thun Nam Form Rộng In Chữ Comfortable",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435f1",
+              "name": "Áo Phông Nam Cotton Compact In Chữ Phản Quang",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3436f9",
+              "name": "Áo Phông Nam Năng Động In Chữ Run",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343838",
+              "name": "Áo Polo Nam In Vạch Ngực Phối Màu",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343854",
+              "name": "Áo Polo Nam In Màu Thấm Hút Mồ Hôi Tốt",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343772",
+              "name": "Áo Phông Nam In Chữ Running Thể Thao",
+              "relevant": true
+            }
+          ]
+        },
+        "titleOnly": {
+          "precisionAt6": 0.8333333333333334,
+          "recallAt10": 0.6153846153846154,
+          "ndcgAt10": 0.7917063341896681,
+          "candidateProducts": 19,
+          "top6": [
+            {
+              "id": "6ad8cc23a55a838dfd343603",
+              "name": "Áo Thun Nam Form Rộng In Chữ Comfortable",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435c8",
+              "name": "Áo Phông Nam Vải Iscra Siêu Mềm Mịn",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435f1",
+              "name": "Áo Phông Nam Cotton Compact In Chữ Phản Quang",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435f7",
+              "name": "Áo Phông Nam Cổ Tròn In Chữ Break The Rules",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343854",
+              "name": "Áo Polo Nam In Màu Thấm Hút Mồ Hôi Tốt",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343772",
+              "name": "Áo Phông Nam In Chữ Running Thể Thao",
+              "relevant": true
+            }
+          ]
+        },
+        "titleAndDescription": {
+          "precisionAt6": 0.6666666666666666,
+          "recallAt10": 0.6153846153846154,
+          "ndcgAt10": 0.8364586133797036,
+          "candidateProducts": 19,
+          "top6": [
+            {
+              "id": "6ad8cc23a55a838dfd343772",
+              "name": "Áo Phông Nam In Chữ Running Thể Thao",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435f1",
+              "name": "Áo Phông Nam Cotton Compact In Chữ Phản Quang",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343603",
+              "name": "Áo Thun Nam Form Rộng In Chữ Comfortable",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435f7",
+              "name": "Áo Phông Nam Cổ Tròn In Chữ Break The Rules",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3436f9",
+              "name": "Áo Phông Nam Năng Động In Chữ Run",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435c8",
+              "name": "Áo Phông Nam Vải Iscra Siêu Mềm Mịn",
+              "relevant": false
+            }
+          ]
+        },
+        "baseAndColorGroups": {
+          "precisionAt6": 0.6666666666666666,
+          "recallAt10": 0.6153846153846154,
+          "ndcgAt10": 0.8268133666517739,
+          "candidateProducts": 19,
+          "top6": [
+            {
+              "id": "6ad8cc23a55a838dfd343772",
+              "name": "Áo Phông Nam In Chữ Running Thể Thao",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343603",
+              "name": "Áo Thun Nam Form Rộng In Chữ Comfortable",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435f1",
+              "name": "Áo Phông Nam Cotton Compact In Chữ Phản Quang",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3436f9",
+              "name": "Áo Phông Nam Năng Động In Chữ Run",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435f7",
+              "name": "Áo Phông Nam Cổ Tròn In Chữ Break The Rules",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435c8",
+              "name": "Áo Phông Nam Vải Iscra Siêu Mềm Mịn",
+              "relevant": false
+            }
+          ]
+        },
+        "allChunks": {
+          "precisionAt6": 0.8333333333333334,
+          "recallAt10": 0.6923076923076923,
+          "ndcgAt10": 0.914856882358379,
+          "candidateProducts": 19,
+          "top6": [
+            {
+              "id": "6ad8cc23a55a838dfd343772",
+              "name": "Áo Phông Nam In Chữ Running Thể Thao",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343603",
+              "name": "Áo Thun Nam Form Rộng In Chữ Comfortable",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435f1",
+              "name": "Áo Phông Nam Cotton Compact In Chữ Phản Quang",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435f7",
+              "name": "Áo Phông Nam Cổ Tròn In Chữ Break The Rules",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3436f9",
+              "name": "Áo Phông Nam Năng Động In Chữ Run",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343838",
+              "name": "Áo Polo Nam In Vạch Ngực Phối Màu",
+              "relevant": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "query": "áo thun nữ màu đen",
+      "relevantProducts": 3,
+      "strategies": {
+        "onePooled": {
+          "precisionAt6": 0.3333333333333333,
+          "recallAt10": 0.6666666666666666,
+          "ndcgAt10": 0.7653606369886217,
+          "candidateProducts": 180,
+          "top6": [
+            {
+              "id": "6ad8cc23a55a838dfd343655",
+              "name": "Áo Thun Nữ Đệm Vai Họa Tiết",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435ff",
+              "name": "Áo Thun Nữ Form Rộng In Chữ Comfortable",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3437e8",
+              "name": "Áo Giữ Nhiệt Nữ Cổ Tròn",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343b5d",
+              "name": "Áo Khoác Thể Thao Nữ Co Giãn",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3438ee",
+              "name": "Bộ Đồ Bộ Đồ Nữ In Chữ",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435b6",
+              "name": "Áo Phông Nữ Cổ Tròn In Love",
+              "relevant": false
+            }
+          ]
+        },
+        "titleOnly": {
+          "precisionAt6": 0.3333333333333333,
+          "recallAt10": 0.6666666666666666,
+          "ndcgAt10": 0.7653606369886217,
+          "candidateProducts": 180,
+          "top6": [
+            {
+              "id": "6ad8cc23a55a838dfd343655",
+              "name": "Áo Thun Nữ Đệm Vai Họa Tiết",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435ff",
+              "name": "Áo Thun Nữ Form Rộng In Chữ Comfortable",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435b6",
+              "name": "Áo Phông Nữ Cổ Tròn In Love",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3437b0",
+              "name": "Áo Polo Nữ Thun Gân Cổ 5 Cúc",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343f09",
+              "name": "Áo Polo Nữ Thể Thao Phối Màu Thoát Ẩm Nhanh Khô Giữ Phom Tôn Dáng",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3437e8",
+              "name": "Áo Giữ Nhiệt Nữ Cổ Tròn",
+              "relevant": false
+            }
+          ]
+        },
+        "titleAndDescription": {
+          "precisionAt6": 0.3333333333333333,
+          "recallAt10": 0.6666666666666666,
+          "ndcgAt10": 0.7653606369886217,
+          "candidateProducts": 180,
+          "top6": [
+            {
+              "id": "6ad8cc23a55a838dfd343655",
+              "name": "Áo Thun Nữ Đệm Vai Họa Tiết",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435ff",
+              "name": "Áo Thun Nữ Form Rộng In Chữ Comfortable",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435b6",
+              "name": "Áo Phông Nữ Cổ Tròn In Love",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3437b0",
+              "name": "Áo Polo Nữ Thun Gân Cổ 5 Cúc",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343f09",
+              "name": "Áo Polo Nữ Thể Thao Phối Màu Thoát Ẩm Nhanh Khô Giữ Phom Tôn Dáng",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343772",
+              "name": "Áo Phông Nam In Chữ Running Thể Thao",
+              "relevant": false
+            }
+          ]
+        },
+        "baseAndColorGroups": {
+          "precisionAt6": 0.3333333333333333,
+          "recallAt10": 1.0,
+          "ndcgAt10": 0.9010126104210695,
+          "candidateProducts": 180,
+          "top6": [
+            {
+              "id": "6ad8cc23a55a838dfd343655",
+              "name": "Áo Thun Nữ Đệm Vai Họa Tiết",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435ff",
+              "name": "Áo Thun Nữ Form Rộng In Chữ Comfortable",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3437e8",
+              "name": "Áo Giữ Nhiệt Nữ Cổ Tròn",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3437ee",
+              "name": "Áo Giữ Nhiệt Nữ Cổ 3cm Dáng Ôm",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3437d5",
+              "name": "Áo Sơ Mi Nữ Tay Ngắn Dáng Suông Dài",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343b2d",
+              "name": "Áo Phao Nữ Trần Trám",
+              "relevant": false
+            }
+          ]
+        },
+        "allChunks": {
+          "precisionAt6": 0.3333333333333333,
+          "recallAt10": 1.0,
+          "ndcgAt10": 0.9066276098484507,
+          "candidateProducts": 180,
+          "top6": [
+            {
+              "id": "6ad8cc23a55a838dfd343655",
+              "name": "Áo Thun Nữ Đệm Vai Họa Tiết",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435ff",
+              "name": "Áo Thun Nữ Form Rộng In Chữ Comfortable",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3437e8",
+              "name": "Áo Giữ Nhiệt Nữ Cổ Tròn",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3437ee",
+              "name": "Áo Giữ Nhiệt Nữ Cổ 3cm Dáng Ôm",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3437d5",
+              "name": "Áo Sơ Mi Nữ Tay Ngắn Dáng Suông Dài",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343b2d",
+              "name": "Áo Phao Nữ Trần Trám",
+              "relevant": false
+            }
+          ]
+        }
+      },
+      "filteredStrategies": {
+        "onePooled": {
+          "precisionAt6": 0.5,
+          "recallAt10": 1.0,
+          "ndcgAt10": 0.9674679834891693,
+          "candidateProducts": 8,
+          "top6": [
+            {
+              "id": "6ad8cc23a55a838dfd343655",
+              "name": "Áo Thun Nữ Đệm Vai Họa Tiết",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435ff",
+              "name": "Áo Thun Nữ Form Rộng In Chữ Comfortable",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3436f9",
+              "name": "Áo Phông Nam Năng Động In Chữ Run",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343783",
+              "name": "Áo Polo Nữ Croptop Mắt Chim Năng Động",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3437a4",
+              "name": "Áo Polo Nữ Airycool Thoáng Khí Thấm Hút Tốt",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343772",
+              "name": "Áo Phông Nam In Chữ Running Thể Thao",
+              "relevant": false
+            }
+          ]
+        },
+        "titleOnly": {
+          "precisionAt6": 0.5,
+          "recallAt10": 1.0,
+          "ndcgAt10": 0.9325210919548239,
+          "candidateProducts": 8,
+          "top6": [
+            {
+              "id": "6ad8cc23a55a838dfd343655",
+              "name": "Áo Thun Nữ Đệm Vai Họa Tiết",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435ff",
+              "name": "Áo Thun Nữ Form Rộng In Chữ Comfortable",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343f09",
+              "name": "Áo Polo Nữ Thể Thao Phối Màu Thoát Ẩm Nhanh Khô Giữ Phom Tôn Dáng",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3437a4",
+              "name": "Áo Polo Nữ Airycool Thoáng Khí Thấm Hút Tốt",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343747",
+              "name": "Áo Polo Nữ Airycool Thoáng Mát Phối Bo",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343783",
+              "name": "Áo Polo Nữ Croptop Mắt Chim Năng Động",
+              "relevant": true
+            }
+          ]
+        },
+        "titleAndDescription": {
+          "precisionAt6": 0.3333333333333333,
+          "recallAt10": 1.0,
+          "ndcgAt10": 0.9134015924715543,
+          "candidateProducts": 8,
+          "top6": [
+            {
+              "id": "6ad8cc23a55a838dfd343655",
+              "name": "Áo Thun Nữ Đệm Vai Họa Tiết",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435ff",
+              "name": "Áo Thun Nữ Form Rộng In Chữ Comfortable",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343f09",
+              "name": "Áo Polo Nữ Thể Thao Phối Màu Thoát Ẩm Nhanh Khô Giữ Phom Tôn Dáng",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343772",
+              "name": "Áo Phông Nam In Chữ Running Thể Thao",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3437a4",
+              "name": "Áo Polo Nữ Airycool Thoáng Khí Thấm Hút Tốt",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3436f9",
+              "name": "Áo Phông Nam Năng Động In Chữ Run",
+              "relevant": false
+            }
+          ]
+        },
+        "baseAndColorGroups": {
+          "precisionAt6": 0.5,
+          "recallAt10": 1.0,
+          "ndcgAt10": 1.0,
+          "candidateProducts": 8,
+          "top6": [
+            {
+              "id": "6ad8cc23a55a838dfd343655",
+              "name": "Áo Thun Nữ Đệm Vai Họa Tiết",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435ff",
+              "name": "Áo Thun Nữ Form Rộng In Chữ Comfortable",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343783",
+              "name": "Áo Polo Nữ Croptop Mắt Chim Năng Động",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343f09",
+              "name": "Áo Polo Nữ Thể Thao Phối Màu Thoát Ẩm Nhanh Khô Giữ Phom Tôn Dáng",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343772",
+              "name": "Áo Phông Nam In Chữ Running Thể Thao",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3436f9",
+              "name": "Áo Phông Nam Năng Động In Chữ Run",
+              "relevant": false
+            }
+          ]
+        },
+        "allChunks": {
+          "precisionAt6": 0.5,
+          "recallAt10": 1.0,
+          "ndcgAt10": 1.0,
+          "candidateProducts": 8,
+          "top6": [
+            {
+              "id": "6ad8cc23a55a838dfd343655",
+              "name": "Áo Thun Nữ Đệm Vai Họa Tiết",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435ff",
+              "name": "Áo Thun Nữ Form Rộng In Chữ Comfortable",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343783",
+              "name": "Áo Polo Nữ Croptop Mắt Chim Năng Động",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343772",
+              "name": "Áo Phông Nam In Chữ Running Thể Thao",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343f09",
+              "name": "Áo Polo Nữ Thể Thao Phối Màu Thoát Ẩm Nhanh Khô Giữ Phom Tôn Dáng",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3437a4",
+              "name": "Áo Polo Nữ Airycool Thoáng Khí Thấm Hút Tốt",
+              "relevant": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "query": "áo thun nữ màu trắng",
+      "relevantProducts": 7,
+      "strategies": {
+        "onePooled": {
+          "precisionAt6": 0.3333333333333333,
+          "recallAt10": 0.5714285714285714,
+          "ndcgAt10": 0.43416023221139177,
+          "candidateProducts": 180,
+          "top6": [
+            {
+              "id": "6ad8cc23a55a838dfd343655",
+              "name": "Áo Thun Nữ Đệm Vai Họa Tiết",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435ff",
+              "name": "Áo Thun Nữ Form Rộng In Chữ Comfortable",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435b6",
+              "name": "Áo Phông Nữ Cổ Tròn In Love",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3437a4",
+              "name": "Áo Polo Nữ Airycool Thoáng Khí Thấm Hút Tốt",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3437d5",
+              "name": "Áo Sơ Mi Nữ Tay Ngắn Dáng Suông Dài",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435af",
+              "name": "Áo Thun Cho Bé Dáng Suông In Hình Vũ Trụ",
+              "relevant": false
+            }
+          ]
+        },
+        "titleOnly": {
+          "precisionAt6": 0.3333333333333333,
+          "recallAt10": 0.7142857142857143,
+          "ndcgAt10": 0.4926917767195825,
+          "candidateProducts": 180,
+          "top6": [
+            {
+              "id": "6ad8cc23a55a838dfd343655",
+              "name": "Áo Thun Nữ Đệm Vai Họa Tiết",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435ff",
+              "name": "Áo Thun Nữ Form Rộng In Chữ Comfortable",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435b6",
+              "name": "Áo Phông Nữ Cổ Tròn In Love",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3437b0",
+              "name": "Áo Polo Nữ Thun Gân Cổ 5 Cúc",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3437a4",
+              "name": "Áo Polo Nữ Airycool Thoáng Khí Thấm Hút Tốt",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3437d5",
+              "name": "Áo Sơ Mi Nữ Tay Ngắn Dáng Suông Dài",
+              "relevant": false
+            }
+          ]
+        },
+        "titleAndDescription": {
+          "precisionAt6": 0.3333333333333333,
+          "recallAt10": 0.5714285714285714,
+          "ndcgAt10": 0.40643361554464436,
+          "candidateProducts": 180,
+          "top6": [
+            {
+              "id": "6ad8cc23a55a838dfd3435ff",
+              "name": "Áo Thun Nữ Form Rộng In Chữ Comfortable",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343655",
+              "name": "Áo Thun Nữ Đệm Vai Họa Tiết",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435b6",
+              "name": "Áo Phông Nữ Cổ Tròn In Love",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435db",
+              "name": "Áo Thun Trẻ Em Suông Cotton Compact In Gấu",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3437b0",
+              "name": "Áo Polo Nữ Thun Gân Cổ 5 Cúc",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3437a4",
+              "name": "Áo Polo Nữ Airycool Thoáng Khí Thấm Hút Tốt",
+              "relevant": true
+            }
+          ]
+        },
+        "baseAndColorGroups": {
+          "precisionAt6": 0.5,
+          "recallAt10": 0.7142857142857143,
+          "ndcgAt10": 0.5159369855005637,
+          "candidateProducts": 180,
+          "top6": [
+            {
+              "id": "6ad8cc23a55a838dfd343655",
+              "name": "Áo Thun Nữ Đệm Vai Họa Tiết",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435ff",
+              "name": "Áo Thun Nữ Form Rộng In Chữ Comfortable",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435b6",
+              "name": "Áo Phông Nữ Cổ Tròn In Love",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3437a4",
+              "name": "Áo Polo Nữ Airycool Thoáng Khí Thấm Hút Tốt",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3437d5",
+              "name": "Áo Sơ Mi Nữ Tay Ngắn Dáng Suông Dài",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343f09",
+              "name": "Áo Polo Nữ Thể Thao Phối Màu Thoát Ẩm Nhanh Khô Giữ Phom Tôn Dáng",
+              "relevant": true
+            }
+          ]
+        },
+        "allChunks": {
+          "precisionAt6": 0.3333333333333333,
+          "recallAt10": 0.8571428571428571,
+          "ndcgAt10": 0.6323528234805732,
+          "candidateProducts": 180,
+          "top6": [
+            {
+              "id": "6ad8cc23a55a838dfd3435ff",
+              "name": "Áo Thun Nữ Form Rộng In Chữ Comfortable",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435b6",
+              "name": "Áo Phông Nữ Cổ Tròn In Love",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343655",
+              "name": "Áo Thun Nữ Đệm Vai Họa Tiết",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3437a4",
+              "name": "Áo Polo Nữ Airycool Thoáng Khí Thấm Hút Tốt",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3437d5",
+              "name": "Áo Sơ Mi Nữ Tay Ngắn Dáng Suông Dài",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3437ee",
+              "name": "Áo Giữ Nhiệt Nữ Cổ 3cm Dáng Ôm",
+              "relevant": false
+            }
+          ]
+        }
+      },
+      "filteredStrategies": {
+        "onePooled": {
+          "precisionAt6": 1.0,
+          "recallAt10": 1.0,
+          "ndcgAt10": 1.0,
+          "candidateProducts": 12,
+          "top6": [
+            {
+              "id": "6ad8cc23a55a838dfd3435b6",
+              "name": "Áo Phông Nữ Cổ Tròn In Love",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3437a4",
+              "name": "Áo Polo Nữ Airycool Thoáng Khí Thấm Hút Tốt",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343840",
+              "name": "Áo Polo Nữ Airycool Dáng Ôm Siêu Mát",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343663",
+              "name": "Áo Polo Nữ Coolmax Ngắn Tay Phối Bo",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343f09",
+              "name": "Áo Polo Nữ Thể Thao Phối Màu Thoát Ẩm Nhanh Khô Giữ Phom Tôn Dáng",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343715",
+              "name": "Áo Polo Nữ Mắt Chim Melange Phối Nẹp",
+              "relevant": true
+            }
+          ]
+        },
+        "titleOnly": {
+          "precisionAt6": 0.8333333333333334,
+          "recallAt10": 1.0,
+          "ndcgAt10": 0.9132861715058802,
+          "candidateProducts": 12,
+          "top6": [
+            {
+              "id": "6ad8cc23a55a838dfd3435b6",
+              "name": "Áo Phông Nữ Cổ Tròn In Love",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3437b0",
+              "name": "Áo Polo Nữ Thun Gân Cổ 5 Cúc",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3437a4",
+              "name": "Áo Polo Nữ Airycool Thoáng Khí Thấm Hút Tốt",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343f09",
+              "name": "Áo Polo Nữ Thể Thao Phối Màu Thoát Ẩm Nhanh Khô Giữ Phom Tôn Dáng",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343840",
+              "name": "Áo Polo Nữ Airycool Dáng Ôm Siêu Mát",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343747",
+              "name": "Áo Polo Nữ Airycool Thoáng Mát Phối Bo",
+              "relevant": true
+            }
+          ]
+        },
+        "titleAndDescription": {
+          "precisionAt6": 0.8333333333333334,
+          "recallAt10": 1.0,
+          "ndcgAt10": 0.9044067485064368,
+          "candidateProducts": 12,
+          "top6": [
+            {
+              "id": "6ad8cc23a55a838dfd3435b6",
+              "name": "Áo Phông Nữ Cổ Tròn In Love",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3437b0",
+              "name": "Áo Polo Nữ Thun Gân Cổ 5 Cúc",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3437a4",
+              "name": "Áo Polo Nữ Airycool Thoáng Khí Thấm Hút Tốt",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343f09",
+              "name": "Áo Polo Nữ Thể Thao Phối Màu Thoát Ẩm Nhanh Khô Giữ Phom Tôn Dáng",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343840",
+              "name": "Áo Polo Nữ Airycool Dáng Ôm Siêu Mát",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343747",
+              "name": "Áo Polo Nữ Airycool Thoáng Mát Phối Bo",
+              "relevant": true
+            }
+          ]
+        },
+        "baseAndColorGroups": {
+          "precisionAt6": 0.8333333333333334,
+          "recallAt10": 1.0,
+          "ndcgAt10": 0.9683310355387568,
+          "candidateProducts": 12,
+          "top6": [
+            {
+              "id": "6ad8cc23a55a838dfd3435b6",
+              "name": "Áo Phông Nữ Cổ Tròn In Love",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3437a4",
+              "name": "Áo Polo Nữ Airycool Thoáng Khí Thấm Hút Tốt",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343f09",
+              "name": "Áo Polo Nữ Thể Thao Phối Màu Thoát Ẩm Nhanh Khô Giữ Phom Tôn Dáng",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3437b0",
+              "name": "Áo Polo Nữ Thun Gân Cổ 5 Cúc",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343747",
+              "name": "Áo Polo Nữ Airycool Thoáng Mát Phối Bo",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343840",
+              "name": "Áo Polo Nữ Airycool Dáng Ôm Siêu Mát",
+              "relevant": true
+            }
+          ]
+        },
+        "allChunks": {
+          "precisionAt6": 1.0,
+          "recallAt10": 1.0,
+          "ndcgAt10": 1.0,
+          "candidateProducts": 12,
+          "top6": [
+            {
+              "id": "6ad8cc23a55a838dfd3435b6",
+              "name": "Áo Phông Nữ Cổ Tròn In Love",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3437a4",
+              "name": "Áo Polo Nữ Airycool Thoáng Khí Thấm Hút Tốt",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343f09",
+              "name": "Áo Polo Nữ Thể Thao Phối Màu Thoát Ẩm Nhanh Khô Giữ Phom Tôn Dáng",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343747",
+              "name": "Áo Polo Nữ Airycool Thoáng Mát Phối Bo",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343840",
+              "name": "Áo Polo Nữ Airycool Dáng Ôm Siêu Mát",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343715",
+              "name": "Áo Polo Nữ Mắt Chim Melange Phối Nẹp",
+              "relevant": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "query": "áo khoác nam màu đen",
+      "relevantProducts": 13,
+      "strategies": {
+        "onePooled": {
+          "precisionAt6": 0.8333333333333334,
+          "recallAt10": 0.5384615384615384,
+          "ndcgAt10": 0.7312625444731046,
+          "candidateProducts": 180,
+          "top6": [
+            {
+              "id": "6ad8cc24a55a838dfd343ae7",
+              "name": "Áo Khoác Gió Nam Cổ Dựng Cúc Bấm",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd34399c",
+              "name": "Áo Phao Gile Nam Thời Trang Kéo Khóa",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343c2c",
+              "name": "Áo khoác nam bomber bổ ngực",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd3439ff",
+              "name": "Áo Khoác Gió Nam Cổ Dựng Kiểu Siêu Nhẹ Cản Gió Trượt Nước",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343b77",
+              "name": "Áo Khoác Nam Bomber Bổ Ngực",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343c7b",
+              "name": "Áo Khoác Gió Thể Thao Nam Một Lớp Phối Khóa",
+              "relevant": true
+            }
+          ]
+        },
+        "titleOnly": {
+          "precisionAt6": 0.8333333333333334,
+          "recallAt10": 0.5384615384615384,
+          "ndcgAt10": 0.7720617383222417,
+          "candidateProducts": 180,
+          "top6": [
+            {
+              "id": "6ad8cc24a55a838dfd343ae7",
+              "name": "Áo Khoác Gió Nam Cổ Dựng Cúc Bấm",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343b77",
+              "name": "Áo Khoác Nam Bomber Bổ Ngực",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343c2c",
+              "name": "Áo khoác nam bomber bổ ngực",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343d1a",
+              "name": "Áo Khoác Gió Nam Thông Minh Trượt Nước",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd34399c",
+              "name": "Áo Phao Gile Nam Thời Trang Kéo Khóa",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc24a55a838dfd3439ff",
+              "name": "Áo Khoác Gió Nam Cổ Dựng Kiểu Siêu Nhẹ Cản Gió Trượt Nước",
+              "relevant": true
+            }
+          ]
+        },
+        "titleAndDescription": {
+          "precisionAt6": 0.8333333333333334,
+          "recallAt10": 0.46153846153846156,
+          "ndcgAt10": 0.7222954974312066,
+          "candidateProducts": 180,
+          "top6": [
+            {
+              "id": "6ad8cc24a55a838dfd343c2c",
+              "name": "Áo khoác nam bomber bổ ngực",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343ae7",
+              "name": "Áo Khoác Gió Nam Cổ Dựng Cúc Bấm",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd3439ff",
+              "name": "Áo Khoác Gió Nam Cổ Dựng Kiểu Siêu Nhẹ Cản Gió Trượt Nước",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343b77",
+              "name": "Áo Khoác Nam Bomber Bổ Ngực",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343b92",
+              "name": "Áo Khoác Gió Nam 2 Lớp Siêu Co Giãn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343a69",
+              "name": "Áo Phao Nam Gia Đình 4S",
+              "relevant": false
+            }
+          ]
+        },
+        "baseAndColorGroups": {
+          "precisionAt6": 1.0,
+          "recallAt10": 0.6923076923076923,
+          "ndcgAt10": 0.9305687780632227,
+          "candidateProducts": 180,
+          "top6": [
+            {
+              "id": "6ad8cc24a55a838dfd343c2c",
+              "name": "Áo khoác nam bomber bổ ngực",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343d1a",
+              "name": "Áo Khoác Gió Nam Thông Minh Trượt Nước",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343b77",
+              "name": "Áo Khoác Nam Bomber Bổ Ngực",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343c7b",
+              "name": "Áo Khoác Gió Thể Thao Nam Một Lớp Phối Khóa",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343b92",
+              "name": "Áo Khoác Gió Nam 2 Lớp Siêu Co Giãn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343cd5",
+              "name": "Áo Khoác Phao Nam 3s Plus - Trượt Nước, Siêu Ấm",
+              "relevant": true
+            }
+          ]
+        },
+        "allChunks": {
+          "precisionAt6": 1.0,
+          "recallAt10": 0.6153846153846154,
+          "ndcgAt10": 0.8701249883466592,
+          "candidateProducts": 180,
+          "top6": [
+            {
+              "id": "6ad8cc24a55a838dfd343c2c",
+              "name": "Áo khoác nam bomber bổ ngực",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343d1a",
+              "name": "Áo Khoác Gió Nam Thông Minh Trượt Nước",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343c7b",
+              "name": "Áo Khoác Gió Thể Thao Nam Một Lớp Phối Khóa",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343b92",
+              "name": "Áo Khoác Gió Nam 2 Lớp Siêu Co Giãn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343b77",
+              "name": "Áo Khoác Nam Bomber Bổ Ngực",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343cd5",
+              "name": "Áo Khoác Phao Nam 3s Plus - Trượt Nước, Siêu Ấm",
+              "relevant": true
+            }
+          ]
+        }
+      },
+      "filteredStrategies": {
+        "onePooled": {
+          "precisionAt6": 1.0,
+          "recallAt10": 0.6923076923076923,
+          "ndcgAt10": 0.933745776545611,
+          "candidateProducts": 20,
+          "top6": [
+            {
+              "id": "6ad8cc24a55a838dfd343ae7",
+              "name": "Áo Khoác Gió Nam Cổ Dựng Cúc Bấm",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343c2c",
+              "name": "Áo khoác nam bomber bổ ngực",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd3439ff",
+              "name": "Áo Khoác Gió Nam Cổ Dựng Kiểu Siêu Nhẹ Cản Gió Trượt Nước",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343b77",
+              "name": "Áo Khoác Nam Bomber Bổ Ngực",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343c7b",
+              "name": "Áo Khoác Gió Thể Thao Nam Một Lớp Phối Khóa",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343d1a",
+              "name": "Áo Khoác Gió Nam Thông Minh Trượt Nước",
+              "relevant": true
+            }
+          ]
+        },
+        "titleOnly": {
+          "precisionAt6": 0.8333333333333334,
+          "recallAt10": 0.6923076923076923,
+          "ndcgAt10": 0.9216017310213246,
+          "candidateProducts": 20,
+          "top6": [
+            {
+              "id": "6ad8cc24a55a838dfd343ae7",
+              "name": "Áo Khoác Gió Nam Cổ Dựng Cúc Bấm",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343b77",
+              "name": "Áo Khoác Nam Bomber Bổ Ngực",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343c2c",
+              "name": "Áo khoác nam bomber bổ ngực",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343d1a",
+              "name": "Áo Khoác Gió Nam Thông Minh Trượt Nước",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd3439ff",
+              "name": "Áo Khoác Gió Nam Cổ Dựng Kiểu Siêu Nhẹ Cản Gió Trượt Nước",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343b6d",
+              "name": "Áo Khoác Nam Mũ Liền Lót Lông",
+              "relevant": false
+            }
+          ]
+        },
+        "titleAndDescription": {
+          "precisionAt6": 1.0,
+          "recallAt10": 0.6923076923076923,
+          "ndcgAt10": 0.9266360779006398,
+          "candidateProducts": 20,
+          "top6": [
+            {
+              "id": "6ad8cc24a55a838dfd343c2c",
+              "name": "Áo khoác nam bomber bổ ngực",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343ae7",
+              "name": "Áo Khoác Gió Nam Cổ Dựng Cúc Bấm",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd3439ff",
+              "name": "Áo Khoác Gió Nam Cổ Dựng Kiểu Siêu Nhẹ Cản Gió Trượt Nước",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343b77",
+              "name": "Áo Khoác Nam Bomber Bổ Ngực",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343b92",
+              "name": "Áo Khoác Gió Nam 2 Lớp Siêu Co Giãn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343d1a",
+              "name": "Áo Khoác Gió Nam Thông Minh Trượt Nước",
+              "relevant": true
+            }
+          ]
+        },
+        "baseAndColorGroups": {
+          "precisionAt6": 1.0,
+          "recallAt10": 0.6923076923076923,
+          "ndcgAt10": 0.9363792118010481,
+          "candidateProducts": 20,
+          "top6": [
+            {
+              "id": "6ad8cc24a55a838dfd343c2c",
+              "name": "Áo khoác nam bomber bổ ngực",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343d1a",
+              "name": "Áo Khoác Gió Nam Thông Minh Trượt Nước",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343b77",
+              "name": "Áo Khoác Nam Bomber Bổ Ngực",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343c7b",
+              "name": "Áo Khoác Gió Thể Thao Nam Một Lớp Phối Khóa",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343b92",
+              "name": "Áo Khoác Gió Nam 2 Lớp Siêu Co Giãn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343cd5",
+              "name": "Áo Khoác Phao Nam 3s Plus - Trượt Nước, Siêu Ấm",
+              "relevant": true
+            }
+          ]
+        },
+        "allChunks": {
+          "precisionAt6": 1.0,
+          "recallAt10": 0.7692307692307693,
+          "ndcgAt10": 1.0,
+          "candidateProducts": 20,
+          "top6": [
+            {
+              "id": "6ad8cc24a55a838dfd343c2c",
+              "name": "Áo khoác nam bomber bổ ngực",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343d1a",
+              "name": "Áo Khoác Gió Nam Thông Minh Trượt Nước",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343c7b",
+              "name": "Áo Khoác Gió Thể Thao Nam Một Lớp Phối Khóa",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343b92",
+              "name": "Áo Khoác Gió Nam 2 Lớp Siêu Co Giãn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343b77",
+              "name": "Áo Khoác Nam Bomber Bổ Ngực",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343cd5",
+              "name": "Áo Khoác Phao Nam 3s Plus - Trượt Nước, Siêu Ấm",
+              "relevant": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "query": "áo khoác nữ màu đen",
+      "relevantProducts": 12,
+      "strategies": {
+        "onePooled": {
+          "precisionAt6": 0.8333333333333334,
+          "recallAt10": 0.5,
+          "ndcgAt10": 0.6867151830982591,
+          "candidateProducts": 180,
+          "top6": [
+            {
+              "id": "6ad8cc24a55a838dfd343b5d",
+              "name": "Áo Khoác Thể Thao Nữ Co Giãn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343b60",
+              "name": "Áo Khoác Nữ Mũ Liền Lót Lông",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343baf",
+              "name": "Áo Phao Nữ Dáng Ngắn 3 Lớp Siêu Ấm",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343b0f",
+              "name": "Áo Khoác Phao Nữ Vip Dáng Ôm Cổ Phối Lông",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343a19",
+              "name": "Áo Khoác Gió Nữ Co Giãn 4 Chiều",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343b80",
+              "name": "Áo Khoác Gió Nữ 2 Lớp Siêu Co Giãn",
+              "relevant": true
+            }
+          ]
+        },
+        "titleOnly": {
+          "precisionAt6": 0.6666666666666666,
+          "recallAt10": 0.5833333333333334,
+          "ndcgAt10": 0.7191184989488184,
+          "candidateProducts": 180,
+          "top6": [
+            {
+              "id": "6ad8cc24a55a838dfd343b60",
+              "name": "Áo Khoác Nữ Mũ Liền Lót Lông",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd34395d",
+              "name": "Áo Phao Nữ Trần Trám Nẹp Giấu Khóa (PHN7008)",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343b80",
+              "name": "Áo Khoác Gió Nữ 2 Lớp Siêu Co Giãn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343b0f",
+              "name": "Áo Khoác Phao Nữ Vip Dáng Ôm Cổ Phối Lông",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343bdd",
+              "name": "Áo Khoác Phao Nữ 3s Plus - Trượt Nước, Siêu Nhẹ",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343b2d",
+              "name": "Áo Phao Nữ Trần Trám",
+              "relevant": false
+            }
+          ]
+        },
+        "titleAndDescription": {
+          "precisionAt6": 0.6666666666666666,
+          "recallAt10": 0.4166666666666667,
+          "ndcgAt10": 0.485813635742251,
+          "candidateProducts": 180,
+          "top6": [
+            {
+              "id": "6ad8cc24a55a838dfd343b50",
+              "name": "Áo Khoác Gió Nữ Thể Thao Co Giãn Siêu Nhẹ Chống Tia Uv",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343b60",
+              "name": "Áo Khoác Nữ Mũ Liền Lót Lông",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343c86",
+              "name": "Áo Khoác Gió Thông Minh Nữ Trượt Nước",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd34395d",
+              "name": "Áo Phao Nữ Trần Trám Nẹp Giấu Khóa (PHN7008)",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343b80",
+              "name": "Áo Khoác Gió Nữ 2 Lớp Siêu Co Giãn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343b0f",
+              "name": "Áo Khoác Phao Nữ Vip Dáng Ôm Cổ Phối Lông",
+              "relevant": true
+            }
+          ]
+        },
+        "baseAndColorGroups": {
+          "precisionAt6": 0.8333333333333334,
+          "recallAt10": 0.6666666666666666,
+          "ndcgAt10": 0.8579809428223729,
+          "candidateProducts": 180,
+          "top6": [
+            {
+              "id": "6ad8cc24a55a838dfd343b60",
+              "name": "Áo Khoác Nữ Mũ Liền Lót Lông",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343b80",
+              "name": "Áo Khoác Gió Nữ 2 Lớp Siêu Co Giãn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343b0f",
+              "name": "Áo Khoác Phao Nữ Vip Dáng Ôm Cổ Phối Lông",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343bdd",
+              "name": "Áo Khoác Phao Nữ 3s Plus - Trượt Nước, Siêu Nhẹ",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343c86",
+              "name": "Áo Khoác Gió Thông Minh Nữ Trượt Nước",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343b2d",
+              "name": "Áo Phao Nữ Trần Trám",
+              "relevant": false
+            }
+          ]
+        },
+        "allChunks": {
+          "precisionAt6": 1.0,
+          "recallAt10": 0.6666666666666666,
+          "ndcgAt10": 0.8630152897016882,
+          "candidateProducts": 180,
+          "top6": [
+            {
+              "id": "6ad8cc24a55a838dfd343b60",
+              "name": "Áo Khoác Nữ Mũ Liền Lót Lông",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343b80",
+              "name": "Áo Khoác Gió Nữ 2 Lớp Siêu Co Giãn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343b0f",
+              "name": "Áo Khoác Phao Nữ Vip Dáng Ôm Cổ Phối Lông",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343bdd",
+              "name": "Áo Khoác Phao Nữ 3s Plus - Trượt Nước, Siêu Nhẹ",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343c86",
+              "name": "Áo Khoác Gió Thông Minh Nữ Trượt Nước",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343b5d",
+              "name": "Áo Khoác Thể Thao Nữ Co Giãn",
+              "relevant": true
+            }
+          ]
+        }
+      },
+      "filteredStrategies": {
+        "onePooled": {
+          "precisionAt6": 1.0,
+          "recallAt10": 0.75,
+          "ndcgAt10": 0.9266360779006398,
+          "candidateProducts": 15,
+          "top6": [
+            {
+              "id": "6ad8cc24a55a838dfd343b5d",
+              "name": "Áo Khoác Thể Thao Nữ Co Giãn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343b60",
+              "name": "Áo Khoác Nữ Mũ Liền Lót Lông",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343b0f",
+              "name": "Áo Khoác Phao Nữ Vip Dáng Ôm Cổ Phối Lông",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343a19",
+              "name": "Áo Khoác Gió Nữ Co Giãn 4 Chiều",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343b80",
+              "name": "Áo Khoác Gió Nữ 2 Lớp Siêu Co Giãn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343c86",
+              "name": "Áo Khoác Gió Thông Minh Nữ Trượt Nước",
+              "relevant": true
+            }
+          ]
+        },
+        "titleOnly": {
+          "precisionAt6": 1.0,
+          "recallAt10": 0.6666666666666666,
+          "ndcgAt10": 0.8643145546088337,
+          "candidateProducts": 15,
+          "top6": [
+            {
+              "id": "6ad8cc24a55a838dfd343b60",
+              "name": "Áo Khoác Nữ Mũ Liền Lót Lông",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343b80",
+              "name": "Áo Khoác Gió Nữ 2 Lớp Siêu Co Giãn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343b0f",
+              "name": "Áo Khoác Phao Nữ Vip Dáng Ôm Cổ Phối Lông",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343bdd",
+              "name": "Áo Khoác Phao Nữ 3s Plus - Trượt Nước, Siêu Nhẹ",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343b5d",
+              "name": "Áo Khoác Thể Thao Nữ Co Giãn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343c86",
+              "name": "Áo Khoác Gió Thông Minh Nữ Trượt Nước",
+              "relevant": true
+            }
+          ]
+        },
+        "titleAndDescription": {
+          "precisionAt6": 0.8333333333333334,
+          "recallAt10": 0.75,
+          "ndcgAt10": 0.7799082337019198,
+          "candidateProducts": 15,
+          "top6": [
+            {
+              "id": "6ad8cc24a55a838dfd343b50",
+              "name": "Áo Khoác Gió Nữ Thể Thao Co Giãn Siêu Nhẹ Chống Tia Uv",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343b60",
+              "name": "Áo Khoác Nữ Mũ Liền Lót Lông",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343c86",
+              "name": "Áo Khoác Gió Thông Minh Nữ Trượt Nước",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343b80",
+              "name": "Áo Khoác Gió Nữ 2 Lớp Siêu Co Giãn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343b0f",
+              "name": "Áo Khoác Phao Nữ Vip Dáng Ôm Cổ Phối Lông",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343bdd",
+              "name": "Áo Khoác Phao Nữ 3s Plus - Trượt Nước, Siêu Nhẹ",
+              "relevant": true
+            }
+          ]
+        },
+        "baseAndColorGroups": {
+          "precisionAt6": 1.0,
+          "recallAt10": 0.75,
+          "ndcgAt10": 0.933745776545611,
+          "candidateProducts": 15,
+          "top6": [
+            {
+              "id": "6ad8cc24a55a838dfd343b60",
+              "name": "Áo Khoác Nữ Mũ Liền Lót Lông",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343b80",
+              "name": "Áo Khoác Gió Nữ 2 Lớp Siêu Co Giãn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343b0f",
+              "name": "Áo Khoác Phao Nữ Vip Dáng Ôm Cổ Phối Lông",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343bdd",
+              "name": "Áo Khoác Phao Nữ 3s Plus - Trượt Nước, Siêu Nhẹ",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343c86",
+              "name": "Áo Khoác Gió Thông Minh Nữ Trượt Nước",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343b5d",
+              "name": "Áo Khoác Thể Thao Nữ Co Giãn",
+              "relevant": true
+            }
+          ]
+        },
+        "allChunks": {
+          "precisionAt6": 1.0,
+          "recallAt10": 0.8333333333333334,
+          "ndcgAt10": 1.0,
+          "candidateProducts": 15,
+          "top6": [
+            {
+              "id": "6ad8cc24a55a838dfd343b60",
+              "name": "Áo Khoác Nữ Mũ Liền Lót Lông",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343b80",
+              "name": "Áo Khoác Gió Nữ 2 Lớp Siêu Co Giãn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343b0f",
+              "name": "Áo Khoác Phao Nữ Vip Dáng Ôm Cổ Phối Lông",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343bdd",
+              "name": "Áo Khoác Phao Nữ 3s Plus - Trượt Nước, Siêu Nhẹ",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343c86",
+              "name": "Áo Khoác Gió Thông Minh Nữ Trượt Nước",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343b5d",
+              "name": "Áo Khoác Thể Thao Nữ Co Giãn",
+              "relevant": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "query": "quần nam màu đen",
+      "relevantProducts": 8,
+      "strategies": {
+        "onePooled": {
+          "precisionAt6": 0.8333333333333334,
+          "recallAt10": 0.625,
+          "ndcgAt10": 0.7380396325465056,
+          "candidateProducts": 180,
+          "top6": [
+            {
+              "id": "6ad8cc24a55a838dfd343de4",
+              "name": "Quần Jeans Nam Baggy Đen Trơn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd34379c",
+              "name": "Quần Jeans Nam Slimfit Tối Màu Co Giãn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3436f4",
+              "name": "Quần Jeans Nam Slim Fit Lycra Siêu Co Giãn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3438a8",
+              "name": "Quần Short Nam Thể Thao Lưng Thun Basic",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd34367c",
+              "name": "Quần Jeans Nam Ống Suông Lưng Thun",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343e5d",
+              "name": "Quần Jeans Nam Slim Denim Like Cơ Bản (QJM6041)",
+              "relevant": true
+            }
+          ]
+        },
+        "titleOnly": {
+          "precisionAt6": 0.6666666666666666,
+          "recallAt10": 0.5,
+          "ndcgAt10": 0.6291031399287498,
+          "candidateProducts": 180,
+          "top6": [
+            {
+              "id": "6ad8cc24a55a838dfd343de4",
+              "name": "Quần Jeans Nam Baggy Đen Trơn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd34379c",
+              "name": "Quần Jeans Nam Slimfit Tối Màu Co Giãn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343848",
+              "name": "Quần Âu Nam Cạp Chun Tiện Lợi",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd34367c",
+              "name": "Quần Jeans Nam Ống Suông Lưng Thun",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343e3d",
+              "name": "Quần Jeans Nam Slim Fit Quốc Dân",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3436f4",
+              "name": "Quần Jeans Nam Slim Fit Lycra Siêu Co Giãn",
+              "relevant": true
+            }
+          ]
+        },
+        "titleAndDescription": {
+          "precisionAt6": 0.6666666666666666,
+          "recallAt10": 0.75,
+          "ndcgAt10": 0.7608284603239706,
+          "candidateProducts": 180,
+          "top6": [
+            {
+              "id": "6ad8cc24a55a838dfd343de4",
+              "name": "Quần Jeans Nam Baggy Đen Trơn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd34379c",
+              "name": "Quần Jeans Nam Slimfit Tối Màu Co Giãn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343ebd",
+              "name": "Quần Jeans Nam Gai Xanh Regular",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3438a8",
+              "name": "Quần Short Nam Thể Thao Lưng Thun Basic",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343e4d",
+              "name": "Quần Jeans Nam Slim Fit Poly Indigo",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343848",
+              "name": "Quần Âu Nam Cạp Chun Tiện Lợi",
+              "relevant": true
+            }
+          ]
+        },
+        "baseAndColorGroups": {
+          "precisionAt6": 1.0,
+          "recallAt10": 0.75,
+          "ndcgAt10": 0.8358912271816661,
+          "candidateProducts": 180,
+          "top6": [
+            {
+              "id": "6ad8cc24a55a838dfd343de4",
+              "name": "Quần Jeans Nam Baggy Đen Trơn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd34379c",
+              "name": "Quần Jeans Nam Slimfit Tối Màu Co Giãn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343848",
+              "name": "Quần Âu Nam Cạp Chun Tiện Lợi",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3438a8",
+              "name": "Quần Short Nam Thể Thao Lưng Thun Basic",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3436f4",
+              "name": "Quần Jeans Nam Slim Fit Lycra Siêu Co Giãn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343e5d",
+              "name": "Quần Jeans Nam Slim Denim Like Cơ Bản (QJM6041)",
+              "relevant": true
+            }
+          ]
+        },
+        "allChunks": {
+          "precisionAt6": 1.0,
+          "recallAt10": 0.875,
+          "ndcgAt10": 0.9202054614375518,
+          "candidateProducts": 180,
+          "top6": [
+            {
+              "id": "6ad8cc24a55a838dfd343de4",
+              "name": "Quần Jeans Nam Baggy Đen Trơn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd34379c",
+              "name": "Quần Jeans Nam Slimfit Tối Màu Co Giãn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3438a8",
+              "name": "Quần Short Nam Thể Thao Lưng Thun Basic",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343e5d",
+              "name": "Quần Jeans Nam Slim Denim Like Cơ Bản (QJM6041)",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3436f4",
+              "name": "Quần Jeans Nam Slim Fit Lycra Siêu Co Giãn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343e83",
+              "name": "Bùi Công Nam × Quần Jeans Nam Regular Denim Like",
+              "relevant": true
+            }
+          ]
+        }
+      },
+      "filteredStrategies": {
+        "onePooled": {
+          "precisionAt6": 0.8333333333333334,
+          "recallAt10": 0.875,
+          "ndcgAt10": 0.8950513976905918,
+          "candidateProducts": 18,
+          "top6": [
+            {
+              "id": "6ad8cc24a55a838dfd343de4",
+              "name": "Quần Jeans Nam Baggy Đen Trơn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd34379c",
+              "name": "Quần Jeans Nam Slimfit Tối Màu Co Giãn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3436f4",
+              "name": "Quần Jeans Nam Slim Fit Lycra Siêu Co Giãn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3438a8",
+              "name": "Quần Short Nam Thể Thao Lưng Thun Basic",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343e5d",
+              "name": "Quần Jeans Nam Slim Denim Like Cơ Bản (QJM6041)",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343ebd",
+              "name": "Quần Jeans Nam Gai Xanh Regular",
+              "relevant": false
+            }
+          ]
+        },
+        "titleOnly": {
+          "precisionAt6": 0.8333333333333334,
+          "recallAt10": 0.75,
+          "ndcgAt10": 0.8111564709904157,
+          "candidateProducts": 18,
+          "top6": [
+            {
+              "id": "6ad8cc24a55a838dfd343de4",
+              "name": "Quần Jeans Nam Baggy Đen Trơn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd34379c",
+              "name": "Quần Jeans Nam Slimfit Tối Màu Co Giãn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343848",
+              "name": "Quần Âu Nam Cạp Chun Tiện Lợi",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3436f4",
+              "name": "Quần Jeans Nam Slim Fit Lycra Siêu Co Giãn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343e4d",
+              "name": "Quần Jeans Nam Slim Fit Poly Indigo",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3438a8",
+              "name": "Quần Short Nam Thể Thao Lưng Thun Basic",
+              "relevant": true
+            }
+          ]
+        },
+        "titleAndDescription": {
+          "precisionAt6": 0.6666666666666666,
+          "recallAt10": 0.75,
+          "ndcgAt10": 0.7756770539810109,
+          "candidateProducts": 18,
+          "top6": [
+            {
+              "id": "6ad8cc24a55a838dfd343de4",
+              "name": "Quần Jeans Nam Baggy Đen Trơn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd34379c",
+              "name": "Quần Jeans Nam Slimfit Tối Màu Co Giãn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343ebd",
+              "name": "Quần Jeans Nam Gai Xanh Regular",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3438a8",
+              "name": "Quần Short Nam Thể Thao Lưng Thun Basic",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343e4d",
+              "name": "Quần Jeans Nam Slim Fit Poly Indigo",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343848",
+              "name": "Quần Âu Nam Cạp Chun Tiện Lợi",
+              "relevant": true
+            }
+          ]
+        },
+        "baseAndColorGroups": {
+          "precisionAt6": 1.0,
+          "recallAt10": 0.875,
+          "ndcgAt10": 0.9120345678990496,
+          "candidateProducts": 18,
+          "top6": [
+            {
+              "id": "6ad8cc24a55a838dfd343de4",
+              "name": "Quần Jeans Nam Baggy Đen Trơn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd34379c",
+              "name": "Quần Jeans Nam Slimfit Tối Màu Co Giãn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343848",
+              "name": "Quần Âu Nam Cạp Chun Tiện Lợi",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3438a8",
+              "name": "Quần Short Nam Thể Thao Lưng Thun Basic",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3436f4",
+              "name": "Quần Jeans Nam Slim Fit Lycra Siêu Co Giãn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343e5d",
+              "name": "Quần Jeans Nam Slim Denim Like Cơ Bản (QJM6041)",
+              "relevant": true
+            }
+          ]
+        },
+        "allChunks": {
+          "precisionAt6": 1.0,
+          "recallAt10": 0.875,
+          "ndcgAt10": 0.9202054614375518,
+          "candidateProducts": 18,
+          "top6": [
+            {
+              "id": "6ad8cc24a55a838dfd343de4",
+              "name": "Quần Jeans Nam Baggy Đen Trơn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd34379c",
+              "name": "Quần Jeans Nam Slimfit Tối Màu Co Giãn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3438a8",
+              "name": "Quần Short Nam Thể Thao Lưng Thun Basic",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343e5d",
+              "name": "Quần Jeans Nam Slim Denim Like Cơ Bản (QJM6041)",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3436f4",
+              "name": "Quần Jeans Nam Slim Fit Lycra Siêu Co Giãn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343e83",
+              "name": "Bùi Công Nam × Quần Jeans Nam Regular Denim Like",
+              "relevant": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "query": "quần nữ màu đen",
+      "relevantProducts": 6,
+      "strategies": {
+        "onePooled": {
+          "precisionAt6": 0.5,
+          "recallAt10": 0.8333333333333334,
+          "ndcgAt10": 0.7891499901405781,
+          "candidateProducts": 180,
+          "top6": [
+            {
+              "id": "6ad8cc24a55a838dfd343d58",
+              "name": "Quần Jeans Nữ Wide Leg Soft Knit Denim Siêu Co Giãn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd34363d",
+              "name": "Quần Tây Nữ Lưng Cao Baggy Thời Trang",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3438c4",
+              "name": "Quần Âu Nữ Relax Pants Co Giãn 4 Chiều",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343752",
+              "name": "Quần Kaki Nữ Dáng Boy Trẻ Trung",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343887",
+              "name": "Quần chip nữ collagen mềm mướt cao cấp",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343de4",
+              "name": "Quần Jeans Nam Baggy Đen Trơn",
+              "relevant": false
+            }
+          ]
+        },
+        "titleOnly": {
+          "precisionAt6": 0.16666666666666666,
+          "recallAt10": 0.3333333333333333,
+          "ndcgAt10": 0.2179300643042347,
+          "candidateProducts": 180,
+          "top6": [
+            {
+              "id": "6ad8cc23a55a838dfd343752",
+              "name": "Quần Kaki Nữ Dáng Boy Trẻ Trung",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3436c5",
+              "name": "Quần Jeans Nữ Ống Đứng Lưng Cao",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343d83",
+              "name": "Quần Jeans Nữ Straight Essential Phong Cách - Năng Động",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343d77",
+              "name": "Quần Jeans Nữ Straight Thêu Túi Hậu",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd34363d",
+              "name": "Quần Tây Nữ Lưng Cao Baggy Thời Trang",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343de4",
+              "name": "Quần Jeans Nam Baggy Đen Trơn",
+              "relevant": false
+            }
+          ]
+        },
+        "titleAndDescription": {
+          "precisionAt6": 0.16666666666666666,
+          "recallAt10": 0.3333333333333333,
+          "ndcgAt10": 0.21779548001177887,
+          "candidateProducts": 180,
+          "top6": [
+            {
+              "id": "6ad8cc24a55a838dfd343de4",
+              "name": "Quần Jeans Nam Baggy Đen Trơn",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343752",
+              "name": "Quần Kaki Nữ Dáng Boy Trẻ Trung",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343ed8",
+              "name": "Quần Jeans Giấy Chun Eo Buộc Dây",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd34363d",
+              "name": "Quần Tây Nữ Lưng Cao Baggy Thời Trang",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3436c5",
+              "name": "Quần Jeans Nữ Ống Đứng Lưng Cao",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3438c4",
+              "name": "Quần Âu Nữ Relax Pants Co Giãn 4 Chiều",
+              "relevant": false
+            }
+          ]
+        },
+        "baseAndColorGroups": {
+          "precisionAt6": 0.8333333333333334,
+          "recallAt10": 0.8333333333333334,
+          "ndcgAt10": 0.8829374068620365,
+          "candidateProducts": 180,
+          "top6": [
+            {
+              "id": "6ad8cc23a55a838dfd34363d",
+              "name": "Quần Tây Nữ Lưng Cao Baggy Thời Trang",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343887",
+              "name": "Quần chip nữ collagen mềm mướt cao cấp",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3436b1",
+              "name": "Quần jeans nữ 100% cotton dáng boyfriend",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd34385a",
+              "name": "Pack 2 chiếc Quần chip nữ collagen mềm mướt cao cấp",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343d77",
+              "name": "Quần Jeans Nữ Straight Thêu Túi Hậu",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343d58",
+              "name": "Quần Jeans Nữ Wide Leg Soft Knit Denim Siêu Co Giãn",
+              "relevant": true
+            }
+          ]
+        },
+        "allChunks": {
+          "precisionAt6": 1.0,
+          "recallAt10": 1.0,
+          "ndcgAt10": 1.0,
+          "candidateProducts": 180,
+          "top6": [
+            {
+              "id": "6ad8cc23a55a838dfd34363d",
+              "name": "Quần Tây Nữ Lưng Cao Baggy Thời Trang",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343887",
+              "name": "Quần chip nữ collagen mềm mướt cao cấp",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3436b1",
+              "name": "Quần jeans nữ 100% cotton dáng boyfriend",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd34385a",
+              "name": "Pack 2 chiếc Quần chip nữ collagen mềm mướt cao cấp",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343d58",
+              "name": "Quần Jeans Nữ Wide Leg Soft Knit Denim Siêu Co Giãn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435c2",
+              "name": "Bộ Quần Áo Nữ Mùa Hè Co Giãn In Chữ Possible",
+              "relevant": true
+            }
+          ]
+        }
+      },
+      "filteredStrategies": {
+        "onePooled": {
+          "precisionAt6": 0.8333333333333334,
+          "recallAt10": 1.0,
+          "ndcgAt10": 0.9796825595768973,
+          "candidateProducts": 15,
+          "top6": [
+            {
+              "id": "6ad8cc24a55a838dfd343d58",
+              "name": "Quần Jeans Nữ Wide Leg Soft Knit Denim Siêu Co Giãn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd34363d",
+              "name": "Quần Tây Nữ Lưng Cao Baggy Thời Trang",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343887",
+              "name": "Quần chip nữ collagen mềm mướt cao cấp",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3436b1",
+              "name": "Quần jeans nữ 100% cotton dáng boyfriend",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd34385a",
+              "name": "Pack 2 chiếc Quần chip nữ collagen mềm mướt cao cấp",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343d8f",
+              "name": "Quần Jeans Nữ Straight Denim Like Mềm Mại Tôn Dáng",
+              "relevant": false
+            }
+          ]
+        },
+        "titleOnly": {
+          "precisionAt6": 0.6666666666666666,
+          "recallAt10": 0.8333333333333334,
+          "ndcgAt10": 0.6625342536802833,
+          "candidateProducts": 15,
+          "top6": [
+            {
+              "id": "6ad8cc24a55a838dfd343d83",
+              "name": "Quần Jeans Nữ Straight Essential Phong Cách - Năng Động",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd34363d",
+              "name": "Quần Tây Nữ Lưng Cao Baggy Thời Trang",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343887",
+              "name": "Quần chip nữ collagen mềm mướt cao cấp",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343d8f",
+              "name": "Quần Jeans Nữ Straight Denim Like Mềm Mại Tôn Dáng",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343d58",
+              "name": "Quần Jeans Nữ Wide Leg Soft Knit Denim Siêu Co Giãn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd34385a",
+              "name": "Pack 2 chiếc Quần chip nữ collagen mềm mướt cao cấp",
+              "relevant": true
+            }
+          ]
+        },
+        "titleAndDescription": {
+          "precisionAt6": 0.3333333333333333,
+          "recallAt10": 0.6666666666666666,
+          "ndcgAt10": 0.4865475766417645,
+          "candidateProducts": 15,
+          "top6": [
+            {
+              "id": "6ad8cc24a55a838dfd343ed8",
+              "name": "Quần Jeans Giấy Chun Eo Buộc Dây",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd34363d",
+              "name": "Quần Tây Nữ Lưng Cao Baggy Thời Trang",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343d83",
+              "name": "Quần Jeans Nữ Straight Essential Phong Cách - Năng Động",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343ee8",
+              "name": "Quần Jeans Coolmax Ống Vẩy Nhẹ Cơ Bản",
+              "relevant": false
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343887",
+              "name": "Quần chip nữ collagen mềm mướt cao cấp",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343d8f",
+              "name": "Quần Jeans Nữ Straight Denim Like Mềm Mại Tôn Dáng",
+              "relevant": false
+            }
+          ]
+        },
+        "baseAndColorGroups": {
+          "precisionAt6": 0.8333333333333334,
+          "recallAt10": 1.0,
+          "ndcgAt10": 0.9876712785649565,
+          "candidateProducts": 15,
+          "top6": [
+            {
+              "id": "6ad8cc23a55a838dfd34363d",
+              "name": "Quần Tây Nữ Lưng Cao Baggy Thời Trang",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343887",
+              "name": "Quần chip nữ collagen mềm mướt cao cấp",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3436b1",
+              "name": "Quần jeans nữ 100% cotton dáng boyfriend",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd34385a",
+              "name": "Pack 2 chiếc Quần chip nữ collagen mềm mướt cao cấp",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343d58",
+              "name": "Quần Jeans Nữ Wide Leg Soft Knit Denim Siêu Co Giãn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343d83",
+              "name": "Quần Jeans Nữ Straight Essential Phong Cách - Năng Động",
+              "relevant": false
+            }
+          ]
+        },
+        "allChunks": {
+          "precisionAt6": 1.0,
+          "recallAt10": 1.0,
+          "ndcgAt10": 1.0,
+          "candidateProducts": 15,
+          "top6": [
+            {
+              "id": "6ad8cc23a55a838dfd34363d",
+              "name": "Quần Tây Nữ Lưng Cao Baggy Thời Trang",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd343887",
+              "name": "Quần chip nữ collagen mềm mướt cao cấp",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3436b1",
+              "name": "Quần jeans nữ 100% cotton dáng boyfriend",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd34385a",
+              "name": "Pack 2 chiếc Quần chip nữ collagen mềm mướt cao cấp",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc24a55a838dfd343d58",
+              "name": "Quần Jeans Nữ Wide Leg Soft Knit Denim Siêu Co Giãn",
+              "relevant": true
+            },
+            {
+              "id": "6ad8cc23a55a838dfd3435c2",
+              "name": "Bộ Quần Áo Nữ Mùa Hè Co Giãn In Chữ Possible",
+              "relevant": true
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
