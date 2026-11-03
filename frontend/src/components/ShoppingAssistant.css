@@ -27,13 +27,18 @@
 .sa-product-link strong { font-size: 13px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .sa-price { color: #c43c1b; display: block; font-weight: 700; margin: 5px 0; }
 .sa-product-link small { display: block; font-size: 10px; color: #6b7280; }
-.sa-product-actions { display: flex; gap: 7px; margin: 8px 0 0 76px; }
+.sa-product-actions { display: flex; flex-wrap: wrap; gap: 7px; margin: 8px 0 0 76px; }
 .sa-product-actions button { background: white; border: 1px solid #e3d8d3; color: #b63316; border-radius: 7px; padding: 5px 10px; font-size: 12px; }
 .sa-confirm-actions { display: flex; gap: 8px; margin-top: 8px; }
 .sa-confirm-actions button { border: 1px solid #d8431f; color: #b63316; background: white; border-radius: 8px; padding: 8px 12px; font-size: 12px; }
 .sa-confirm-actions button:first-child { color: white; background: #d8431f; }
 .sa-suggestions { display: flex; flex-wrap: wrap; gap: 8px; }
 .sa-suggestions button { border: 1px solid #edc7b9; color: #b63316; background: white; border-radius: 18px; padding: 8px 12px; font-size: 12px; text-align: left; }
+.sa-quick-replies { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.sa-quick-replies button { border: 1px solid #edc7b9; color: #b63316; background: white; border-radius: 16px; padding: 6px 10px; font-size: 12px; text-align: left; max-width: 100%; overflow-wrap: anywhere; }
+.sa-quick-replies button:disabled { opacity: .55; }
+.sa-handoff { margin-top: 8px; font-size: 12px; color: #6b4a40; }
+.sa-handoff button { border: 0; color: white; background: #d8431f; border-radius: 8px; padding: 8px 12px; font-size: 12px; }
 .sa-status { color: #a33a22; font-size: 13px; padding: 10px 0; }
 .sa-error { color: #9a2419; background: #fff1ee; margin: 0; padding: 10px 16px; font-size: 12px; }
 .sa-attachment { display: flex; align-items: center; padding: 8px 16px; gap: 10px; border-top: 1px solid #eee; }

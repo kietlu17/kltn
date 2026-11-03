@@ -372,7 +372,8 @@ async def chat(request: ChatRequest, http_request: Request):
         now = time.time()
         expiries = dict(previous.get("_context_expires", {}))
         plan = result.get("plan") or previous.get("plan", {})
-        saved_products = products or previous.get("remembered_products", [])
+        new_task = plan.get("context", {}).get("last_transition") in {"new_search", "reset"}
+        saved_products = products if new_task else products or previous.get("remembered_products", [])
         if "plan" in result or products:
             expiries["shopping"] = now + _bounded_env_int(
                 "CHATBOT_SHOPPING_CONTEXT_TTL_SECONDS", 21600, 300, 86400

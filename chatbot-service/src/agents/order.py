@@ -43,18 +43,6 @@ def _order_id(message: str) -> str:
     return match.group(1) if match else ""
 
 
-def _product_query(message: str) -> str:
-    text = re.sub(r"\s+", " ", _normalize(message)).strip()
-    match = re.match(r"^don(?: hang)?\s+(.+)", text)
-    if not match:
-        return ""
-    query = re.split(
-        r"\b(?:dang|hien|o dau|den dau|toi dau|trang thai|tinh trang|cua toi|cua minh|nay|do)\b",
-        match.group(1), maxsplit=1,
-    )[0].strip(" ?!.,")
-    return query if re.search(r"[a-z]", query) else ""
-
-
 def _order_products(order: dict) -> list[dict]:
     products = order.get("products")
     if isinstance(products, str):
@@ -101,15 +89,8 @@ class OrderAgent:
         self.graph = graph.compile()
 
     async def load_order(self, state):
-        message = _normalize(state.get("message", ""))
-        is_return = bool(re.search(r"\b(doi|tra hang|tra lai|tra duoc|hoan tien|hoan hang)\b", message))
-        order_word = r"don(?: hang)?"
-        is_count = bool(re.search(rf"\b(?:bao nhieu|may|so luong)\s+{order_word}\b", message))
-        is_list = bool(
-            re.search(rf"\b(?:cac|nhung|tat ca|danh sach|liet ke)\s+{order_word}\b", message)
-            or re.search(rf"\b{order_word}\s+(?:khac|cu|truoc|gan day|nao)\b", message)
-        )
-        intent = "return" if is_return else "count" if is_count else "list" if is_list else "status"
+        understood = state.get("turn_understanding") or {}
+        intent = understood.get("order_intent", "status")
         user_id = str(state.get("authenticated_user_id", "")).strip()
         if not user_id or state.get("actor_role") != "buyer":
             return {"order_intent": intent, "order_selection": "unauthorized"}
@@ -121,7 +102,7 @@ class OrderAgent:
             return {"order_intent": intent, "order_selection": "empty"}
         if intent == "list":
             focused_id = str(state.get("focused_order_id") or "")
-            only_other = bool(re.search(rf"\b{order_word}\s+khac\b", message))
+            only_other = bool(understood.get("other_orders"))
             listed = [item for item in orders if not (only_other and str(item.get("id")) == focused_id)]
             return {
                 "order_intent": intent,
@@ -131,7 +112,7 @@ class OrderAgent:
             }
 
         requested_id = _order_id(state.get("message", ""))
-        product_query = _product_query(state.get("message", "")) if not requested_id else ""
+        product_query = _normalize(str(understood.get("order_product_query") or "")) if not requested_id else ""
         if requested_id:
             order = next((item for item in orders if str(item.get("id")) == requested_id), None)
             if order is None:

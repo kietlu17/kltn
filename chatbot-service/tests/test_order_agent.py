@@ -1,9 +1,11 @@
 import unittest
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import httpx
 
 from src.agents.order import OrderAgent
+from src.agents.intent import TurnIntent
 from src.agents.product import ProductAgent
 from src.agents.router import RouterAgent
 from src.core.settings import Settings
@@ -15,6 +17,7 @@ class OrderAgentTests(unittest.IsolatedAsyncioTestCase):
         self.commerce = AsyncMock()
         self.order = OrderAgent(self.commerce)
         self.product = ProductAgent(AsyncMock(), AsyncMock(), AsyncMock())
+        self.product.models.understand_intent.return_value = TurnIntent(route="order")
         self.router = RouterAgent(self.product, None, self.order)
 
     async def test_status_routes_to_order_tool_and_reports_shipment(self):
@@ -44,6 +47,7 @@ class OrderAgentTests(unittest.IsolatedAsyncioTestCase):
         self.commerce.order_shipment.assert_not_awaited()
 
     async def test_order_count_routes_to_order_agent_and_uses_all_owned_orders(self):
+        self.product.models.understand_intent.return_value = TurnIntent(route="order", order_intent="count")
         self.commerce.user_orders.return_value = [
             {"id": 79, "status": "pending_payment"},
             {"id": 78, "status": "delivered"},
@@ -61,6 +65,9 @@ class OrderAgentTests(unittest.IsolatedAsyncioTestCase):
         self.commerce.order_shipment.assert_not_awaited()
 
     async def test_list_other_orders_excludes_focused_order(self):
+        self.product.models.understand_intent.return_value = TurnIntent(
+            route="order", order_intent="list", other_orders=True,
+        )
         self.commerce.user_orders.return_value = [
             {"id": 79, "status": "pending_payment"},
             {"id": 78, "status": "delivered"},
@@ -104,6 +111,9 @@ class OrderAgentTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["focused_order_id"], "79")
 
     async def test_order_by_product_title_selects_owned_order_instead_of_old_focus(self):
+        self.product.models.understand_intent.return_value = TurnIntent(
+            route="order", order_product_query="I Love Christmas",
+        )
         self.commerce.user_orders.return_value = [
             {"id": 79, "status": "pending_payment", "products": [{"productName": "Áo thun nam"}]},
             {"id": 38, "status": "shipped", "products": [{"productName": "I Love Christmas"}]},
@@ -121,6 +131,9 @@ class OrderAgentTests(unittest.IsolatedAsyncioTestCase):
         self.commerce.order_shipment.assert_awaited_once_with("buyer-1", 38)
 
     async def test_order_by_product_type_asks_for_id_when_multiple_match(self):
+        self.product.models.understand_intent.return_value = TurnIntent(
+            route="order", order_product_query="áo thun",
+        )
         self.commerce.user_orders.return_value = [
             {"id": 79, "status": "pending_payment", "products": [{"productName": "Áo thun nam Cotton"}]},
             {"id": 45, "status": "shipped", "products": [{"productName": "Áo thun nam Premium"}]},
@@ -137,6 +150,9 @@ class OrderAgentTests(unittest.IsolatedAsyncioTestCase):
         self.commerce.order_shipment.assert_not_awaited()
 
     async def test_order_book_query_uses_order_items_and_clarifies_if_no_match(self):
+        self.product.models.understand_intent.return_value = TurnIntent(
+            route="order", order_product_query="sách",
+        )
         self.commerce.user_orders.return_value = [
             {"id": 79, "status": "pending_payment", "products": [{"productName": "I Love Christmas"}]},
         ]
@@ -149,14 +165,16 @@ class OrderAgentTests(unittest.IsolatedAsyncioTestCase):
         self.commerce.order_shipment.assert_not_awaited()
 
     async def test_order_word_in_product_adjective_does_not_route_to_order(self):
-        self.assertFalse(self.router._is_order("đơn giản và đẹp"))
+        self.product.models.understand_intent.return_value = TurnIntent(route="product")
+        self.assertEqual((await self.router.route({"message": "đơn giản và đẹp"}))["route_name"], "product")
 
     async def test_count_reloads_orders_instead_of_using_conversation_history(self):
         self.commerce.user_orders.side_effect = [
             [{"id": 79, "status": "pending_payment"}],
             [{"id": 79, "status": "pending_payment"}, {"id": 78, "status": "delivered"}],
         ]
-        state = {"message": "Tôi có mấy đơn hàng?", "authenticated_user_id": "buyer-1", "actor_role": "buyer"}
+        state = {"message": "Tôi có mấy đơn hàng?", "authenticated_user_id": "buyer-1", "actor_role": "buyer",
+                 "turn_understanding": TurnIntent(route="order", order_intent="count").model_dump()}
         first = await self.order.graph.ainvoke(state)
         second = await self.order.graph.ainvoke(state)
         self.assertEqual(first["answer"], "Bạn có 1 đơn hàng.")
@@ -173,6 +191,7 @@ class OrderAgentTests(unittest.IsolatedAsyncioTestCase):
         self.commerce.order_shipment.assert_not_awaited()
 
     async def test_return_question_does_not_invent_ten_day_policy(self):
+        self.product.models.understand_intent.return_value = TurnIntent(route="order", order_intent="return")
         self.commerce.user_orders.return_value = [{
             "id": 42, "status": "delivered", "delivered_at": "2026-10-06T03:00:00Z"
         }]
@@ -193,12 +212,16 @@ class OrderAgentTests(unittest.IsolatedAsyncioTestCase):
         ]
         result = await self.order.graph.ainvoke({
             "message": "Tôi đã mua 10 ngày, có đổi được không?",
+            "turn_understanding": TurnIntent(route="order", order_intent="return").model_dump(),
             "authenticated_user_id": "buyer-1", "actor_role": "buyer",
         })
         self.assertIn("Vui lòng cho tôi mã đơn", result["answer"])
 
     async def test_generic_policy_question_keeps_customer_service_route(self):
-        self.assertFalse(self.router._is_order("Chính sách đổi trả của sàn là gì?"))
+        self.product.models.understand_intent.return_value = TurnIntent(route="customer_service")
+        router = RouterAgent(self.product, SimpleNamespace(graph=self.product.graph), self.order)
+        self.assertEqual((await router.route({"message": "Chính sách đổi trả của sàn là gì?"}))["route_name"],
+                         "customer_service")
 
     async def test_commerce_reads_use_buyer_identity_and_only_get(self):
         requests = []

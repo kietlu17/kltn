@@ -66,6 +66,14 @@ class CatalogAPI:
                 raise RuntimeError("Catalog pagination exceeded safety limit")
         return list(products.values())
 
+    async def categories(self) -> list[dict]:
+        response = await self.http.get(f"{self.settings.product_url}/categories")
+        response.raise_for_status()
+        categories = response.json()
+        if not isinstance(categories, list):
+            raise RuntimeError("Invalid category response")
+        return [item for item in categories if isinstance(item, dict) and item.get("name")]
+
     async def product(self, product_id: str) -> dict | None:
         response = await self.http.get(f"{self.settings.product_url}/products/{product_id}")
         if response.status_code == 404:
@@ -109,6 +117,7 @@ class CatalogAPI:
 
     async def image(self, url: str) -> str:
         public = self.settings.image_public_base
+        image_headers = {}
         if url.startswith("/uploads/"):
             target = self.settings.product_url + url
             client = self.http
@@ -120,8 +129,10 @@ class CatalogAPI:
             if parsed.scheme != "https" or parsed.username or parsed.password or parsed.hostname not in self.settings.image_hosts:
                 raise ValueError("Image host is not allowed; configure CHATBOT_IMAGE_HOSTS")
             target, client = url, self.images
+            if parsed.hostname in {"cdn.tgdd.vn", "cdnv2.tgdd.vn"}:
+                image_headers = {"User-Agent": "Mozilla/5.0", "Referer": "https://www.thegioididong.com/"}
         raw = bytearray()
-        async with client.stream("GET", target) as response:
+        async with client.stream("GET", target, headers=image_headers) as response:
             response.raise_for_status()
             async for chunk in response.aiter_bytes():
                 raw.extend(chunk)

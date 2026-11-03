@@ -1,4 +1,6 @@
 """LangChain retrieval pipeline for fresh, grounded product candidates."""
+import asyncio
+import json
 import logging
 import math
 import os
@@ -6,6 +8,8 @@ import os
 from langchain_core.runnables import RunnableLambda
 
 from .catalog import eligible_cards, product_document, query_metadata
+from .discovery import (EXPLORATION_PROMPT, SearchExploration, lexical_score,
+                        lexical_terms)
 
 log = logging.getLogger(__name__)
 
@@ -98,8 +102,105 @@ class ProductRAG:
         ranked.sort(key=lambda item: (item[0], item[1]), reverse=True)
         return [item[2] for item in ranked]
 
+    async def _expanded_queries(self, *, state, plan, query, metadata):
+        queries = [query[:10000]]
+        if (not state.get("turn_understanding", {}).get("explore_need")
+                or plan.get("intent") != "search" or plan.get("reference_product_id")
+                or state.get("llm_degraded")):
+            return queries
+
+        research = ""
+        if os.getenv("CHATBOT_SHOPPING_WEB_RESEARCH", "true").lower() in {"1", "true", "yes", "on"}:
+            try:
+                result = await asyncio.wait_for(
+                    self.models.shopping_research(state.get("message", "")), timeout=20,
+                )
+                if isinstance(result, tuple) and isinstance(result[0], str):
+                    research = result[0]
+            except Exception as error:
+                log.warning("Shopping web research unavailable: %s", type(error).__name__)
+        try:
+            exploration = await asyncio.wait_for(self.models.structured([
+                {"role": "system", "content": EXPLORATION_PROMPT},
+                {"role": "user", "content": json.dumps({
+                    "need": state.get("message", "")[:500],
+                    "requirements": plan.get("context", {}).get("requirements", {}),
+                    "untrusted_web_ideas": research,
+                }, ensure_ascii=False)},
+            ], SearchExploration), timeout=20)
+            if isinstance(exploration, SearchExploration):
+                queries.extend(item.strip()[:160] for item in exploration.queries
+                               if isinstance(item, str) and item.strip())
+        except Exception as error:
+            log.warning("Shopping query expansion unavailable: %s", type(error).__name__)
+        return list(dict.fromkeys(queries))[:5]
+
+    async def _lexical_ranks(self, *, query, reference, category, metadata):
+        """Score exact terms with the same catalog filters used for vector search."""
+        terms = lexical_terms(query)
+        if not terms:
+            return {}
+        try:
+            hits = await self.vectors.query(
+                None, kind="text", exclude=reference, category=category,
+                metadata=metadata, text_query=" ".join(terms), limit=240,
+            )
+        except Exception as error:
+            log.warning("Lexical product retrieval unavailable: %s", type(error).__name__)
+            return {}
+        hits = sorted(
+            (hit for hit in hits if lexical_score(terms, hit.payload) > 0),
+            key=lambda hit: lexical_score(terms, hit.payload), reverse=True,
+        )
+        ranks = {}
+        for rank, hit in enumerate(hits, 1):
+            product_id = hit.payload["productId"]
+            ranks[product_id] = max(ranks.get(product_id, 0), 1.5 / (60 + rank))
+        return ranks
+
+    @staticmethod
+    def _fused_ranks(ranks_by_source):
+        ranks = {}
+        for source_ranks in ranks_by_source.values():
+            for product_id, score in source_ranks.items():
+                ranks[product_id] = ranks.get(product_id, 0) + score
+        return ranks
+
+    async def _candidate_cards(self, *, vectors, kinds, reference, category, metadata,
+                               filter_plan, previous_ids, lexical_ranks):
+        ranks_by_source = {"lexical": lexical_ranks}
+        cards, ranks = [], {}
+        for offset in (0, 80, 160):
+            for query_index, vector in enumerate(vectors):
+                if offset and query_index:
+                    continue
+                for kind in kinds:
+                    source_ranks = ranks_by_source.setdefault(f"{kind}:{query_index}", {})
+                    hits = await self.vectors.query(
+                        vector, kind=kind, exclude=reference, category=category,
+                        metadata=metadata, offset=offset,
+                    )
+                    for rank, hit in enumerate(hits, offset + 1):
+                        product_id = hit.payload["productId"]
+                        # Multiple chunks of one product contribute once per source.
+                        weight = 1.5 if query_index == 0 else 0.7
+                        source_ranks[product_id] = max(
+                            source_ranks.get(product_id, 0), weight / (60 + rank),
+                        )
+            ranks = self._fused_ranks(ranks_by_source)
+            ordered_ids = [pid for pid in sorted(ranks, key=ranks.get, reverse=True)
+                           if pid not in previous_ids]
+            cards = await self._fresh_cards(ordered_ids, filter_plan, exclude=reference)
+            if len(cards) >= self.candidate_pool:
+                break
+        return cards, ranks
+
     async def _text_candidates(self, state):
         plan = state["plan"]
+        more = bool(state.get("turn_understanding", {}).get("show_more"))
+        previous_ids = ({str(item.get("id")) for item in state.get("previous_products", []) if item.get("id")}
+                        if more else set())
+        filter_plan = {**plan, "constraint_query": f"{state.get('message', '')} {plan.get('query', '')}"}
         reference = plan.get("reference_product_id") if plan["intent"] == "similar" else None
         query = plan["query"] or state["message"] or state.get("visual_description", "")
         category = None
@@ -115,40 +216,24 @@ class ProductRAG:
         visual_description = state.get("visual_description", "").strip()
         if visual_description and visual_description.casefold() not in query.casefold():
             query += "\nMô tả ảnh: " + visual_description
-        # One composite query means one Gemini embedding request. Qdrant can use
-        # that same vector against both text and image-caption documents.
-        vector = (await self.models.embed_queries([query[:10000]]))[0]
         kinds = ("text", "image_description") if (reference or visual_description) else ("text",)
-        metadata = query_metadata(plan)
-        ranks = {}
-        ranks_by_kind = {kind: {} for kind in kinds}
-        cards = []
-        for offset in (0, 80, 160):
-            for kind in kinds:
-                hits = await self.vectors.query(
-                    vector,
-                    kind=kind,
-                    exclude=reference,
-                    category=category,
-                    metadata=metadata,
-                    offset=offset,
-                )
-                for rank, hit in enumerate(hits, offset + 1):
-                    product_id = hit.payload["productId"]
-                    # A product with many chunks must not outrank another product merely
-                    # because it has more text. Keep only its best hit per modality.
-                    ranks_by_kind[kind][product_id] = max(
-                        ranks_by_kind[kind].get(product_id, 0), 1 / (60 + rank)
-                    )
-            ranks = {}
-            for kind_ranks in ranks_by_kind.values():
-                for product_id, score in kind_ranks.items():
-                    ranks[product_id] = ranks.get(product_id, 0) + score
-            ordered_ids = sorted(ranks, key=ranks.get, reverse=True)
-            cards = await self._fresh_cards(ordered_ids, plan, exclude=reference)
-            if len(cards) >= self.candidate_pool:
-                break
+        metadata = query_metadata({**plan, "query": filter_plan["constraint_query"]})
+        queries = await self._expanded_queries(state=state, plan=plan, query=query, metadata=metadata)
+        vectors = await self.models.embed_queries(queries)
+        lexical_ranks = await self._lexical_ranks(
+            query=query, reference=reference, category=category, metadata=metadata,
+        )
+        cards, ranks = await self._candidate_cards(
+            vectors=vectors, kinds=kinds, reference=reference, category=category,
+            metadata=metadata, filter_plan=filter_plan, previous_ids=previous_ids,
+            lexical_ranks=lexical_ranks,
+        )
         cards = await self._rerank(cards[:self.candidate_pool], ranks)
+        # Apply approximate sizes before the final six-card cutoff, on eligible offers only.
+        from ..agents.size_search import prioritize_estimated_sizes
+        cards = prioritize_estimated_sizes(cards, plan)
+        if more and not cards:
+            return {"products": [], "answer": "Tôi chưa tìm thấy thêm mẫu khác còn hàng phù hợp các điều kiện bạn đã chọn."}
         return {"products": cards[:6]}
 
     async def retrieve(self, state):

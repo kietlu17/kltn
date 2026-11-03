@@ -126,7 +126,7 @@ class AgentTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(models.structured.await_count, 1)
         self.assertTrue(first["llm_degraded"])
         self.assertTrue(second["llm_degraded"])
-        self.assertIn("quá tải", second["answer"])
+        self.assertIn("không khả dụng", second["answer"])
 
     async def test_text_retrieval_uses_one_composite_embedding(self):
         api, models, vectors = AsyncMock(), AsyncMock(), AsyncMock()
@@ -194,7 +194,7 @@ class AgentTests(unittest.IsolatedAsyncioTestCase):
         product_agent = ProductAgent(AsyncMock(), models, AsyncMock())
         result = await RouterAgent(product_agent).graph.ainvoke({"message": "hello"})
         self.assertEqual(result["route_name"], "product")
-        self.assertEqual(result["answer"], "Bạn muốn tìm sản phẩm nào?")
+        self.assertIn("thử nói lại", result["answer"])
         models.structured.assert_not_awaited()
 
     async def test_generator_cannot_start_a_second_retrieval_round(self):
@@ -236,10 +236,11 @@ class AgentTests(unittest.IsolatedAsyncioTestCase):
         models.structured.assert_not_awaited()
 
     async def test_action_plan_skips_retrieval_and_gemini(self):
+        from src.agents.intent import TurnIntent
         models = AsyncMock()
+        models.understand_intent.return_value = TurnIntent(commerce_intent="add_to_cart")
         agent = ProductAgent(AsyncMock(), models, AsyncMock(), commerce=AsyncMock())
         agent.rag.chain = AsyncMock()
-        agent.commerce_agent.detect = lambda state: "add_to_cart"
         agent.commerce_agent.execute = AsyncMock(return_value={"answer": "Đã xử lý yêu cầu."})
 
         result = await agent.graph.ainvoke({"message": "thêm vào giỏ"})

@@ -49,9 +49,6 @@ class CommerceAgentTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(second["pending_action"]["type"], "cart_mutation_confirmation")
         self.commerce.add_to_cart.assert_not_awaited()
 
-        self.assertEqual(self.agent.detect({
-            "message": "có", "pending_action": second["pending_action"],
-        }), "await_cart_mutation")
         confirmed = await self.agent.execute({
             **self.base,
             "commerce_intent": "confirm_cart_mutation",
@@ -65,9 +62,6 @@ class CommerceAgentTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("SAVE10", confirmed["answer"])
         self.assertTrue(confirmed["action_result"]["checkoutSuggested"])
         self.assertEqual(confirmed["pending_action"]["type"], "checkout_offer")
-        self.assertEqual(self.agent.detect({
-            "message": "có", "pending_action": confirmed["pending_action"],
-        }), "accept_checkout_offer")
 
         accepted = await self.agent.execute({
             **self.base,
@@ -82,7 +76,6 @@ class CommerceAgentTests(unittest.IsolatedAsyncioTestCase):
         pending = {"type": "checkout_offer", "cartLine": {"productId": PRODUCT_ID}}
         state = {**self.base, "message": "không", "pending_action": pending}
 
-        self.assertEqual(self.agent.detect(state), "decline_checkout_offer")
         result = await self.agent.execute({**state, "commerce_intent": "decline_checkout_offer"})
 
         self.assertEqual(result["action_result"]["status"], "declined")
@@ -114,7 +107,6 @@ class CommerceAgentTests(unittest.IsolatedAsyncioTestCase):
         }
 
         self.assertEqual(resolve_product_reference("mua cái coolmax", products), coolmax_id)
-        self.assertEqual(self.agent.detect(state), "add_to_cart")
         result = await self.agent.execute({**state, "commerce_intent": "add_to_cart"})
 
         self.assertEqual(result["pending_action"]["type"], "cart_mutation_confirmation")
@@ -132,7 +124,6 @@ class CommerceAgentTests(unittest.IsolatedAsyncioTestCase):
         state = {**self.base, "message": "mua 2 cái", "focused_product_ids": []}
 
         self.assertEqual(resolve_product_references("mua 2 cái", self.base["previous_products"]), [PRODUCT_ID])
-        self.assertEqual(self.agent.detect(state), "add_to_cart")
         result = await self.agent.execute({**state, "commerce_intent": "add_to_cart"})
 
         self.assertEqual(result["pending_action"]["productId"], PRODUCT_ID)
@@ -146,7 +137,6 @@ class CommerceAgentTests(unittest.IsolatedAsyncioTestCase):
         ]
         self.assertEqual(resolve_product_references("mua 2 cái", products), [])
         self.assertEqual(resolve_product_references("mua cái thứ 2", products), [OTHER_ID])
-        self.assertEqual(self.agent.detect({"message": "mua 2 cái", "previous_products": products}), "add_to_cart")
 
     async def test_ambiguous_buy_keeps_quantity_and_bottom_product_followup(self):
         products = [
@@ -169,7 +159,6 @@ class CommerceAgentTests(unittest.IsolatedAsyncioTestCase):
             "previous_products": products,
             "pending_action": first["pending_action"],
         }
-        self.assertEqual(self.agent.detect(followup), "add_to_cart")
         result = await self.agent.execute({**followup, "commerce_intent": "add_to_cart"})
 
         self.assertEqual(result["pending_action"]["productId"], OTHER_ID)
@@ -285,6 +274,7 @@ class CommerceAgentTests(unittest.IsolatedAsyncioTestCase):
             **self.base,
             "commerce_intent": "set_quantity",
             "message": "tăng tai nghe lên 2 và thanh toán",
+            "turn_understanding": {"checkout_after_action": True},
             "pending_action": viewed["pending_action"],
         })
         self.assertEqual(prepared["pending_action"]["productId"], headphone_id)
@@ -311,13 +301,10 @@ class CommerceAgentTests(unittest.IsolatedAsyncioTestCase):
             **self.base,
             "commerce_intent": "set_quantity",
             "message": "tăng lên 2 và thanh toán",
+            "turn_understanding": {"checkout_after_action": True},
             "pending_action": viewed["pending_action"],
         })
         self.assertEqual(selection["pending_action"]["type"], "cart_quantity_selection")
-        self.assertEqual(self.agent.detect({
-            "message": "Tai Nghe Nhét Tai New4all CK7 Spor",
-            "pending_action": selection["pending_action"],
-        }), "configure_quantity")
         resumed = await self.agent.execute({
             **self.base,
             "commerce_intent": "configure_quantity",
@@ -450,12 +437,6 @@ class CommerceAgentTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(result["pending_action"])
         self.commerce.confirm_checkout.assert_not_awaited()
 
-    def test_checkout_selection_followup_routes_back_to_checkout(self):
-        self.assertEqual(self.agent.detect({
-            "message": "chỉ sản phẩm 2",
-            "pending_action": {"type": "checkout_selection"},
-        }), "checkout")
-
     def test_checkout_selection_supports_name_and_requires_variant_disambiguation(self):
         items = [
             {"productId": PRODUCT_ID, "variantId": VARIANT_ID, "productName": "Áo cotton", "variantName": "Size L"},
@@ -490,7 +471,66 @@ class CommerceAgentTests(unittest.IsolatedAsyncioTestCase):
             [],
         )
 
-    def test_action_detection_and_multiple_references(self):
+    async def test_comparison_uses_named_speakers_not_model_number_as_position(self):
+        genbeat_id, harman_id, marshall_id = "f" * 24, "e" * 24, "c" * 24
+        products = [
+            {"id": "1" * 24, "name": "Loa Bluetooth Alpha Works AW-Ride"},
+            {"id": "2" * 24, "name": "Loa Bluetooth Monster Adventurer FORCE"},
+            {"id": "3" * 24, "name": "Loa Bluetooth karaoke Hyundai H10 300W"},
+            {"id": marshall_id, "name": "Loa Bluetooth Marshall Acton III"},
+            {"id": harman_id, "name": "Loa Bluetooth Harman Kardon SoundSticks 4"},
+            {"id": genbeat_id, "name": "Loa Bluetooth Alpha Works AW-GENBEAT 100"},
+        ]
+        message = ("so sánh Loa Bluetooth Alpha Works AW-GENBEAT 100 và "
+                   "Loa Bluetooth Harman Kardon SoundSticks 4")
+        self.assertEqual(resolve_product_references(message, products), [genbeat_id, harman_id])
+        self.assertEqual(resolve_product_references("so sánh AW-GENBEAT 100 và SoundSticks 4", products),
+                         [genbeat_id, harman_id])
+        state = {"message": message, "previous_products": products}
+        details = {
+            genbeat_id: {"_id": genbeat_id, "name": products[-1]["name"], "price": 4690000,
+                         "specifications": [{"name": "Công suất liên tục", "value": "60W"},
+                                            {"name": "Nguồn", "value": "Pin"}]},
+            harman_id: {"_id": harman_id, "name": products[-2]["name"], "price": 7840000,
+                        "specifications": [{"name": "Công suất liên tục", "value": "140W"},
+                                           {"name": "Nguồn", "value": "Cắm điện dùng"}]},
+        }
+        self.catalog.product.side_effect = lambda product_id: details[product_id]
+        result = await self.agent.execute({**state, "commerce_intent": "compare_products"})
+        self.assertEqual([card["id"] for card in result["products"]], [genbeat_id, harman_id])
+        self.assertIn("60W", result["answer"])
+        self.assertIn("140W", result["answer"])
+        self.assertNotIn("Marshall", result["answer"])
+
+    async def test_comparison_followup_recommends_compact_speaker(self):
+        monster_id, ride_id = "1" * 24, "2" * 24
+        products = [
+            {"id": monster_id, "name": "Loa Bluetooth Monster Adventurer FORCE"},
+            {"id": ride_id, "name": "Loa Bluetooth Alpha Works AW-Ride"},
+        ]
+        details = {
+            monster_id: {"_id": monster_id, "name": products[0]["name"], "price": 3190000,
+                         "description": "Khối lượng 2 kg, có tay cầm.", "specifications": []},
+            ride_id: {"_id": ride_id, "name": products[1]["name"], "price": 370000,
+                      "description": "Thiết kế nhỏ gọn và khối lượng chỉ 0.313 kg.",
+                      "specifications": []},
+        }
+        self.catalog.product.side_effect = lambda product_id: details[product_id]
+        state = {"message": "cái nào nhỏ gọn để bàn học", "previous_products": products,
+                 "focused_product_ids": [monster_id, ride_id]}
+        answer = await self.agent.execute({**state, "commerce_intent": "compare_products"})
+        self.assertIn("Alpha Works AW-Ride", answer["answer"])
+        self.assertIn("0,313 kg", answer["answer"])
+        self.assertIn("2 kg", answer["answer"])
+        self.assertNotIn("So sánh theo thông tin", answer["answer"])
+        self.assertEqual(answer["products"], [])
+        self.assertEqual(answer["focused_product_ids"], [ride_id])
+
+        repeated = {**state, "focused_product_ids": [ride_id]}
+        again = await self.agent.execute({**repeated, "commerce_intent": "compare_products"})
+        self.assertEqual(again["answer"], answer["answer"])
+
+    def test_multiple_product_references(self):
         products = [
             {"id": PRODUCT_ID, "name": "I Love Christmas"},
             {"id": "b" * 24, "name": "Monster"},
@@ -499,18 +539,6 @@ class CommerceAgentTests(unittest.IsolatedAsyncioTestCase):
         ]
         self.assertEqual(resolve_product_references("so sánh món 1, 4", products), [PRODUCT_ID, OTHER_ID])
         self.assertEqual(resolve_product_reference("Love Christmas nội dung", products), PRODUCT_ID)
-        self.assertEqual(self.agent.detect({"message": "thêm vào giỏ"}), "add_to_cart")
-        self.assertEqual(self.agent.detect({"message": "số lượng 2"}), "set_quantity")
-        self.assertEqual(self.agent.detect({"message": "giỏ hàng có gì"}), "view_cart")
-        self.assertEqual(self.agent.detect({"message": "tăng thêm 1"}), "set_quantity")
-        self.assertEqual(self.agent.detect({"message": "tính tiền"}), "checkout")
-        self.assertEqual(self.agent.detect({"message": "có mã voucher gì cho đơn hàng không"}), "checkout")
-        self.assertEqual(self.agent.detect({"message": "cod", "pending_action": {"type": "checkout_handoff"}}), "checkout")
-        self.assertEqual(self.agent.detect({
-            "message": "xác nhận đặt hàng",
-            "pending_action": {"type": "checkout_confirmation", "quoteId": "quote-1"},
-        }), "confirm_checkout")
-        self.assertEqual(self.agent.detect({"message": "tìm áo cotton"}), "")
 
 
 if __name__ == "__main__":

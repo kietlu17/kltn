@@ -35,6 +35,6 @@ class Settings:
     def collection(self):
         # Different models/prompt versions must never share an embedding space.
         fingerprint = hashlib.sha256(
-            f"v3:langchain:gemini:{self.embedding_model}:{self.embedding_dimensions}:retrieval".encode()
+            f"v4:langchain:gemini:{self.embedding_model}:{self.embedding_dimensions}:semantic-specs".encode()
         ).hexdigest()[:12]
         return f"catalog_{fingerprint}"

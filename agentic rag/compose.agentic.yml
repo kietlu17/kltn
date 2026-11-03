@@ -1,0 +1,84 @@
+services:
+  agentic-rag:
+    build:
+      context: ..
+      dockerfile: agentic rag/Dockerfile
+    image: ecommerce-agentic-rag:test
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    environment:
+      AGENTIC_DATA_DIR: /data
+      AGENTIC_GEMINI_MODEL: gemini-3.5-flash-lite
+      AGENTIC_MODEL_TIMEOUT_SECONDS: 20
+      QDRANT_URL: http://qdrant:6333
+      PRODUCT_SERVICE_URL: https://product-service:3004
+      INVENTORY_SERVICE_URL: https://inventory-service:3007
+      REVIEW_SERVICE_URL: https://review-service:3008
+      CART_SERVICE_URL: https://cart-service:3005
+      ORDER_SERVICE_URL: https://order-service:3006
+      VOUCHER_SERVICE_URL: https://voucher-service:3013
+      USER_SERVICE_URL: https://user-service:3002
+      MTLS_ENABLED: "true"
+      MTLS_CA_PATH: /certs/ca/ca.crt
+      MTLS_CLIENT_CERT_PATH: /certs/chatbot-service/tls.crt
+      MTLS_CLIENT_KEY_PATH: /certs/chatbot-service/tls.key
+    ports:
+      - "3030:3030"
+    volumes:
+      - agentic_data:/data
+      - certs_data:/certs:ro
+    networks:
+      - ecommerce
+
+  # Catalog embedding worker. Stop/start freely: progress is saved per batch.
+  #   docker compose -f 'agentic rag/compose.agentic.yml' up -d --build agentic-indexer
+  #   docker compose -f 'agentic rag/compose.agentic.yml' stop agentic-indexer
+  #   docker compose -f 'agentic rag/compose.agentic.yml' start agentic-indexer
+  # Change the API key without a restart: edit 'agentic rag/secrets/gemini_api_key'.
+  agentic-indexer:
+    image: ecommerce-agentic-rag:test
+    build:
+      context: ..
+      dockerfile: agentic rag/Dockerfile
+    command: ["python", "-m", "app.indexer", "run"]
+    restart: unless-stopped
+    # Lets the batch in flight finish and be saved before the container exits.
+    stop_grace_period: 120s
+    env_file:
+      - ../.env
+    environment:
+      AGENTIC_DATA_DIR: /data
+      GEMINI_API_KEY_FILE: /secrets/gemini_api_key
+      INDEXER_BATCH_SIZE: ${INDEXER_BATCH_SIZE:-50}
+      INDEXER_INTERVAL_SECONDS: ${INDEXER_INTERVAL_SECONDS:-900}
+      INDEXER_BATCH_INTERVAL_SECONDS: ${INDEXER_BATCH_INTERVAL_SECONDS:-0}
+      INDEXER_REQUEST_SIZE: ${INDEXER_REQUEST_SIZE:-10}
+      INDEXER_REQUEST_INTERVAL_SECONDS: ${INDEXER_REQUEST_INTERVAL_SECONDS:-12}
+      INDEXER_RETRY_SECONDS: ${INDEXER_RETRY_SECONDS:-60}
+      INDEXER_MAX_BATCHES: ${INDEXER_MAX_BATCHES:-0}
+      QDRANT_URL: http://qdrant:6333
+      PRODUCT_SERVICE_URL: https://product-service:3004
+      MTLS_ENABLED: "true"
+      MTLS_CA_PATH: /certs/ca/ca.crt
+      MTLS_CLIENT_CERT_PATH: /certs/chatbot-service/tls.crt
+      MTLS_CLIENT_KEY_PATH: /certs/chatbot-service/tls.key
+    volumes:
+      - agentic_indexer_data:/data
+      - ./secrets:/secrets:ro
+      - certs_data:/certs:ro
+    networks:
+      - ecommerce
+
+volumes:
+  agentic_data:
+  agentic_indexer_data:
+  certs_data:
+    external: true
+    name: ecommerce-microservices_certs_data
+
+networks:
+  ecommerce:
+    external: true
+    name: ecommerce-microservices_default
+

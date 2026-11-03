@@ -22,7 +22,9 @@ class ImageIndexer:
     def __init__(self, settings, api, visual):
         self.settings, self.api, self.visual = settings, api, visual
         Path(settings.data_dir).mkdir(parents=True, exist_ok=True)
-        self.db = sqlite3.connect(str(Path(settings.data_dir) / "visual-index.sqlite"))
+        self.db = sqlite3.connect(str(Path(settings.data_dir) / "visual-index.sqlite"), timeout=30)
+        self.db.execute("PRAGMA journal_mode=WAL")
+        self.db.execute("PRAGMA busy_timeout=30000")
         self.db.execute("CREATE TABLE IF NOT EXISTS cache (id TEXT PRIMARY KEY, vector TEXT)")
 
     def _image_set_hash(self, product):
@@ -45,7 +47,6 @@ class ImageIndexer:
         return points[0].payload if points else None
 
     async def index_product(self, product):
-        await self.visual.ensure(512)
         pid = str(product["_id"])
         records = image_records(product, self.settings.max_images)
         image_set_hash = self._image_set_hash(product)
@@ -71,6 +72,7 @@ class ImageIndexer:
                 }))
                 if not cached:
                     self.db.execute("INSERT OR REPLACE INTO cache VALUES (?,?)", (digest, json.dumps(vector)))
+                    self.db.commit()
             except ValueError as exc:
                 failed += 1
                 log.warning("Skipping unsupported image for product %s (%s): %s", pid, record["url"], exc)
@@ -86,6 +88,7 @@ class ImageIndexer:
         return {"images": len(points), "failed": failed}
 
     async def process_events(self, events):
+        await self.visual.ensure(512)
         indexed = deleted = skipped = failed = 0
         for topic, product_id in events:
             if topic == "product.deleted":
@@ -112,11 +115,15 @@ class ImageIndexer:
 
     async def reconcile(self):
         products = await self.api.all_products()
+        shop_id = os.getenv("CHATBOT_INDEX_SHOP_ID", "").strip()
+        if shop_id:
+            products = [item for item in products if str(item.get("shopId")) == shop_id]
         await self.visual.ensure(512)
-        existing = await self.visual.product_ids()
-        desired = {str(p["_id"]) for p in products}
-        for pid in existing - desired:
-            await self.visual.delete_product(pid)
+        if not shop_id:
+            existing = await self.visual.product_ids()
+            desired = {str(p["_id"]) for p in products}
+            for pid in existing - desired:
+                await self.visual.delete_product(pid)
         indexed, failed = 0, 0
         for product in products:
             pid = str(product["_id"])
@@ -132,6 +139,7 @@ class ImageIndexer:
 
 
 async def main():
+    logging.getLogger("httpx").setLevel(logging.WARNING)
     settings = Settings()
     api, visual = CatalogAPI(settings), VisualCatalog(settings)
     worker = ImageIndexer(settings, api, visual)

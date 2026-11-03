@@ -9,6 +9,9 @@ from uuid import NAMESPACE_URL, uuid5
 from langchain_core.documents import Document
 from qdrant_client import AsyncQdrantClient, models
 
+from .specs import (matching_spec_facts, matches_explicit_features, matches_model_reference,
+                    matches_spec_requirements, normalized_spec_payload, parse_spec_requirements)
+
 
 def plain_text(value, limit=6000):
     return re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]*>", " ", str(value or "")))).strip()[:limit]
@@ -25,12 +28,24 @@ PRODUCT_TYPES = (
     ("ao_khoac", ("ao khoac",)),
     ("balo", ("balo",)),
     ("tai_nghe", ("tai nghe", "earphone", "headphone")),
-    ("tui", ("tui xach", "tui deo", "cap laptop", "cap da")),
+    ("loa", ("loa", "speaker")),
+    ("ban_phim", ("ban phim", "keyboard")),
+    ("chuot", ("chuot may tinh", "mouse")),
+    ("may_tinh_bang", ("may tinh bang", "tablet", "ipad")),
+    ("tui", ("tui xach", "tui deo", "cap laptop", "cap da", "tui")),
     ("quan", ("quan ", "quan short", "quan dui")),
     ("giay", ("giay ", "sneaker", "sandal", "dep ")),
     ("dong_ho", ("dong ho",)),
     ("laptop", ("laptop", "macbook")),
-    ("dien_thoai", ("dien thoai", "smartphone")),
+    ("dien_thoai", ("dien thoai", "smartphone", "iphone")),
+    ("den", ("den ban", "den ngu", "den trang tri")),
+    ("goi", ("goi ngu", "goi tua", "goi om")),
+    ("chan", ("chan bong", "chan mong", "chan ga")),
+    ("khan", ("khan tam", "khan mat", "khan lau")),
+    ("binh", ("binh nuoc", "binh giu nhiet")),
+    ("noi", ("noi com", "noi nau", "noi chien")),
+    ("ghe", ("ghe van phong", "ghe an", "ghe gap")),
+    ("sua_rua_mat", ("sua rua mat",)),
     ("do_boi", ("do boi",)),
     ("sach", ("sach ",)),
 )
@@ -57,8 +72,10 @@ def infer_product_type(value) -> str:
     if re.search(r"(?<!\w)ba\s+lô(?!\w)", original):
         return "balo"
     text = normalized_text(value)
+    if re.search(r"\b(?:tất(?! cả\b)|tât|tat(?! ca\b)|vớ|vo|socks?)\b", original):
+        return "tat"
     for product_type, terms in PRODUCT_TYPES:
-        if any(term in text for term in terms):
+        if any(re.search(r"(?<!\w)" + re.escape(term.strip()) + r"(?!\w)", text) for term in terms):
             return product_type
     return "khac"
 
@@ -98,6 +115,7 @@ def product_metadata(product: dict) -> dict:
         "sizes": list(dict.fromkeys(sizes)),
         "minPrice": min(prices, default=0.0),
         "maxPrice": max(prices, default=0.0),
+        "specs": normalized_spec_payload(product),
     }
 
 
@@ -129,10 +147,16 @@ def variant_metadata(variant: dict, product: dict) -> dict:
 
 
 def product_document(product: dict) -> Document:
+    specification_text = "; ".join(
+        f"{plain_text(item.get('name'), 200)}: {plain_text(item.get('value'), 500)}"
+        for item in product.get("specifications", [])[:100]
+        if isinstance(item, dict)
+    )
     text = "\n".join([
         f"Tên: {plain_text(product.get('name'))}",
         f"Mô tả: {plain_text(product.get('description'), 2500)}",
         f"Chi tiết: {plain_text(product.get('detail'), 6000)}",
+        f"Thông số: {specification_text}",
         "Biến thể: " + "; ".join(plain_text(v.get("name"), 100) for v in product.get("variants", [])[:50]),
     ])
     return Document(page_content=text, metadata={
@@ -146,10 +170,16 @@ def product_documents(product: dict) -> list[tuple[str, Document]]:
     base = product_document(product).metadata
     description = plain_text(product.get("description"), 2500)
     detail = plain_text(product.get("detail"), 6000)
+    specification_text = "; ".join(
+        f"{plain_text(item.get('name'), 200)}: {plain_text(item.get('value'), 500)}"
+        for item in product.get("specifications", [])[:100]
+        if isinstance(item, dict)
+    )
     base_text = "\n".join(part for part in (
         f"Tên sản phẩm: {plain_text(product.get('name'))}",
         f"Mô tả: {description}" if description else "",
         f"Chi tiết: {detail}" if detail else "",
+        f"Thông số: {specification_text}" if specification_text else "",
     ) if part)
     chunks = [("base", Document(page_content=base_text,
                                 metadata={**base, "kind": "text", "chunkType": "base"}))]
@@ -184,9 +214,11 @@ def product_documents(product: dict) -> list[tuple[str, Document]]:
 
 def query_metadata(plan: dict) -> dict:
     query = normalized_text(plan.get("query", ""))
-    product_type = infer_product_type(query)
+    product_type = plan.get("product_type") or infer_product_type(query)
     audiences = []
-    if re.search(r"(?<!\w)nam(?!\w)", query):
+    if plan.get("audience"):
+        audiences = list(dict.fromkeys([plan["audience"], "unisex"]))
+    elif re.search(r"(?<!\w)nam(?!\w)", query):
         audiences = ["nam", "unisex"]
     elif re.search(r"(?<!\w)nu(?!\w)", query):
         audiences = ["nu", "unisex"]
@@ -219,7 +251,7 @@ def image_records(product: dict, limit: int) -> list[dict]:
 
 def content_hash(product: dict, max_images: int) -> str:
     # Filter metadata (especially prices) can change without changing embedding text.
-    data = {"chunkSchema": "color-groups-v1",
+    data = {"chunkSchema": "semantic-specs-v4",
             "chunks": [(key, chunk.page_content) for key, chunk in product_documents(product)],
             "images": image_records(product, max_images)}
     return hashlib.sha256(json.dumps(data, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
@@ -249,6 +281,21 @@ class VectorCatalog:
             await self.client.create_payload_index(self.collection, field, models.PayloadSchemaType.KEYWORD)
         for field in ("minPrice", "maxPrice", "price"):
             await self.client.create_payload_index(self.collection, field, models.PayloadSchemaType.FLOAT)
+        for field in ("specs.key", "specs.unit"):
+            await self.client.create_payload_index(
+                self.collection, field, models.PayloadSchemaType.KEYWORD
+            )
+        await self.client.create_payload_index(
+            self.collection, "specs.numericValue", models.PayloadSchemaType.FLOAT
+        )
+        await self.client.create_payload_index(
+            self.collection, "text", models.TextIndexParams(
+                type=models.TextIndexType.TEXT,
+                tokenizer=models.TokenizerType.WORD,
+                lowercase=True,
+                ascii_folding=True,
+            ),
+        )
 
     async def upsert(self, points: list[models.PointStruct]):
         await self.client.upsert(self.collection, points=points, wait=True)
@@ -268,7 +315,19 @@ class VectorCatalog:
             if offset is None:
                 return result
 
-    async def query(self, vector, *, kind=None, exclude=None, category=None, metadata=None, offset=0, limit=80):
+    async def category_counts(self) -> dict[str, int]:
+        """Count indexed base products per category for broad browsing."""
+        response = await self.client.facet(
+            self.collection, key="categoryId", limit=1000, exact=True,
+            facet_filter=models.Filter(must=[
+                models.FieldCondition(key="kind", match=models.MatchValue(value="text")),
+                models.FieldCondition(key="chunkType", match=models.MatchValue(value="base")),
+            ]),
+        )
+        return {str(hit.value): hit.count for hit in response.hits if hit.value and hit.count > 0}
+
+    async def query(self, vector, *, kind=None, exclude=None, category=None, metadata=None,
+                    offset=0, limit=80, text_query=None):
         must = []
         for key, value in (("kind", kind), ("categoryId", category)):
             if value:
@@ -277,6 +336,13 @@ class VectorCatalog:
         for key, value in (("productType", metadata.get("product_type")),
                            ("colors", metadata.get("colors")), ("sizes", metadata.get("sizes"))):
             if value:
+                # Newly recognized categories may still have old 'khac' points.
+                # Fresh product validation below keeps this migration safe.
+                if key == "productType" and value in {
+                    "tat", "loa", "ban_phim", "chuot", "may_tinh_bang", "den", "goi",
+                    "chan", "khan", "binh", "noi", "ghe", "sua_rua_mat",
+                }:
+                    value = [value, "khac"]
                 match = models.MatchAny(any=value) if isinstance(value, list) else models.MatchValue(value=value)
                 must.append(models.FieldCondition(key=key, match=match))
         if metadata.get("audiences"):
@@ -288,6 +354,15 @@ class VectorCatalog:
         query_filter = models.Filter(must=must)
         if exclude:
             query_filter.must_not = [models.FieldCondition(key="productId", match=models.MatchValue(value=exclude))]
+        if text_query:
+            query_filter.must.append(models.FieldCondition(
+                key="text", match=models.MatchTextAny(text_any=text_query),
+            ))
+            records, _ = await self.client.scroll(
+                self.collection, scroll_filter=query_filter, with_payload=True,
+                with_vectors=False, limit=limit,
+            )
+            return records
         result = await self.client.query_points(self.collection, query=vector, query_filter=query_filter,
                                                with_payload=True, limit=limit, offset=offset,
                                                score_threshold=float(os.getenv(
@@ -307,15 +382,44 @@ class VectorCatalog:
         await self.client.close()
 
 
+def offer_fits_foot(offer: dict, length: float) -> bool:
+    """Only explicit cm sizes/ranges prove a fit; EU sizes and 'free size' do not."""
+    text = normalized_text(offer.get("name", "")).replace(",", ".")
+    ranges = list(re.finditer(r"(?<![\d.])(\d{1,2}(?:\.\d+)?)\s*(?:cm\s*)?(?:-|–|—|den|to)\s*(\d{1,2}(?:\.\d+)?)\s*cm\b", text))
+    if ranges:
+        return any(float(match[1]) <= length <= float(match[2]) for match in ranges)
+    return any(abs(float(value) - length) < 0.01
+               for value in re.findall(r"(?<![\d.])(\d{1,2}(?:\.\d+)?)\s*cm\b", text))
+
+
 def eligible_cards(products, stock, ids, plan, exclude=None):
     by_id = {str(p["_id"]): p for p in products}
     cards = []
+    constraint_query = plan.get("constraint_query") or plan.get("query", "")
+    explicit_type = infer_product_type(constraint_query)
+    required_type = explicit_type if explicit_type != "khac" else plan.get("product_type") or infer_product_type(plan.get("query", ""))
+    required_type = None if required_type == "khac" else required_type
+    spec_requirements = parse_spec_requirements(constraint_query)
     for product_id in ids:
         product = by_id.get(product_id)
         if not product or product_id == exclude or product.get("moderationStatus") != "approved":
             continue
         if plan.get("shop_id") and str(product.get("shopId")) != plan["shop_id"]:
             continue
+        if required_type and infer_product_type(product.get("name", "")) != required_type:
+            continue
+        if not matches_model_reference(product, constraint_query):
+            continue
+        if not matches_explicit_features(product, constraint_query):
+            continue
+        if not matches_spec_requirements(product, spec_requirements, constraint_query):
+            continue
+        audience = plan.get("audience")
+        if audience:
+            # The title is more specific than generic cross-sell text in descriptions.
+            audiences = product_metadata({"name": product.get("name", "")})["audience"]
+            if audience not in audiences and "unisex" not in audiences:
+                continue
         offers = product.get("variants") or [product]
         matching = []
         for offer in offers:
@@ -333,6 +437,9 @@ def eligible_cards(products, stock, ids, plan, exclude=None):
             offer_name = plain_text(offer.get("name", "")).casefold()
             if terms and not all(re.search(r"(?<!\w)" + re.escape(t) + r"(?!\w)", offer_name) for t in terms):
                 continue
+            if plan.get("foot_length_cm") is not None and required_type in {"tat", "giay"}:
+                if not offer_fits_foot(offer, plan["foot_length_cm"]):
+                    continue
             matching.append({"id": variant_id or None, "name": offer.get("name", ""), "price": price,
                              "availableStock": available, "imageUrl": offer.get("imageUrl", "")})
         if not matching:
@@ -345,5 +452,6 @@ def eligible_cards(products, stock, ids, plan, exclude=None):
             "sold": max(0, int(product.get("sold", 0) or 0)),
             "description": plain_text(product.get("description"), 800),
             "detail": plain_text(product.get("detail"), 1600), "variants": matching[:20],
+            "verifiedSpecs": matching_spec_facts(product, spec_requirements),
         })
     return cards

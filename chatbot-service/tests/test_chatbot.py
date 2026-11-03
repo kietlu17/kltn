@@ -182,7 +182,12 @@ class CheckpointTests(unittest.IsolatedAsyncioTestCase):
                 "products": [{"name": "PRIVATE_ORDER_ITEM"}],
             }]
             async with AsyncSqliteSaver.from_conn_string(path) as saver:
-                router = RouterAgent(SimpleNamespace(graph=child.compile()),
+                from src.agents.intent import TurnIntent
+                product = SimpleNamespace(
+                    graph=child.compile(),
+                    models=SimpleNamespace(understand_intent=AsyncMock(return_value=TurnIntent(route="order"))),
+                )
+                router = RouterAgent(product,
                                      order_agent=OrderAgent(commerce), checkpointer=saver)
                 result = await router.graph.ainvoke({
                     "message": "don 79", "authenticated_user_id": "buyer-one",
@@ -522,6 +527,10 @@ class EndpointTests(unittest.TestCase):
         self.client.__exit__(None, None, None)
         self.client = TestClient(app)
         self.client.__enter__()
+        from src.agents.intent import TurnIntent
+        app.state.agent.product_agent.models.understand_intent = AsyncMock(
+            return_value=TurnIntent(route="order"),
+        )
         second = self.client.post("/assistant/chat", json={
             "message": "don hang cua toi o dau", "sessionId": session_id,
         })

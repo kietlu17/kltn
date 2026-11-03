@@ -17,12 +17,15 @@ function formatPrice(value) {
   return number.toLocaleString('vi-VN', { style: 'currency', currency: 'VND' });
 }
 
-export default function ChatWidget({ product, shopId, shopName, onClose }) {
+export default function ChatWidget({ product, shopId, shopName, onClose, initialMode = 'ai' }) {
   const { user } = useAuth();
   const { refreshCart } = useCart();
   const { showToast } = useToast();
   const navigate = useNavigate();
-  const [mode, setMode] = useState('ai');
+  // Seller chat needs a buyer account, same rule as the tab button below.
+  const [mode, setMode] = useState(
+    initialMode === 'human' && user?.id && user?.role === 'buyer' ? 'human' : 'ai'
+  );
   const [input, setInput] = useState('');
   const [attachment, setAttachment] = useState(null);
   const [voiceBusy, setVoiceBusy] = useState(false);

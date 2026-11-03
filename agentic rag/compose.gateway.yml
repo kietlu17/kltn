@@ -1,0 +1,5 @@
+services:
+  api-gateway:
+    environment:
+      CHATBOT_SERVICE_URL: http://agentic-rag:3030
+

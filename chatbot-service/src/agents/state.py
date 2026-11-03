@@ -26,6 +26,8 @@ def explicit_price_limits(message: str) -> dict:
 
 
 class SearchPlan(BaseModel):
+    # Canonical, versioned shopping state; other fields adapt it to existing tools.
+    context: dict = Field(default_factory=dict)
     intent: Literal["search", "similar", "clarify"] = "search"
     query: str = Field(default="", max_length=1500)
     min_price: float | None = Field(default=None, ge=0, le=1e12)
@@ -34,6 +36,18 @@ class SearchPlan(BaseModel):
     reference_product_id: str | None = Field(default=None, pattern=r"^[a-fA-F0-9]{24}$")
     clarification: str = Field(default="", max_length=500)
     use_previous_image: bool = False
+    # Persistent shopping requirements; measurements never imply a gender/category.
+    product_type: str | None = Field(default=None, max_length=60)
+    audience: Literal["nam", "nu", "tre_em", "unisex"] | None = None
+    dialogue_act: Literal["search", "size_advice", "size_search"] = "search"
+    foot_length_cm: float | None = Field(default=None, ge=5, le=50)
+    height_cm: float | None = Field(default=None, ge=40, le=250)
+    weight_kg: float | None = Field(default=None, ge=2, le=400)
+    bust_cm: float | None = Field(default=None, ge=30, le=250)
+    sizing_product_id: str | None = Field(default=None, pattern=r"^[a-fA-F0-9]{24}$")
+    estimated_sizes: list[Literal["XS", "S", "M", "L", "XL", "XXL", "XXXL"]] = Field(default_factory=list, max_length=3)
+    size_estimate_source: Literal["", "model", "web"] = ""
+    size_estimate_sources: list[str] = Field(default_factory=list, max_length=5)
 
     @model_validator(mode="after")
     def ordered_prices(self):
@@ -44,6 +58,7 @@ class SearchPlan(BaseModel):
 
 class ChatState(TypedDict, total=False):
     message: str
+    route_name: str
     # Shopper image bytes are needed during a run, but must never enter a checkpoint.
     image: Annotated[str | None, UntrackedValue(str)]
     reference_product_id: str | None
@@ -55,6 +70,7 @@ class ChatState(TypedDict, total=False):
     focused_order_id: str
     visual_description: str
     plan: dict
+    turn_understanding: Annotated[dict, UntrackedValue(dict)]
     remembered_products: list[dict]
     products: Annotated[list[dict], UntrackedValue(list)]
     answer: Annotated[str, UntrackedValue(str)]

@@ -86,6 +86,10 @@ export default function ShoppingAssistant() {
         text: data.answer,
         products: data.products || [],
         pendingAction: data.pendingAction || null,
+        suggestions: Array.isArray(data.suggestions)
+          ? data.suggestions.filter((item) => typeof item === 'string' && item.trim()).slice(0, 8)
+          : [],
+        handoff: data.handoff === true,
       }]);
       if (data.actionResult?.status === 'completed' || data.actionResult?.cartChanged) {
         await refreshCart();
@@ -221,6 +225,25 @@ export default function ShoppingAssistant() {
                       null,
                       { cancelActionId: message.pendingAction.actionId },
                     )}>Hủy</button>
+                  </div>
+                )}
+                {index === messages.length - 1 && message.suggestions?.length > 0 && (
+                  <div className="sa-quick-replies" role="group" aria-label="Gợi ý trả lời nhanh">
+                    {message.suggestions.map((text) => (
+                      <button key={text} type="button" onClick={() => send(text)} disabled={busy}>{text}</button>
+                    ))}
+                  </div>
+                )}
+                {index === messages.length - 1 && message.handoff && (
+                  <div className="sa-handoff">
+                    {detailMatch ? (
+                      <button type="button" onClick={() => {
+                        close();
+                        window.dispatchEvent(new Event('assistant-handoff'));
+                      }}>Chat với người bán</button>
+                    ) : (
+                      <span>Mở trang sản phẩm bạn quan tâm và chọn “Chat với người bán” để được shop hỗ trợ trực tiếp.</span>
+                    )}
                   </div>
                 )}
               </div>

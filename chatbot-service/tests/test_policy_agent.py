@@ -110,6 +110,8 @@ class PolicyAgentTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_router_sends_privacy_question_to_grounded_policy_agent(self):
         models, catalog = AsyncMock(), AsyncMock()
+        from src.agents.intent import TurnIntent
+        models.understand_intent.return_value = TurnIntent(route="customer_service")
         models.embed_queries.return_value = [[1.0, 0.0]]
         models.chat.return_value = "Sàn thu thập dữ liệu khi người dùng đăng ký. [Nguồn 1]"
         catalog.query.return_value = [SimpleNamespace(payload={
@@ -127,7 +129,8 @@ class PolicyAgentTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["route_name"], "customer_service")
         self.assertEqual(result["products"], [])
         self.assertEqual(result["sources"][0]["url"], SOURCE)
-        self.assertIn("[Nguồn 1]", result["answer"])
+        self.assertIn("chỉ có chính sách tham khảo của Shopee", result["answer"])
+        models.chat.assert_not_awaited()
 
     def test_shopee_article_parser_keeps_provenance_and_chunks(self):
         html = """

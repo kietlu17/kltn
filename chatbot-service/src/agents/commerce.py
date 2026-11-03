@@ -13,9 +13,6 @@ from ..infrastructure.clients import CommerceError
 
 log = logging.getLogger(__name__)
 
-CHECKOUT_PATTERN = re.compile(
-    r"\b(?:thanh toan|tinh tien|checkout|chot gio|chot don|dat hang|mua ngay|di thanh toan)\b"
-)
 VOUCHER_PATTERN = re.compile(r"\b(?:voucher|ma giam gia|ma khuyen mai|uu dai)\b")
 
 
@@ -69,11 +66,39 @@ def resolve_product_references(
         positions.append(len(ordered) - 1)
     if ordered and re.search(r"\b(?:(?:cai|mon|san pham|sp)\s+)?(?:tren|dau tien)\b", text):
         positions.append(0)
-    if re.search(r"\bso sanh\b", text):
-        positions += [int(number) - 1 for number in re.findall(r"\b[1-6]\b", text)]
-    for index in sorted(set(positions)):
+    compare = bool(re.search(r"\bso sanh\b", text))
+    if compare:
+        numbered_pair = re.search(
+            rf"\bso sanh\s+(?:(?:{position_markers}|mau)\s+)?([1-6])\s*"
+            rf"(?:,|va|voi|vs|&)\s*(?:(?:{position_markers}|mau)\s+)?([1-6])\b",
+            text,
+        )
+        if numbered_pair:
+            positions.extend(int(number) - 1 for number in numbered_pair.groups())
+    for index in dict.fromkeys(positions):
         if index < len(ordered) and ordered[index] not in resolved:
             resolved.append(ordered[index])
+
+    # Match complete names before fuzzy tokens. A model suffix such as
+    # "SoundSticks 4" must not be interpreted as the fourth product card.
+    exact_spans = []
+    for product_id, item in known.items():
+        name = normalized(str(item.get("name", "")))
+        if name:
+            exact_spans.extend(
+                (match.start(), match.end(), product_id)
+                for match in re.finditer(rf"(?<![a-z0-9]){re.escape(name)}(?![a-z0-9])", text)
+            )
+    selected_spans = []
+    for span in sorted(exact_spans, key=lambda item: (item[0] - item[1], item[0])):
+        if not any(span[0] < chosen[1] and chosen[0] < span[1] for chosen in selected_spans):
+            selected_spans.append(span)
+    exact_ids = [product_id for _, _, product_id in sorted(selected_spans)]
+    if compare and len(exact_ids) >= 2:
+        return list(dict.fromkeys(exact_ids))
+    for product_id in exact_ids:
+        if product_id not in resolved:
+            resolved.append(product_id)
 
     ignored = {
         "a", "an", "cai", "cho", "cuon", "gi", "hang", "i", "mon", "noi", "pham",
@@ -89,6 +114,19 @@ def resolve_product_references(
         token: sum(token in tokens for tokens in product_tokens.values())
         for token in message_tokens
     }
+    if compare:
+        distinctive_mentions = []
+        for product_id, tokens in product_tokens.items():
+            mentions = [match.start() for token in message_tokens & tokens
+                        if len(token) >= 4 and token_frequency[token] == 1
+                        for match in re.finditer(rf"\b{re.escape(token)}\b", text)]
+            if mentions:
+                distinctive_mentions.append((min(mentions), product_id))
+        for _, product_id in sorted(distinctive_mentions):
+            if product_id not in resolved:
+                resolved.append(product_id)
+        if len(resolved) >= 2:
+            return resolved
     matches = []
     for product_id, item in known.items():
         name = normalized(str(item.get("name", "")))
@@ -130,18 +168,6 @@ def resolve_product_reference(
 class CommerceAgent:
     """Owns grounded product conversations and reversible cart preparation."""
 
-    YES = {"co", "co a", "ok", "okay", "dong y", "xac nhan", "dung", "ap dung"}
-    NO = {"khong", "khong dung", "bo qua", "khong ap", "doi dia chi"}
-    CANCELLATIONS = {"huy", "huy thao tac", "khong mua nua", "bo qua"}
-    FINAL_CONFIRMATIONS = {
-        "xac nhan dat hang", "dong y dat hang", "dong y chot don",
-        "chot don", "dat hang", "tien hanh dat hang",
-    }
-    CART_CONFIRMATIONS = {
-        "xac nhan", "xac nhan thay doi gio", "xac nhan them vao gio",
-        "xac nhan xoa khoi gio", "xac nhan doi san pham", "dong y thay doi gio",
-    }
-
     def __init__(self, catalog, commerce):
         self.catalog = catalog
         self.commerce = commerce
@@ -152,80 +178,6 @@ class CommerceAgent:
             state.get("message", ""), state.get("previous_products", []), explicit,
             state.get("focused_product_ids") or [state.get("focused_product_id", "")],
         )
-
-    def detect(self, state: dict) -> str:
-        text = normalized(state.get("message", ""))
-        pending = state.get("pending_action") or {}
-        if pending.get("type") == "cart_quantity_selection":
-            if state.get("cancel_action_id") or text in self.CANCELLATIONS or text in self.NO:
-                return "cancel_pending"
-            return "configure_quantity"
-        if pending.get("type") == "cart_product_selection":
-            if state.get("cancel_action_id") or text in self.CANCELLATIONS or text in self.NO:
-                return "cancel_pending"
-            return "add_to_cart"
-        if pending.get("type") == "cart_mutation_confirmation":
-            requested = state.get("confirm_action_id")
-            if (requested and str(requested) == str(pending.get("actionId"))) or text in self.CART_CONFIRMATIONS:
-                return "confirm_cart_mutation"
-            if state.get("cancel_action_id") or text in self.CANCELLATIONS or text in self.NO:
-                return "cancel_pending"
-            return "await_cart_mutation"
-        if pending.get("type") == "checkout_confirmation":
-            requested = state.get("confirm_action_id")
-            if (requested and str(requested) == str(pending.get("quoteId"))) or text in self.FINAL_CONFIRMATIONS:
-                return "confirm_checkout"
-            if state.get("cancel_action_id") or text in self.CANCELLATIONS or text in self.NO:
-                return "cancel_pending"
-            return "await_checkout_confirmation"
-        if pending.get("type") == "checkout_offer":
-            if text in self.YES or CHECKOUT_PATTERN.search(text):
-                return "accept_checkout_offer"
-            if state.get("cancel_action_id") or text in self.CANCELLATIONS or text in self.NO:
-                return "decline_checkout_offer"
-        if pending and text in {"huy", "huy thao tac", "khong mua nua"}:
-            return "cancel_pending"
-        if pending.get("type") == "cart_configuration":
-            return "configure_cart"
-        if pending.get("type") == "checkout_selection":
-            return "checkout"
-        if pending.get("type") == "checkout_handoff":
-            return "checkout"
-        references = self._references(state)
-        if (
-            text in {"gio", "gio hang", "cart"}
-            or re.search(r"\b(xem|show|kiem tra|mo|liet ke)\b.*\b(gio|cart)\b", text)
-            or re.search(r"\b(gio|cart)(?: hang)?\b.*\b(co gi|gom gi|hien tai|cua toi)\b", text)
-            or re.search(r"\b(trong gio|trong cart)\b.*\b(co gi|nhung gi)\b", text)
-        ):
-            return "view_cart"
-        if len(references) >= 2 and re.search(r"\b(so sanh|mon|san pham|sp|cai)\b", text):
-            return "compare_products"
-        if references and re.search(
-            r"\b(chi tiet|noi dung|mo ta|thong tin|may sao|bao nhieu sao|rating|review|danh gia|khach hang noi)\b", text,
-        ):
-            return "product_details"
-        if re.search(r"\b(xoa|bo|khong lay)\b", text) and (
-            re.search(r"\b(gio|san pham|mon|cai|nua)\b", text)
-            or pending.get("type") == "cart_view_context"
-        ):
-            return "remove_cart"
-        if re.search(r"\b(doi|thay)\b.*\b(size|topping|bien the|san pham|mon|cai)\b", text):
-            return "replace_cart"
-        if (
-            re.search(r"\b(so luong|qty)\b\s*(?:la|thanh)?\s*\d+|\bdoi\b.*\b\d+\b", text)
-            or re.search(r"\b(tang|giam|bot)\b.*(?:\bso luong\b|\blen\b|\bxuong\b|\bthem\b|\bmon\b|\bcai\b|\d+)", text)
-        ):
-            return "set_quantity"
-        if re.search(r"\b(them|bo)\b.*\b(gio hang|gio)\b", text):
-            return "add_to_cart"
-        if re.search(r"\b(mua|lay)\s+\d{1,3}\s*(?:cai|chiec|san pham)\b", text):
-            return "add_to_cart"
-        if references and re.search(r"\b(mua|lay|chon)\b", text) and not re.search(r"\bmua ngay\b", text):
-            return "add_to_cart"
-        if CHECKOUT_PATTERN.search(text) or VOUCHER_PATTERN.search(text):
-            return "checkout"
-        return ""
 
     @staticmethod
     def _quantity(message: str, default: int | None = 1) -> int | None:
@@ -341,6 +293,31 @@ class CommerceAgent:
         product = await self.catalog.product(product_id)
         if not product:
             raise CommerceError(404, "Sản phẩm không còn khả dụng.")
+        question = normalized(state.get("message", ""))
+        specifications = [item for item in product.get("specifications", [])
+                          if isinstance(item, dict) and item.get("name") and item.get("value")]
+        requested = [item for item in specifications
+                     if not ("ram" in question and "ho tro" not in question
+                             and ("ho tro" in normalized(item["name"]) or "toi da" in normalized(item["name"])))
+                     and not ("ram" in question and "loai ram" not in question and "toc do ram" not in question
+                              and "ram" in normalized(item["name"]) and normalized(item["name"]) != "ram")
+                     and not ("pin" in question and "cong nghe" not in question
+                              and "cong nghe pin" in normalized(item["name"]))
+                     and (normalized(item["name"]) in question
+                          or ("ssd" in question and "o cung" in normalized(item["name"]))
+                          or any(token in normalized(item["name"]) and re.search(rf"\b{token}\b", question)
+                                 for token in ("ram", "ssd", "pin", "man hinh", "cong suat", "dung tich",
+                                               "chat lieu", "kich thuoc", "o cung", "bao hanh")))]
+        if requested:
+            facts = "; ".join(f"{item['name']}: {_plain_text(str(item['value']))[:120]}"
+                              for item in requested[:8])
+            answer = f"{product.get('name', 'Sản phẩm')}: {facts}."
+            if "bao lau" in question or "thoi luong" in question:
+                answer += " Catalog chưa xác nhận thời gian sử dụng thực tế nếu thông số trên chỉ là dung lượng pin."
+            card = next((item for item in state.get("previous_products", []) if str(item.get("id")) == product_id),
+                        {"id": product_id, "name": product.get("name"), "price": product.get("price")})
+            return {"answer": answer, "products": [card], "focused_product_id": product_id,
+                    "focused_product_ids": [product_id]}
         summaries = await self.catalog.review_summaries([product_id])
         raw_reviews = await self.catalog.reviews(product_id)
         summary = next((item for item in summaries.get("items", []) if str(item.get("productId")) == product_id), {})
@@ -355,7 +332,13 @@ class CommerceAgent:
             if comment:
                 comments.append(f"{review.get('rating', '?')}★: “{comment[:180]}”")
         variants = product.get("variants") or []
-        answer = f"{product.get('name', 'Sản phẩm')} — {_money(product.get('price'))}. {description[:700] or 'Catalog chưa có mô tả chi tiết.'} Đánh giá: {rating_text}."
+        visible_specs = [item for item in specifications if not re.fullmatch(r"\d{1,3}", str(item["value"]).strip())]
+        spec_text = "; ".join(f"{item['name']}: {_plain_text(str(item['value']))[:80]}"
+                              for item in visible_specs[:8])
+        answer = f"{product.get('name', 'Sản phẩm')} — {_money(product.get('price'))}. {description[:350] or 'Catalog chưa có mô tả chi tiết.'}"
+        if spec_text:
+            answer += f" Thông số: {spec_text}."
+        answer += f" Đánh giá: {rating_text}."
         if variants:
             answer += f" Có {len(variants)} lựa chọn: {self._variant_options(variants)}."
         answer += " Phản hồi gần đây: " + ("; ".join(comments) if comments else "chưa có bình luận bằng chữ.")
@@ -363,25 +346,101 @@ class CommerceAgent:
         return {"answer": answer, "products": [card], "focused_product_id": product_id, "focused_product_ids": [product_id]}
 
     async def _compare_products(self, state: dict) -> dict:
+        question = normalized(state.get("message", ""))
+        choice_question = bool(re.search(r"\b(?:cai|mau|loa|loai|mon|san pham|sp)\s+nao\b", question))
         references = self._references(state)[:4]
+        previous = state.get("previous_products", [])
+        if choice_question and len(references) < 2 and len(previous) == 2:
+            references = [str(item["id"]) for item in previous if item.get("id")]
         if len(references) < 2:
             return {"answer": "Bạn hãy chọn ít nhất hai sản phẩm để so sánh.", "products": state.get("previous_products", [])}
-        summaries = await self.catalog.review_summaries(references)
-        summary_map = {str(item.get("productId")): item for item in summaries.get("items", [])}
-        lines, cards = [], []
+        records, cards, spec_maps, spec_labels = [], [], [], {}
         for product_id in references:
             product = await self.catalog.product(product_id)
             if not product:
                 continue
-            summary = summary_map.get(product_id, {})
-            rating = summary.get("averageRating")
-            reviews = int(summary.get("reviewCount") or 0)
-            stars = f"{float(rating):.1f}/5 ({reviews} đánh giá)" if rating is not None else "chưa có đánh giá"
-            lines.append(f"• {product.get('name')}: {_money(product.get('price'))}, {stars}, {len(product.get('variants') or [])} biến thể.")
+            records.append(product)
             cards.append(next((item for item in state.get("previous_products", []) if str(item.get("id")) == product_id), {"id": product_id, "name": product.get("name"), "price": product.get("price")}))
+            specs = {}
+            for item in product.get("specifications") or []:
+                if not isinstance(item, dict):
+                    continue
+                label = str(item.get("name") or "").strip()
+                value = _plain_text(str(item.get("value") or ""))
+                key = normalized(label)
+                if not key or not value or normalized(value) in {"hang khong cong bo", "khong co"}:
+                    continue
+                specs[key] = value[:140]
+                spec_labels.setdefault(key, label)
+            spec_maps.append(specs)
+        if len(records) < 2:
+            return {"answer": "Một trong các sản phẩm cần so sánh không còn khả dụng. Bạn hãy chọn lại hai sản phẩm.",
+                    "products": cards}
+        if choice_question:
+            if re.search(r"\b(nho gon|nhe|de ban|ban hoc|mang theo|di chuyen)\b", question):
+                weights = []
+                for product, specs in zip(records, spec_maps):
+                    listed = normalized(specs.get("khoi luong") or specs.get("trong luong") or "")
+                    match = re.search(r"\b(\d+(?:[.,]\d+)?)\s*(kg|g)\b", listed)
+                    if not match:
+                        description = normalized(_plain_text(str(product.get("description") or product.get("detail") or "")))
+                        match = re.search(
+                            r"\b(?:khoi luong|trong luong|nang)\s*(?:chi|khoang|tam|la|co)?\s*"
+                            r"(\d+(?:[.,]\d+)?)\s*(kg|g)\b", description,
+                        )
+                    if not match:
+                        break
+                    value = float(match.group(1).replace(",", "."))
+                    weights.append(value / 1000 if match.group(2) == "g" else value)
+                if len(weights) == len(records):
+                    lightest = min(range(len(weights)), key=weights.__getitem__)
+                    heaviest = max(range(len(weights)), key=weights.__getitem__)
+                    if weights[heaviest] - weights[lightest] >= 0.05:
+                        light_name = records[lightest].get("name", "Mẫu thứ nhất")
+                        heavy_name = records[heaviest].get("name", "mẫu còn lại")
+                        light_weight = f"{weights[lightest]:g}".replace(".", ",")
+                        heavy_weight = f"{weights[heaviest]:g}".replace(".", ",")
+                        return {
+                            "answer": (f"Nếu ưu tiên loa nhỏ gọn để bàn học, tôi chọn {light_name}: "
+                                       f"khối lượng khoảng {light_weight} kg, nhẹ hơn {heavy_name} "
+                                       f"(khoảng {heavy_weight} kg). Dữ liệu kích thước chưa đầy đủ, "
+                                       "nên kết luận này dựa trên khối lượng được mô tả trong catalog."),
+                            "products": [], "focused_product_id": str(records[lightest]["_id"]),
+                            "focused_product_ids": [str(records[lightest]["_id"])],
+                        }
+                return {"answer": "Catalog chưa đủ số đo khối lượng hoặc kích thước để xác định mẫu nào gọn hơn cho bàn học.",
+                        "products": [], "focused_product_ids": references}
+            if re.search(r"\b(re hon|gia thap|tiet kiem|gia tot)\b", question):
+                prices = [product.get("price") for product in records]
+                if all(isinstance(price, (int, float)) for price in prices):
+                    cheapest = min(range(len(prices)), key=prices.__getitem__)
+                    return {"answer": f"{records[cheapest].get('name')} rẻ nhất trong các mẫu đang so sánh: {_money(prices[cheapest])}.",
+                            "products": [], "focused_product_id": str(records[cheapest]["_id"]),
+                            "focused_product_ids": [str(records[cheapest]["_id"])]}
+            return {"answer": "Bạn ưu tiên tiêu chí nào để tôi chọn giữa các mẫu này: kích thước, giá, thời lượng pin hay công suất?",
+                    "products": [], "focused_product_ids": references}
+        lines = [f"{index}. {product.get('name')} — {_money(product.get('price'))}."
+                 for index, product in enumerate(records, 1)]
+        preferred = (
+            "cong suat lien tuc", "ram", "o cung", "dung luong pin", "nguon", "ket noi",
+            "thoi gian su dung", "khoang cach ket noi", "tien ich", "man hinh",
+            "kich thuoc man hinh", "chip", "cpu", "chat lieu than vo", "bao hanh",
+        )
+        excluded = {"loai san pham", "thuong hieu cua", "san xuat tai", "dong san pham",
+                    "trong hop co", "dung tich tong"}
+        common = {key for key in spec_labels if all(key in specs for specs in spec_maps)} - excluded
+        available = set(spec_labels) - excluded
+        keys = ([key for key in preferred if key in common]
+                + [key for key in preferred if key in available and key not in common]
+                + [key for key in spec_labels if key in common and key not in preferred])[:6]
+        for key in keys:
+            values = "; ".join(f"{index}: {specs.get(key, 'chưa có dữ liệu')}"
+                               for index, specs in enumerate(spec_maps, 1))
+            lines.append(f"• {spec_labels[key]}: {values}.")
         return {
-            "answer": "So sánh theo dữ liệu hiện có:\n" + "\n".join(lines), "products": cards,
-            "focused_product_id": references[-1], "focused_product_ids": references,
+            "answer": "So sánh theo thông tin sản phẩm trên sàn:\n" + "\n".join(lines), "products": cards,
+            "focused_product_id": str(records[-1]["_id"]),
+            "focused_product_ids": [str(product["_id"]) for product in records],
         }
 
     async def _view_cart(self, state: dict, user_id: str) -> dict:
@@ -526,7 +585,7 @@ class CommerceAgent:
         request = {
             "delta": delta,
             "targetQuantity": None if delta is not None else requested_quantity,
-            "nextAction": "checkout" if self._checkout_requested(state.get("message", "")) else None,
+            "nextAction": "checkout" if state.get("turn_understanding", {}).get("checkout_after_action") else None,
         }
         line = await self._cart_line(state, user_id)
         if not line:
@@ -667,8 +726,8 @@ class CommerceAgent:
         pending = state.get("pending_action") or {}
         requested = state.get("confirm_action_id")
         confirmed_by_id = requested and str(requested) == str(pending.get("actionId"))
-        confirmed_by_text = normalized(state.get("message", "")) in self.CART_CONFIRMATIONS
-        if pending.get("type") != "cart_mutation_confirmation" or not (confirmed_by_id or confirmed_by_text):
+        confirmed_by_intent = not requested and state.get("commerce_intent") == "confirm_cart_mutation"
+        if pending.get("type") != "cart_mutation_confirmation" or not (confirmed_by_id or confirmed_by_intent):
             return self._await_cart_mutation(state)
         operation = pending.get("operation")
         product_id, variant_id = str(pending.get("productId")), pending.get("variantId")
@@ -864,10 +923,6 @@ class CommerceAgent:
             else:
                 return []
         return [self._line_id(item) for item in matching]
-
-    @staticmethod
-    def _checkout_requested(message: str) -> bool:
-        return bool(CHECKOUT_PATTERN.search(normalized(message)))
 
     def _checkout_selection_question(self, items: list[dict]) -> dict:
         choices = "; ".join(

@@ -1,5 +1,6 @@
 """Product-domain agentic RAG subgraph."""
 import json
+import logging
 import os
 import re
 import time
@@ -8,10 +9,18 @@ from typing import Literal
 
 from langgraph.graph import END, START, StateGraph
 from langchain_google_genai.chat_models import GoogleAPIError, GoogleRateLimitError
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 from .state import ChatState, SearchPlan, explicit_price_limits
+from .shopping import shopping_description, sizing_clarification, update_shopping_plan
+from .clothing_size import (
+    ClothingSizeEstimate, SIZE_DISCLAIMER, SIZE_ESTIMATE_PROMPT,
+    is_clothing_size_advice, is_clothing_product, missing_size_inputs, prepare_clothing_sizing,
+)
 from .commerce import CommerceAgent
+from .size_search import ClothingSearchEstimate, SEARCH_SIZE_PROMPT, size_search_answer
+from .conversation import (MarketplaceTurn, load_context, transition, project_plan,
+                           reconcile_fallback, remember_size)
 from .safety import (
     PROMPT_INJECTION_RESPONSE,
     clean_untrusted_text,
@@ -22,9 +31,12 @@ from .safety import (
     safe_model_text,
 )
 from ..product.rag import ProductRAG
+from .intent import understand_intent
+from ..product.specs import parse_spec_requirements
 
 
 TRANSIENT_MODEL_ERRORS = (GoogleRateLimitError, GoogleAPIError)
+log = logging.getLogger(__name__)
 FOLLOWUP_CONSTRAINT_PATTERN = re.compile(
     r"^(?:mau\b|size\b|co\b|kich thuoc\b|gia\b|duoi\b|tren\b|khong qua\b|toi da\b|toi thieu\b|"
     r"nam\b|nu\b|tre em\b|cho\b|danh cho\b|phu hop\b|hop voi\b|de\b|dung cho\b|"
@@ -58,7 +70,15 @@ def _normalized_text(value: str) -> str:
 def _explicit_variant_terms(message: str) -> list[str]:
     """Extract common color/size constraints even when the planner omits them."""
     text = _normalized_text(message)
-    terms = [canonical for token, canonical in VARIANT_TERMS.items() if re.search(rf"\b{token}\b", text)]
+    original = unicodedata.normalize("NFC", message.casefold())
+    terms = []
+    for token, canonical in VARIANT_TERMS.items():
+        exact = re.search(rf"\b{canonical}\b", original)
+        unaccented = re.search(rf"\b{token}\b", original)
+        if token in {"do", "tim"}:
+            unaccented = re.search(rf"\bmau {token}\b", text)
+        if exact or unaccented:
+            terms.append(canonical)
     size = re.search(r"\b(?:size|co)\s*(xs|s|m|l|xl|xxl|\d{1,3}(?:\.\d+)?)\b", text)
     if size:
         terms.append(size.group(1).upper())
@@ -66,42 +86,9 @@ def _explicit_variant_terms(message: str) -> list[str]:
 
 
 def _merge_followup_plan(message: str, previous_plan: dict, plan: dict) -> dict:
-    """Make short constraint follow-ups cumulative instead of relying on planner compliance."""
-    previous_query = clean_untrusted_text(previous_plan.get("query", ""), 1500)
-    normalized_message = _normalized_text(message)
-    if not previous_query or not FOLLOWUP_CONSTRAINT_PATTERN.search(normalized_message):
-        return plan
-
-    merged = dict(plan)
-    current_query = clean_untrusted_text(merged.get("query", ""), 1500)
-    normalized_previous = _normalized_text(previous_query)
-    normalized_current = _normalized_text(current_query)
-    if normalized_previous not in normalized_current:
-        merged["query"] = clean_untrusted_text(f"{previous_query}; {message}", 1500)
-
-    explicit_terms = _explicit_variant_terms(message)
-    if explicit_terms:
-        previous_terms = list(previous_plan.get("variant_terms") or [])
-        color_terms = set(VARIANT_TERMS.values())
-        if any(term in color_terms for term in explicit_terms):
-            previous_terms = [term for term in previous_terms if term not in color_terms]
-        if any(term not in color_terms for term in explicit_terms):
-            previous_terms = [term for term in previous_terms if term in color_terms]
-        merged["variant_terms"] = list(dict.fromkeys([*previous_terms, *explicit_terms]))
-    elif not merged.get("variant_terms"):
-        merged["variant_terms"] = list(previous_plan.get("variant_terms") or [])
-
-    explicit_prices = explicit_price_limits(message)
-    for field in ("min_price", "max_price"):
-        if field not in explicit_prices and merged.get(field) is None:
-            merged[field] = previous_plan.get(field)
-
-    if merged.get("intent") == "clarify" and previous_plan.get("intent") in {"search", "similar"}:
-        merged["intent"] = previous_plan["intent"]
-        merged["clarification"] = ""
-    if not merged.get("reference_product_id") and previous_plan.get("intent") == "similar":
-        merged["reference_product_id"] = previous_plan.get("reference_product_id")
-    return merged
+    """Persist explicit requirements across advice, measurements and corrections."""
+    return update_shopping_plan(message, previous_plan, plan,
+                                _explicit_variant_terms(message), set(VARIANT_TERMS.values()))
 
 
 class ProductState(ChatState, total=False):
@@ -132,6 +119,18 @@ EVALUATOR_PROMPT = (
     "Khi accept, viết answer ngắn tối đa 180 từ dựa CHỈ trên các sản phẩm đã chọn. "
     "Không yêu cầu retry hoặc tìm kiếm lại; chỉ chọn kết quả hiện có hoặc nói chưa tìm được sản phẩm phù hợp. "
     "Không tự đổi ngân sách, màu/size, loại sản phẩm hoặc sản phẩm tham chiếu. "
+    "Nếu context.task là product_question hoặc compare_products, trả lời câu hỏi/so sánh đúng các mẫu được chọn. "
+    "Dùng tên, giá, mô tả và specifications trong candidates làm bằng chứng; không suy số đo hay tính năng còn thiếu. "
+    "Nếu context.response_mode là recommend_one, chọn đúng một product_id trong các mẫu đang so sánh, "
+    "trả lời thẳng mẫu phù hợp hơn theo tiêu chí khách vừa hỏi và nêu bằng chứng so với mẫu còn lại. "
+    "Nếu dữ liệu không đủ để chọn đáng tin cậy, action=clarify và nói rõ thông tin nào thiếu. "
+    "Không lặp lại toàn bộ bảng so sánh khi khách chỉ hỏi nên chọn mẫu nào. "
+    "Không khẳng định tồn kho khi chưa có availableStock, không yêu cầu đổi sang tìm kiếm sản phẩm. "
+    "Các trường product_type, audience, variant_terms và số đo trong plan là yêu cầu tích lũy qua hội thoại. "
+    "Số đo mới chỉ bổ sung yêu cầu, không cho phép đổi giới tính hay loại sản phẩm. "
+    "Khi dialogue_act=size_advice, trả lời tư vấn size cho đúng loại sản phẩm trong plan. "
+    "Không suy size S/M/L từ chiều cao/cân nặng nếu candidates không có bảng size tương ứng. "
+    "Nếu chưa đủ bảng size hoặc số đo, nói chưa thể xác nhận và hỏi thông tin còn thiếu; không tìm loại khác. "
     "Nếu thiếu thông tin khách cần cung cấp, clarify với một câu hỏi tiếng Việt. "
     "Chọn kết quả phù hợp hoặc nói chưa tìm được. "
     "Không suy đoán thông số, thương hiệu, chính hãng, phí ship hay chính sách thiếu. "
@@ -202,8 +201,11 @@ class ProductAgent:
         return "blocked" if state.get("security_blocked") else "continue"
 
     async def classify_action(self, state):
-        intent = self.commerce_agent.detect(state) if self.commerce_agent else ""
-        result = {"commerce_intent": intent}
+        understanding = state.get("turn_understanding")
+        if not isinstance(understanding, dict):
+            understanding = (await understand_intent(self.models, state)).model_dump()
+        intent = understanding.get("commerce_intent", "") if self.commerce_agent else ""
+        result = {"commerce_intent": intent, "turn_understanding": understanding}
         pending = state.get("pending_action") or {}
         if pending.get("type") == "checkout_offer" and not intent:
             # A checkout offer is optional. A new product question supersedes it
@@ -213,11 +215,26 @@ class ProductAgent:
 
     async def plan(self, state):
         action = await self.classify_action(state)
-        if action["commerce_intent"]:
+        read_intents = {"product_details", "compare_products"}
+        if action["commerce_intent"] and action["commerce_intent"] not in read_intents:
             return {**action, "flow": "commerce"}
-        search = await self.understand(state)
-        flow = "answer" if search["plan"]["intent"] == "clarify" else "retrieve"
-        return {**action, **search, "flow": flow}
+        if not state.get("image") and action["turn_understanding"].get("browse_catalog"):
+            return {**action, "plan": SearchPlan().model_dump(),
+                    "products": [], "flow": "retrieve", "focused_product_id": "",
+                    "focused_product_ids": []}
+        search = await self.understand({**state, **action})
+        semantic = search["plan"].get("context", {}).get("interpretation") == "semantic"
+        if action["commerce_intent"] in read_intents and not semantic:
+            if self.commerce_agent:
+                ids = self.commerce_agent._references(state)
+                context = transition(load_context(state.get("previous_plan", {})), MarketplaceTurn(
+                    operation="compare" if action["commerce_intent"] == "compare_products" else "ask_product",
+                    selected_product_ids=ids[:4]), allowed_ids=[p["id"] for p in state.get("previous_products", [])],
+                    reference_id=state.get("reference_product_id"))
+                return {**action, "plan": project_plan(context), "flow": "commerce"}
+        flow = "answer" if (search["plan"]["intent"] == "clarify"
+                            or is_clothing_size_advice(search["plan"])) else "retrieve"
+        return {**action, **search, "commerce_intent": "", "flow": flow}
 
     @staticmethod
     def plan_route(state):
@@ -273,18 +290,31 @@ class ProductAgent:
 
     def _fallback_evaluation(self, state, *, degraded=True):
         cards = state.get("products", [])[:6]
+        plan = state.get("plan", {})
+        if plan.get("dialogue_act") == "size_advice":
+            length = plan.get("foot_length_cm")
+            if not cards:
+                measurement = f" cho chiều dài chân {length:g}cm" if length else " với số đo bạn cung cấp"
+                answer = (
+                    f"Mình chưa tìm được {shopping_description(plan)} còn hàng có size được xác nhận phù hợp"
+                    f"{measurement} trong các kết quả đã kiểm tra."
+                )
+            else:
+                answer = "Mình vẫn đang kiểm tra size cho các sản phẩm bạn đã chọn. Cần đối chiếu bảng size của từng mẫu để xác nhận độ vừa; mình chưa thể suy size chỉ từ số đo."
+            return {"decision": "accept", "products": cards, "answer": answer,
+                    **({"warnings": self._quota_warning(state), "llm_degraded": True} if degraded else {})}
         if degraded:
             answer = (
-                "Gemini đang tạm quá tải. Đây là các sản phẩm còn hàng phù hợp nhất từ chỉ mục tìm kiếm."
+                "Gemini tạm thời không khả dụng. Đây là các sản phẩm phù hợp nhất theo dữ liệu sàn hiện tại."
                 if cards
-                else "Gemini đang tạm quá tải và tôi chưa tìm được sản phẩm còn hàng phù hợp trong chỉ mục. "
+                else "Gemini tạm thời không khả dụng và tôi chưa tìm được sản phẩm phù hợp trong chỉ mục. "
                      "Bạn thử mô tả khác hoặc điều chỉnh ngân sách nhé."
             )
         else:
             answer = (
-                f"Mình tìm thấy {len(cards)} sản phẩm còn hàng phù hợp nhất, đã xếp hạng theo độ liên quan, đánh giá và lượt mua."
+                f"Mình tìm thấy {len(cards)} sản phẩm phù hợp theo dữ liệu sàn, đã xếp hạng theo độ liên quan, đánh giá và lượt mua."
                 if cards
-                else "Mình chưa tìm được sản phẩm còn hàng phù hợp. Bạn thử mô tả cụ thể hơn hoặc điều chỉnh ngân sách nhé."
+                else "Mình chưa tìm được sản phẩm phù hợp. Bạn thử mô tả cụ thể hơn hoặc điều chỉnh ngân sách nhé."
             )
         result = {
             "decision": "accept",
@@ -299,11 +329,7 @@ class ProductAgent:
         message = unicodedata.normalize("NFD", state["message"].casefold()).replace("đ", "d")
         message = "".join(character for character in message if not unicodedata.combining(character))
         message = re.sub(r"\s+", " ", message).strip(" .!?\n\r\t")
-        simple_image_request = not message or re.fullmatch(
-            r"(?:tim (?:san pham|mau|mon do) (?:(?:giong|tuong tu|nhu|trong|theo) )?(?:anh|hinh)(?: nay)?"
-            r"|find (?:this product|similar products|products like this)(?: in (?:this|the) image)?)",
-            message,
-        )
+        simple_image_request = not message or state.get("turn_understanding", {}).get("visual_only")
         if state.get("image") and not state.get("reference_product_id") and simple_image_request:
             return {
                 "plan": SearchPlan().model_dump(),
@@ -327,10 +353,47 @@ class ProductAgent:
         previous_plan = dict(state.get("previous_plan", {}))
         previous_query = clean_untrusted_text(previous_plan.get("query", ""), 1500)
         previous_plan["query"] = "" if is_prompt_injection(previous_query) else previous_query
-        # Plan deterministically before retrieval; text search has one final LLM call.
-        plan_data = self._fallback_plan(state, visual)
+        # A semantic turn owns the shopping plan. The rule adapter remains for
+        # direct legacy callers; routed turns ask again when understanding fails.
+        plan_data = None
+        if not state.get("image") and not llm_degraded:
+            previous_context = load_context(previous_plan)
+            if callable(getattr(self.models, "interpret_turn", None)):
+                try:
+                    interpreted = await self.models.interpret_turn({
+                        "untrusted_message": state["message"], "context": previous_context.model_dump(),
+                        "reference_product_id": state.get("reference_product_id"),
+                        "untrusted_recent_history": safe_history(state.get("history", []), limit=6),
+                        "untrusted_shown_products": [{"id": p.get("id"), "name": clean_untrusted_text(p.get("name", ""), 240)}
+                                                     for p in state.get("previous_products", [])[:12]],
+                    })
+                    if isinstance(interpreted, MarketplaceTurn):
+                        context = transition(previous_context, interpreted,
+                                             allowed_ids=[p["id"] for p in state.get("previous_products", [])],
+                                             reference_id=state.get("reference_product_id") or (
+                                                 link[1] if (link := re.search(r"/product/([a-fA-F0-9]{24})\b", state["message"])) else None))
+                        plan_data = project_plan(context)
+                except Exception as exc:
+                    llm_degraded = True
+                    self.llm_retry_after = time.monotonic() + self.llm_cooldown_seconds
+                    log.warning("Turn interpretation unavailable: error_type=%s", type(exc).__name__)
+        if plan_data is None:
+            if state.get("route_name") == "product":
+                plan_data = (SearchPlan(query=state["message"] or visual).model_dump()
+                             if state.get("image") else SearchPlan(
+                                 intent="clarify",
+                                 clarification="Tôi chưa hiểu rõ yêu cầu lúc này. Bạn thử nói lại giúp tôi nhé.",
+                             ).model_dump())
+            else:
+                plan_data = self._fallback_plan(state, visual)
+                plan_data = _merge_followup_plan(
+                    state["message"], {} if state.get("image") else previous_plan, plan_data,
+                )
+                plan_data = prepare_clothing_sizing(state, previous_plan, plan_data)
+                plan_data = reconcile_fallback(
+                    previous_plan, plan_data, state["message"], image=bool(state.get("image")),
+                )
         plan_data.update(explicit_price_limits(state["message"]))
-        plan_data = _merge_followup_plan(state["message"], previous_plan, plan_data)
         plan_data = SearchPlan.model_validate(plan_data).model_dump()
         plan_query = clean_untrusted_text(plan_data.get("query", ""), 1500)
         if is_prompt_injection(plan_query):
@@ -341,13 +404,15 @@ class ProductAgent:
         if not state.get("image") and not plan_data["use_previous_image"]:
             visual = ""
 
-        reference = state.get("reference_product_id") or plan_data["reference_product_id"]
+        sizing = is_clothing_size_advice(plan_data)
+        reference = None if sizing else state.get("reference_product_id") or plan_data["reference_product_id"]
         allowed_ids = {product["id"] for product in state.get("previous_products", [])}
         if reference and reference != state.get("reference_product_id") and reference not in allowed_ids:
             plan_data.update(intent="clarify", clarification="Bạn chọn sản phẩm cần tìm mẫu tương tự giúp tôi nhé.")
             reference = None
         plan_data["reference_product_id"] = reference
-        if state.get("reference_product_id"):
+        if (state.get("reference_product_id") and not sizing
+                and plan_data.get("context", {}).get("task") not in {"product_question", "compare_products"}):
             plan_data["intent"] = "similar"
         result = {
             "plan": plan_data,
@@ -358,14 +423,131 @@ class ProductAgent:
         }
         if llm_degraded:
             result["warnings"] = self._quota_warning(state)
+        context = plan_data.get("context", {})
+        if context.get("last_transition") in {"new_search", "reset"}:
+            result.update(focused_product_id="", focused_product_ids=[])
         return result
 
+    async def _catalog_overview(self):
+        try:
+            categories = await self.api.categories()
+        except Exception as error:
+            log.warning("Catalog categories unavailable: %s", type(error).__name__)
+            categories = []
+        try:
+            counts = await self.vectors.category_counts()
+        except Exception as error:
+            log.warning("Catalog category counts unavailable: %s", type(error).__name__)
+            counts = {}
+        if isinstance(counts, dict) and counts:
+            categories = sorted(
+                (item for item in categories if str(item.get("_id") or item.get("id")) in counts),
+                key=lambda item: counts[str(item.get("_id") or item.get("id"))], reverse=True,
+            )
+        names = list(dict.fromkeys(str(item["name"]).strip() for item in categories
+                                   if str(item["name"]).strip()))[:8]
+        answer = ("Sàn hiện có các nhóm hàng: " + ", ".join(names)
+                  + ". Bạn muốn xem nhóm nào hoặc mua cho nhu cầu gì?" if names
+                  else "Tôi chưa đọc được danh mục lúc này. Bạn muốn tìm loại sản phẩm nào?")
+        return {"products": [], "answer": answer, "rounds": 0,
+                "retrieval_mode": "category_browse"}
+
     async def retrieve(self, state):
-        return await self.rag.chain.ainvoke(state)
+        if state.get("turn_understanding", {}).get("browse_catalog") and not state.get("image"):
+            return await self._catalog_overview()
+        plan = dict(state["plan"])
+        context = load_context(plan)
+        if context.task in {"product_question", "compare_products"} and plan.get("dialogue_act") == "search":
+            cards = []
+            for pid in context.selected_product_ids:
+                product = await self.api.product(pid)
+                if product and product.get("moderationStatus") == "approved":
+                    cards.append({**product, "id": str(product["_id"]),
+                                  "url": f"/product/{pid}", "imageUrl": next(iter(product.get("images", [])), "")})
+            return {"plan": plan, "products": cards, "retrieval_mode": "selected_products"}
+        if plan.get("dialogue_act") == "size_search":
+            # Explicit shopper sizes remain hard constraints; inferred sizes never override them.
+            explicit_size = any(re.fullmatch(r"(?:size\s*)?(?:XS|S|M|L|XL|XXL|XXXL|\d+)", term, re.I)
+                                for term in plan.get("variant_terms", []))
+            missing = [label for key, label in (("height_cm", "chiều cao (cm)"), ("weight_kg", "cân nặng (kg)"))
+                       if plan.get(key) is None]
+            if missing and not explicit_size:
+                return {"plan": plan, "products": [],
+                        "answer": f"Để gợi ý size và tìm mẫu {shopping_description(plan)}, "
+                                  f"bạn cho mình biết {', '.join(missing)} nhé."}
+            if (plan.get("height_cm") and plan.get("weight_kg") and not explicit_size and not plan.get("estimated_sizes")
+                    and not state.get("llm_degraded") and time.monotonic() >= self.llm_retry_after):
+                messages = [{"role": "system", "content": SEARCH_SIZE_PROMPT},
+                            {"role": "user", "content": json.dumps({
+                                **{key: plan.get(key) for key in ("product_type", "audience", "height_cm", "weight_kg")},
+                                "preferences": context.requirements.attributes,
+                            }, ensure_ascii=False)}]
+                try:
+                    estimate = await self.models.structured(messages, ClothingSearchEstimate)
+                    source, sources = "model", []
+                    if not estimate.sizes:
+                        estimate, sources = await self.models.web_size_estimate(messages, ClothingSearchEstimate)
+                        source = "web"
+                    plan.update(estimated_sizes=estimate.sizes,
+                                size_estimate_source=source if estimate.sizes else "",
+                                size_estimate_sources=sources if estimate.sizes else [])
+                except (*TRANSIENT_MODEL_ERRORS, ValidationError) as exc:
+                    self.llm_retry_after = time.monotonic() + self.llm_cooldown_seconds
+                    log.warning("Search size estimation unavailable: error_type=%s", type(exc).__name__)
+            plan = remember_size(plan)
+        result = await self.rag.chain.ainvoke({**state, "plan": plan})
+        return {**result, "plan": plan}
+
+    async def advise_clothing_size(self, state):
+        plan = state["plan"]
+        missing = missing_size_inputs(plan)
+        if missing:
+            return {"decision": "clarify", "answer": missing, "products": []}
+        product = await self.api.product(plan["sizing_product_id"])
+        if not product or product.get("moderationStatus") != "approved":
+            return {"decision": "clarify", "products": [],
+                    "plan": {**plan, "sizing_product_id": None},
+                    "answer": "Sản phẩm này hiện không còn hiển thị. Bạn chọn lại mẫu quần áo muốn tư vấn size nhé."}
+        if not is_clothing_product(product):
+            return {"decision": "clarify", "products": [],
+                    "plan": {**plan, "sizing_product_id": None},
+                    "answer": "Bạn chọn một sản phẩm quần áo cụ thể để mình ước lượng size theo chiều cao và cân nặng nhé."}
+        name = safe_model_text(product.get("name", ""), "sản phẩm đã chọn", 240)
+        confirmation = (f"Mình đã chọn {name} để tư vấn, với chiều cao {plan['height_cm']:g}cm "
+                        f"và cân nặng {plan['weight_kg']:g}kg của bạn. ")
+        unavailable = (confirmation + "Dịch vụ ước lượng size đang tạm thời không khả dụng. "
+                       "Mình đã giữ thông tin này; bạn có thể nhắn ‘tư vấn lại size’ sau ít phút.")
+        if state.get("llm_degraded") or time.monotonic() < self.llm_retry_after:
+            return {"decision": "clarify", "products": [], "answer": unavailable + "\n\n" + SIZE_DISCLAIMER}
+        candidate = {**product, "id": str(product["_id"])}
+        try:
+            estimate = await self.models.structured([
+                {"role": "system", "content": SIZE_ESTIMATE_PROMPT},
+                {"role": "user", "content": json.dumps({
+                    "height_cm": plan["height_cm"], "weight_kg": plan["weight_kg"],
+                    "untrusted_product": safe_catalog_candidates([candidate])[0],
+                }, ensure_ascii=False)},
+            ], ClothingSizeEstimate)
+        except (*TRANSIENT_MODEL_ERRORS, ValidationError) as exc:
+            self.llm_retry_after = time.monotonic() + self.llm_cooldown_seconds
+            # Do not log provider exception text: it can contain request URLs or credentials.
+            log.warning("Clothing size model unavailable: error_type=%s product_id=%s",
+                        type(exc).__name__, plan["sizing_product_id"])
+            return {"decision": "clarify", "products": [], "answer": unavailable + "\n\n" + SIZE_DISCLAIMER}
+        size = safe_model_text(estimate.size or "", "", 40)
+        reason = safe_model_text(estimate.reasoning, "", 700)
+        answer = (f"Với chiều cao {plan['height_cm']:g}cm và cân nặng {plan['weight_kg']:g}kg, "
+                  f"bạn có thể tham khảo size {size} cho {name}." if size else
+                  confirmation + "Mình chưa có cơ sở để ước lượng size hợp lý cho mẫu này.")
+        return {"decision": "accept", "products": [],
+                "answer": answer + (" " + reason if reason else "") + "\n\n" + SIZE_DISCLAIMER}
 
     async def evaluate(self, state):
         if state.get("answer"):
             return {"decision": "accept"}
+        if state["plan"].get("dialogue_act") == "size_search" and state["plan"]["intent"] != "clarify":
+            return {"decision": "accept", "products": state.get("products", []),
+                    "answer": size_search_answer(state["plan"], state.get("products", []))}
         if state.get("visual_only"):
             return {
                 "decision": "accept",
@@ -375,6 +557,8 @@ class ProductAgent:
                     else "Tôi chưa tìm được sản phẩm còn hàng có ảnh đủ tương đồng. Bạn thử chọn ảnh rõ hơn hoặc chụp riêng sản phẩm nhé."
                 ),
             }
+        if is_clothing_size_advice(state["plan"]):
+            return await self.advise_clothing_size(state)
         if state["plan"]["intent"] == "clarify":
             fallback = "Bạn muốn tìm sản phẩm nào?"
             return {
@@ -386,7 +570,45 @@ class ProductAgent:
         if not state.get("products"):
             return self._fallback_evaluation(state, degraded=False)
 
+        hard_specs = parse_spec_requirements(state.get("message", ""))
+        if hard_specs and state["plan"].get("dialogue_act") == "search":
+            cards = state["products"][:6]
+            lines = []
+            for card in cards:
+                facts = "; ".join(f"{item['name']}: {item['value']}"
+                                  for item in card.get("verifiedSpecs", []))
+                price = f"{float(card['price']):,.0f}".replace(",", ".")
+                lines.append(f"• {card['name']} — {price} đ" + (f"; {facts}" if facts else ""))
+            return {"decision": "accept", "products": cards,
+                    "answer": "Theo thông số trong catalog, các sản phẩm phù hợp yêu cầu của bạn:\n"
+                              + "\n".join(lines)}
+
+        size_answer = sizing_clarification(state["plan"])
+        if size_answer:
+            return {"decision": "clarify", "answer": size_answer, "products": []}
+        size_plan = state["plan"]
+        if (size_plan.get("dialogue_act") == "size_advice"
+                and size_plan.get("product_type") in {"tat", "giay"}
+                and size_plan.get("foot_length_cm") is not None):
+            # Retrieval already checked the same in-stock variant's cm range.
+            # Do not let generation discard verified matches or invent other sizes.
+            return {
+                "decision": "accept", "products": state["products"],
+                "answer": (
+                    f"Với chiều dài chân {size_plan['foot_length_cm']:g}cm, các mẫu "
+                    f"{shopping_description(size_plan)} dưới đây có biến thể còn hàng "
+                    "với khoảng size bao gồm số đo của bạn. Bạn xem size cụ thể của từng mẫu nhé."
+                ),
+            }
+
+        context = state["plan"].get("context", {})
         if state.get("llm_degraded") or time.monotonic() < self.llm_retry_after:
+            if context.get("task") == "compare_products" and self.commerce_agent:
+                grounded = await self.commerce_agent.execute({
+                    **state, "commerce_intent": "compare_products",
+                    "focused_product_ids": context.get("selected_product_ids", []),
+                })
+                return {"decision": "accept", **grounded, "llm_degraded": True}
             return self._fallback_evaluation(state)
 
         try:
@@ -399,8 +621,14 @@ class ProductAgent:
                     "untrusted_candidates": safe_catalog_candidates(state["products"]),
                 }, ensure_ascii=False)},
             ], RetrievalDecision)
-        except TRANSIENT_MODEL_ERRORS:
+        except (*TRANSIENT_MODEL_ERRORS, ValidationError):
             self.llm_retry_after = time.monotonic() + self.llm_cooldown_seconds
+            if context.get("task") == "compare_products" and self.commerce_agent:
+                grounded = await self.commerce_agent.execute({
+                    **state, "commerce_intent": "compare_products",
+                    "focused_product_ids": context.get("selected_product_ids", []),
+                })
+                return {"decision": "accept", **grounded, "llm_degraded": True}
             return self._fallback_evaluation(state)
         if decision.action == "clarify":
             fallback = "Bạn mô tả thêm đặc điểm sản phẩm cần tìm nhé."
@@ -411,6 +639,15 @@ class ProductAgent:
             }
         selected = set(decision.product_ids)
         cards = [product for product in state["products"] if product["id"] in selected]
+        if context.get("task") == "compare_products" and context.get("response_mode") == "recommend_one":
+            if len(cards) != 1:
+                return {"decision": "clarify", "products": [],
+                        "answer": "Tôi chưa đủ căn cứ để chọn một mẫu theo tiêu chí này. Bạn muốn ưu tiên thông số nào?"}
+            return {"decision": "accept", "products": [],
+                    "answer": safe_model_text(decision.answer, "Tôi chưa đủ dữ liệu để giải thích lựa chọn này."),
+                    "focused_product_id": cards[0]["id"], "focused_product_ids": [cards[0]["id"]]}
+        if context.get("task") == "compare_products" and cards:
+            cards = state["products"][:4]
         result = {"decision": "accept", "products": cards}
         if not cards:
             fallback = (

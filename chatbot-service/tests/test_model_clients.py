@@ -19,17 +19,17 @@ class ModelClientTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_structured_output_uses_langchain_model(self):
         client, llm, _ = self.build_client()
-        chain = MagicMock()
-        chain.ainvoke = AsyncMock(return_value=SearchPlan(query="áo"))
-        llm.with_structured_output.return_value = chain
+        llm.ainvoke = AsyncMock(return_value=AIMessage(content='{"query":"áo"}'))
         result = await client.structured([
             {"role": "system", "content": "system"},
             {"role": "user", "content": "user"},
         ], SearchPlan)
         self.assertEqual(result.query, "áo")
-        messages = chain.ainvoke.call_args.args[0]
+        messages = llm.ainvoke.call_args.args[0]
         self.assertIsInstance(messages[0], SystemMessage)
-        self.assertIsInstance(messages[1], HumanMessage)
+        self.assertIn("JSON Schema", messages[0].content)
+        self.assertIsInstance(messages[1], SystemMessage)
+        self.assertIsInstance(messages[2], HumanMessage)
 
     async def test_text_and_multimodal_generation(self):
         client, llm, _ = self.build_client()

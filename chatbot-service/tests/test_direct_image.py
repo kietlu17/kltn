@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 from src.agents.product import ProductAgent
+from src.agents.intent import TurnIntent
 from src.agents.state import SearchPlan
 
 PID = "a" * 24
@@ -12,6 +13,7 @@ OTHER = "b" * 24
 class DirectImageTests(unittest.IsolatedAsyncioTestCase):
     async def test_image_search_keeps_visual_order_without_llm(self):
         api, models, text, visual = AsyncMock(), AsyncMock(), AsyncMock(), AsyncMock()
+        models.understand_intent.return_value = TurnIntent(visual_only=True)
         visual.collection = "images"
         visual.exists.return_value = True
         visual.embed.return_value = [1.0, 0.0]
@@ -59,12 +61,16 @@ class DirectImageTests(unittest.IsolatedAsyncioTestCase):
         visual = AsyncMock()
         visual.collection = "images"
         visual.embed.side_effect = RuntimeError("encoder unavailable")
-        agent = ProductAgent(AsyncMock(), AsyncMock(), AsyncMock(), visual)
+        models = AsyncMock()
+        models.understand_intent.return_value = TurnIntent(visual_only=True)
+        agent = ProductAgent(AsyncMock(), models, AsyncMock(), visual)
         with self.assertRaisesRegex(RuntimeError, "encoder unavailable"):
             await agent.graph.ainvoke({"message": "Tìm sản phẩm giống ảnh này", "image": "image"})
 
     async def test_out_of_stock_image_match_is_filtered(self):
         api, visual = AsyncMock(), AsyncMock()
+        models = AsyncMock()
+        models.understand_intent.return_value = TurnIntent(visual_only=True)
         visual.collection = "images"
         visual.exists.return_value = True
         visual.embed.return_value = [1.0, 0.0]
@@ -72,7 +78,7 @@ class DirectImageTests(unittest.IsolatedAsyncioTestCase):
         api.fresh.return_value = ([
             {"_id": PID, "name": "Headphones", "price": 100000, "moderationStatus": "approved"},
         ], {(PID, ""): 0})
-        result = await ProductAgent(api, AsyncMock(), AsyncMock(), visual).graph.ainvoke(
+        result = await ProductAgent(api, models, AsyncMock(), visual).graph.ainvoke(
             {"message": "Tìm sản phẩm giống ảnh này", "image": "image"})
         self.assertEqual(result["products"], [])
         self.assertTrue(result["answer"])

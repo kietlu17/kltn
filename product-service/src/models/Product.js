@@ -19,6 +19,10 @@ const productSchema = new mongoose.Schema(
     price: { type: Number, required: true },
     description: { type: String, default: '' },
     detail: { type: String, default: '' },
+    specifications: {
+      type: [{ name: { type: String, required: true }, value: { type: String, required: true } }],
+      default: []
+    },
     sourceProvider: { type: String, default: '' },
     sourceProductId: { type: String, default: '' },
     sourceUrl: { type: String, default: '' },

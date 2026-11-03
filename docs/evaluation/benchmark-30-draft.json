@@ -1,0 +1,418 @@
+{
+  "title": "Bộ 30 tình huống đánh giá chatbot mua sắm — bản nháp tổng hợp",
+  "version": "draft-1",
+  "provenance": "30 câu hỏi/kịch bản do AI tạo dựa trên snapshot catalog MUJI, manifest Shopee Help và fixture đơn hàng mô phỏng; chưa phải hội thoại người dùng thu thập thực tế",
+  "status": "Chưa được người nghiên cứu duyệt, chưa chạy chatbot, chưa đủ điều kiện báo cáo kết quả thực nghiệm",
+  "catalog_snapshot": "output/catalog/muji-diverse-1000.jsonl",
+  "policy_manifest": "output/pdf/shopee-help/manifest.json",
+  "product_id_note": "sourceId là ID nguồn MUJI, không phải MongoDB _id của Product Service; cần ánh xạ và kiểm tra giá/tồn kho khi chạy",
+  "image_note": "Năm ca ảnh dùng ảnh catalog để kiểm tra kết nối kỹ thuật. Cần thay bằng ảnh độc lập của người mua trước khi đánh giá chất lượng tìm kiếm ảnh.",
+  "synthetic_order_fixture": {
+    "buyer-A": [
+      {
+        "id": 101,
+        "status": "shipped",
+        "product_name": "Bút Chì Vân Gỗ 0,5Mm",
+        "tracking_code": "TEST-101"
+      },
+      {
+        "id": 102,
+        "status": "pending_payment",
+        "product_name": "MUJI Áo Thun Nữ Pha Linen Tay Ngắn"
+      },
+      {
+        "id": 103,
+        "status": "delivered",
+        "product_name": "MUJI Áo Thun Nữ Pha Linen Tay Ngắn"
+      }
+    ],
+    "buyer-B": [
+      {
+        "id": 201,
+        "status": "shipped",
+        "product_name": "MUJI Dầu Gội - 480 Ml"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "id": "P01",
+      "group": "product_text",
+      "turns": [
+        "Tìm bút chì bấm màu đen dưới 100 nghìn."
+      ],
+      "source_id": "47742",
+      "expected_route": "product",
+      "oracle": "Có thể gợi ý bút chì vân gỗ biến thể Đen nếu Product Service và Inventory Service xác nhận giá không quá 100.000đ và còn hàng.",
+      "source_product_name": "Bút Chì Vân Gỗ 0,5Mm",
+      "source_product_url": "https://www.muji.com.vn/vn/product/wood-mechanical-pen-e9s1034"
+    },
+    {
+      "id": "P02",
+      "group": "product_text",
+      "turns": [
+        "Mình cần sổ kế hoạch khổ A6 để ghi lịch hằng ngày."
+      ],
+      "source_id": "70570",
+      "expected_route": "product",
+      "oracle": "Sổ kế hoạch A6 là một kết quả liên quan; không tự khẳng định đặc điểm ngoài dữ liệu nguồn.",
+      "source_product_name": "MUJI Sổ Tay Kế Hoạch 12 Tháng/366 Ngày - A6",
+      "source_product_url": "https://www.muji.com.vn/vn/product/muji-undated-planner-monthly-daily-a6-4550584925337"
+    },
+    {
+      "id": "P03",
+      "group": "product_text",
+      "turns": [
+        "Có gối kê cổ mềm nào để mang khi đi du lịch không?"
+      ],
+      "source_id": "61141",
+      "expected_route": "product",
+      "oracle": "Gối kê cổ dạng mềm là một kết quả liên quan nếu dữ liệu hiện thời hợp lệ.",
+      "source_product_name": "Gối Kê Cổ Dạng Mềm Be MUJI",
+      "source_product_url": "https://www.muji.com.vn/vn/product/soft-fitting-neck-cushion-muji-4550584437656"
+    },
+    {
+      "id": "P04",
+      "group": "product_text",
+      "turns": [
+        "Tìm dép xỏ ngón màu đen cỡ 25 cm."
+      ],
+      "source_id": "74340",
+      "expected_route": "product",
+      "oracle": "Chỉ gợi ý biến thể Đen / 25.0Cm khi còn hàng; không chọn biến thể Đen / 24.0Cm đã hết trong snapshot.",
+      "source_product_name": "MUJI Dép Xỏ Ngón",
+      "source_product_url": "https://www.muji.com.vn/vn/product/muji-flip-flops-os-ek07ha6a"
+    },
+    {
+      "id": "P05",
+      "group": "product_text",
+      "turns": [
+        "Muốn mua vali cỡ 36L giá dưới 5 triệu."
+      ],
+      "source_id": "72351",
+      "expected_route": "product",
+      "oracle": "Vali 36L là ứng viên phù hợp theo snapshot; phải đọc lại giá và tồn kho trước khi gợi ý.",
+      "source_product_name": "MUJI Vali Vỏ Cứng Tay Kéo Điều Chỉnh Linh Hoạt (36L)",
+      "source_product_url": "https://www.muji.com.vn/vn/product/muji-freely-adjustable-handle-hard-shell-suitcase-36l-ee0hxa6s"
+    },
+    {
+      "id": "I01",
+      "group": "product_image_smoke",
+      "turns": [
+        "Tìm sản phẩm giống ảnh này."
+      ],
+      "source_id": "47742",
+      "image_ref": "catalog_first_image:47742",
+      "expected_route": "product",
+      "oracle": "Tìm thấy sản phẩm nguồn 47742 trong kết quả ảnh; đây chỉ là phép tự tìm lại ảnh catalog.",
+      "source_product_name": "Bút Chì Vân Gỗ 0,5Mm",
+      "source_product_url": "https://www.muji.com.vn/vn/product/wood-mechanical-pen-e9s1034",
+      "image_url": "https://api.muji.com.vn/media/catalog/product/cache/2e9290695da361a7d6192a4c8c689807/4/9/4934761415826_org_1.jpg"
+    },
+    {
+      "id": "I02",
+      "group": "product_image_smoke",
+      "turns": [
+        "Có món nào giống trong ảnh không?"
+      ],
+      "source_id": "61141",
+      "image_ref": "catalog_first_image:61141",
+      "expected_route": "product",
+      "oracle": "Tìm thấy sản phẩm nguồn 61141 trong kết quả ảnh; chưa dùng để kết luận chất lượng trên ảnh độc lập.",
+      "source_product_name": "Gối Kê Cổ Dạng Mềm Be MUJI",
+      "source_product_url": "https://www.muji.com.vn/vn/product/soft-fitting-neck-cushion-muji-4550584437656",
+      "image_url": "https://api.muji.com.vn/media/catalog/product/cache/2e9290695da361a7d6192a4c8c689807/4/5/4550584437656_04_org.jpg"
+    },
+    {
+      "id": "I03",
+      "group": "product_image_smoke",
+      "turns": [
+        "Tìm mẫu tương tự ảnh mình gửi."
+      ],
+      "source_id": "72351",
+      "image_ref": "catalog_first_image:72351",
+      "expected_route": "product",
+      "oracle": "Tìm thấy sản phẩm nguồn 72351 trong kết quả ảnh; chỉ kiểm tra kết nối CLIP–Qdrant.",
+      "source_product_name": "MUJI Vali Vỏ Cứng Tay Kéo Điều Chỉnh Linh Hoạt (36L)",
+      "source_product_url": "https://www.muji.com.vn/vn/product/muji-freely-adjustable-handle-hard-shell-suitcase-36l-ee0hxa6s",
+      "image_url": "https://api.muji.com.vn/media/catalog/product/cache/2e9290695da361a7d6192a4c8c689807/4/5/4548076430810_01_org_1.jpg"
+    },
+    {
+      "id": "I04",
+      "group": "product_image_smoke",
+      "turns": [
+        "Tôi muốn tìm đồ giống hình này."
+      ],
+      "source_id": "72905",
+      "image_ref": "catalog_first_image:72905",
+      "expected_route": "product",
+      "oracle": "Tìm thấy sản phẩm nguồn 72905 trong kết quả ảnh; chỉ là phép tự tìm lại ảnh catalog.",
+      "source_product_name": "MUJI Túi Nylon Tái Chế Đựng Đồ Trang Điểm - M - Đen",
+      "source_product_url": "https://www.muji.com.vn/vn/product/muji-recycled-nylon-makeup-box-m-black-4548076811923",
+      "image_url": "https://api.muji.com.vn/media/catalog/product/cache/2e9290695da361a7d6192a4c8c689807/4/5/4548076811923_org.jpg"
+    },
+    {
+      "id": "I05",
+      "group": "product_image_smoke",
+      "turns": [
+        "Cho tôi xem sản phẩm trông giống ảnh."
+      ],
+      "source_id": "76501",
+      "image_ref": "catalog_first_image:76501",
+      "expected_route": "product",
+      "oracle": "Tìm thấy sản phẩm nguồn 76501 trong kết quả ảnh; cần thay ảnh đầu vào bằng ảnh người mua để đánh giá chính thức.",
+      "source_product_name": "MUJI Giày Sneaker Nam Phối 2 Chất Liệu",
+      "source_product_url": "https://www.muji.com.vn/vn/product/muji-m-s-combination-sneakers-ei0dla6a",
+      "image_url": "https://api.muji.com.vn/media/catalog/product/cache/2e9290695da361a7d6192a4c8c689807/4/5/4550723641135_org.jpg"
+    },
+    {
+      "id": "S01",
+      "group": "policy",
+      "turns": [
+        "Chính sách bảo hành sản phẩm mua trên Shopee như thế nào?"
+      ],
+      "article_id": "79046",
+      "source_url": "https://help.shopee.vn/portal/4/article/79046",
+      "expected_route": "customer_service",
+      "oracle": "Trả lời theo tài liệu bảo hành đã lập chỉ mục và dẫn nguồn; không trình bày đó là chính sách của nền tảng trong repo."
+    },
+    {
+      "id": "S02",
+      "group": "policy",
+      "turns": [
+        "Cách gửi yêu cầu trả hàng hoàn tiền trên Shopee?"
+      ],
+      "article_id": "79233",
+      "source_url": "https://help.shopee.vn/portal/4/article/79233",
+      "expected_route": "customer_service",
+      "oracle": "Nêu đúng các bước có trong bài hướng dẫn nguồn và trích dẫn nguồn."
+    },
+    {
+      "id": "S03",
+      "group": "policy",
+      "turns": [
+        "Làm sao liên hệ đơn vị vận chuyển của Shopee?"
+      ],
+      "article_id": "79088",
+      "source_url": "https://help.shopee.vn/portal/4/article/79088",
+      "expected_route": "customer_service",
+      "oracle": "Dựa vào bài hướng dẫn liên hệ đơn vị vận chuyển; không tự tạo số điện thoại hoặc đường dẫn."
+    },
+    {
+      "id": "S04",
+      "group": "policy",
+      "turns": [
+        "Mã miễn phí vận chuyển của Shopee áp dụng ra sao?"
+      ],
+      "article_id": "79243",
+      "source_url": "https://help.shopee.vn/portal/4/article/79243",
+      "expected_route": "customer_service",
+      "oracle": "Trả lời trong phạm vi bài hỏi đáp về mã Freeship và dẫn nguồn."
+    },
+    {
+      "id": "S05",
+      "group": "policy",
+      "turns": [
+        "Có thể dùng nhiều voucher khi thanh toán trên Shopee không?"
+      ],
+      "article_id": "79089",
+      "source_url": "https://help.shopee.vn/portal/4/article/79089",
+      "expected_route": "customer_service",
+      "oracle": "Đối chiếu bài hướng dẫn sử dụng nhiều voucher và trích dẫn; không suy diễn điều kiện ngoài tài liệu."
+    },
+    {
+      "id": "O01",
+      "group": "order",
+      "actor": "buyer-A",
+      "turns": [
+        "Đơn #101 của tôi đang ở đâu?"
+      ],
+      "fixture_order_id": 101,
+      "expected_route": "order",
+      "oracle": "Chỉ đọc đơn 101 thuộc buyer-A; phản ánh trạng thái shipped và mã vận đơn từ fixture."
+    },
+    {
+      "id": "O02",
+      "group": "order",
+      "actor": "buyer-A",
+      "turns": [
+        "Tôi có mấy đơn hàng?"
+      ],
+      "expected_route": "order",
+      "oracle": "Trả lời 3 đơn theo fixture buyer-A; không tính đơn của buyer-B."
+    },
+    {
+      "id": "O03",
+      "group": "order",
+      "actor": "buyer-A",
+      "turns": [
+        "Đơn áo thun nữ của tôi thế nào rồi?"
+      ],
+      "expected_route": "order",
+      "oracle": "Có hai đơn 102 và 103 cùng khớp; phải hỏi mã đơn hoặc thông tin làm rõ."
+    },
+    {
+      "id": "O04",
+      "group": "order",
+      "actor": "anonymous",
+      "turns": [
+        "Kiểm tra đơn #101 giúp tôi."
+      ],
+      "expected_route": "order",
+      "oracle": "Yêu cầu đăng nhập; không gọi dịch vụ lấy đơn của người dùng."
+    },
+    {
+      "id": "O05",
+      "group": "order",
+      "actor": "buyer-A",
+      "turns": [
+        "Đơn #201 của tôi giao tới đâu rồi?"
+      ],
+      "fixture_order_id": 201,
+      "expected_route": "order",
+      "oracle": "Không tiết lộ đơn 201 của buyer-B; chỉ tìm trong danh sách đơn thuộc buyer-A."
+    },
+    {
+      "id": "C01",
+      "group": "cart",
+      "actor": "buyer-A",
+      "turns": [
+        "Cho bút chì bấm màu đen vào giỏ.",
+        "Xác nhận."
+      ],
+      "source_id": "47742",
+      "expected_route": "product",
+      "oracle": "Xác định biến thể Đen, hỏi xác nhận trước; chỉ sau lượt xác nhận mới thêm 1 sản phẩm vào giỏ.",
+      "source_product_name": "Bút Chì Vân Gỗ 0,5Mm",
+      "source_product_url": "https://www.muji.com.vn/vn/product/wood-mechanical-pen-e9s1034"
+    },
+    {
+      "id": "C02",
+      "group": "cart",
+      "actor": "buyer-A",
+      "turns": [
+        "Thêm dép xỏ ngón màu đen vào giỏ."
+      ],
+      "source_id": "74340",
+      "expected_route": "product",
+      "oracle": "Hỏi thêm cỡ dép vì có nhiều biến thể màu đen; chưa thay đổi giỏ.",
+      "source_product_name": "MUJI Dép Xỏ Ngón",
+      "source_product_url": "https://www.muji.com.vn/vn/product/muji-flip-flops-os-ek07ha6a"
+    },
+    {
+      "id": "C03",
+      "group": "cart",
+      "actor": "buyer-A",
+      "turns": [
+        "Thêm dép xỏ ngón đen cỡ 24 cm vào giỏ."
+      ],
+      "source_id": "74340",
+      "expected_route": "product",
+      "oracle": "Theo snapshot biến thể Đen / 24.0Cm hết hàng; cần kiểm tra tồn kho hiện thời và không thêm nếu vẫn hết.",
+      "source_product_name": "MUJI Dép Xỏ Ngón",
+      "source_product_url": "https://www.muji.com.vn/vn/product/muji-flip-flops-os-ek07ha6a"
+    },
+    {
+      "id": "C04",
+      "group": "cart",
+      "actor": "buyer-A",
+      "turns": [
+        "Thêm hai ruột bút mực Smooth Gel vào giỏ.",
+        "Thôi, hủy đi."
+      ],
+      "source_id": "81627",
+      "expected_route": "product",
+      "oracle": "Tạo thao tác chờ xác nhận rồi hủy; giỏ giữ nguyên.",
+      "source_product_name": "MUJI Ruột Bút Mực Smooth Gel 0.3mm",
+      "source_product_url": "https://www.muji.com.vn/vn/product/muji-smooth-gel-ink-ballpoint-pen-refill-light-blue-4550584688768"
+    },
+    {
+      "id": "C05",
+      "group": "cart",
+      "actor": "buyer-A",
+      "turns": [
+        "Xem giỏ hàng của tôi."
+      ],
+      "expected_route": "product",
+      "oracle": "Đọc giỏ của buyer-A từ Cart Service; không suy đoán nội dung giỏ từ hội thoại."
+    },
+    {
+      "id": "M01",
+      "group": "multiturn_checkout",
+      "actor": "buyer-A",
+      "turns": [
+        "Tìm bút chì bấm màu đen dưới 100 nghìn.",
+        "Thêm cái đó vào giỏ.",
+        "Xác nhận.",
+        "Tôi muốn thanh toán món vừa thêm."
+      ],
+      "source_id": "47742",
+      "expected_route": "product",
+      "oracle": "Giữ đúng sản phẩm và biến thể, yêu cầu xác nhận trước khi thêm; cuối cùng trả tín hiệu mở giao diện thanh toán với dòng giỏ đã chọn, không tự tạo đơn.",
+      "source_product_name": "Bút Chì Vân Gỗ 0,5Mm",
+      "source_product_url": "https://www.muji.com.vn/vn/product/wood-mechanical-pen-e9s1034"
+    },
+    {
+      "id": "M02",
+      "group": "multiturn_checkout",
+      "actor": "buyer-A",
+      "turns": [
+        "Tìm áo thun nữ pha linen.",
+        "Có màu đen size L không?",
+        "Lấy một chiếc đó.",
+        "Xác nhận."
+      ],
+      "source_id": "72515",
+      "expected_route": "product",
+      "oracle": "Kiểm tra biến thể Đen / L và giá biến thể hiện thời; chỉ thêm vào giỏ sau xác nhận.",
+      "source_product_name": "MUJI Labo Áo Thun Nữ Pha Linen Tay Ngắn",
+      "source_product_url": "https://www.muji.com.vn/vn/product/muji-w-s-linen-blended-s-slv-t-shirt-af0f2a6s"
+    },
+    {
+      "id": "M03",
+      "group": "multiturn_checkout",
+      "actor": "buyer-A",
+      "turns": [
+        "Tìm giày sneaker nam màu đen.",
+        "Cỡ 26 cm nhé.",
+        "Cho vào giỏ.",
+        "Không, đừng thêm nữa."
+      ],
+      "source_id": "76501",
+      "expected_route": "product",
+      "oracle": "Giữ ngữ cảnh màu và cỡ; hủy thao tác chờ, không thay đổi giỏ.",
+      "source_product_name": "MUJI Giày Sneaker Nam Phối 2 Chất Liệu",
+      "source_product_url": "https://www.muji.com.vn/vn/product/muji-m-s-combination-sneakers-ei0dla6a"
+    },
+    {
+      "id": "M04",
+      "group": "multiturn_checkout",
+      "actor": "buyer-A",
+      "turns": [
+        "Tìm thảm nhà tắm cotton linen màu xám than.",
+        "Nếu có thì thêm vào giỏ."
+      ],
+      "source_id": "67554",
+      "expected_route": "product",
+      "oracle": "Theo snapshot biến thể Xám Than / S hết hàng; kiểm tra tồn kho hiện thời, không đề xuất thêm nếu vẫn hết.",
+      "source_product_name": "MUJI Thảm Nhà Tắm Cotton Linen",
+      "source_product_url": "https://www.muji.com.vn/vn/product/muji-cotton-linen-bath-mat-jjad5a5a"
+    },
+    {
+      "id": "M05",
+      "group": "multiturn_checkout",
+      "actor": "buyer-A",
+      "turns": [
+        "Tìm một cuốn sổ kế hoạch A6.",
+        "Cho vào giỏ.",
+        "Xác nhận.",
+        "Mở thanh toán giúp tôi."
+      ],
+      "source_id": "70570",
+      "expected_route": "product",
+      "oracle": "Tìm đúng sản phẩm, xác nhận trước khi thêm, rồi bàn giao sang giao diện thanh toán; người mua tự xác nhận đặt hàng và thanh toán.",
+      "source_product_name": "MUJI Sổ Tay Kế Hoạch 12 Tháng/366 Ngày - A6",
+      "source_product_url": "https://www.muji.com.vn/vn/product/muji-undated-planner-monthly-daily-a6-4550584925337"
+    }
+  ]
+}

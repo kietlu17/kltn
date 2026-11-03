@@ -64,6 +64,7 @@ export default function ProductDetail() {
   const [isZoomOpen, setIsZoomOpen] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [chatOpen, setChatOpen] = useState(false);
+  const [chatHandoff, setChatHandoff] = useState(false);
   const [selectedVariantId, setSelectedVariantId] = useState('');
   const [vouchers, setVouchers] = useState([]);
   const [voucherLoading, setVoucherLoading] = useState(false);
@@ -330,8 +331,19 @@ export default function ProductDetail() {
   }
 
   const handleOpenChat = () => {
+    setChatHandoff(false);
     setChatOpen(true);
   };
+
+  // The shopping assistant asks for a human handoff after repeated clarifications.
+  useEffect(() => {
+    function handleHandoff() {
+      setChatHandoff(true);
+      setChatOpen(true);
+    }
+    window.addEventListener('assistant-handoff', handleHandoff);
+    return () => window.removeEventListener('assistant-handoff', handleHandoff);
+  }, []);
 
   function openZoom() {
     if (!hero) return;
@@ -667,9 +679,24 @@ export default function ProductDetail() {
             <h3>Mô tả sản phẩm</h3>
             <p className="product-description">{product.description || product.detail || 'Chưa có mô tả.'}</p>
             {product.detail && product.detail !== product.description && (
-              <p className="product-description">{product.detail}</p>
+              <p className="product-description">{product.specifications?.length > 0
+                ? product.detail.split('\nThông số kỹ thuật:\n')[0]
+                : product.detail}</p>
             )}
           </section>
+          {product.specifications?.length > 0 && (
+            <section className="detail-block">
+              <h3>Thông số kỹ thuật</h3>
+              <dl className="product-specs">
+                {product.specifications.map((specification) => (
+                  <div key={specification.name}>
+                    <dt>{specification.name}</dt>
+                    <dd>{specification.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
+          )}
         </div>
 
         <aside className="product-content-side">
@@ -810,6 +837,8 @@ export default function ProductDetail() {
           product={product}
           shopId={shopId}
           shopName={shopName}
+          key={chatHandoff ? 'handoff' : 'assistant'}
+          initialMode={chatHandoff ? 'human' : 'ai'}
           onClose={() => setChatOpen(false)}
         />
       )}

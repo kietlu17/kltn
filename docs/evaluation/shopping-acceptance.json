@@ -1,0 +1,33 @@
+[
+  {
+    "name": "catalog overview",
+    "turns": [
+      {"message": "Shop bán gì?", "expect": {"route": "product", "answer_contains": "nhóm hàng", "max_products": 0}}
+    ]
+  },
+  {
+    "name": "hard price and product specifications",
+    "turns": [
+      {"message": "Laptop RAM 16 GB, SSD 512 GB dưới 20 triệu", "expect": {"route": "product", "max_price": 20000000, "min_products": 1}}
+    ]
+  },
+  {
+    "name": "generative gift discovery",
+    "turns": [
+      {"message": "Gợi ý quà sinh nhật cho bé 10 tuổi dưới 500 nghìn", "expect": {"route": "product", "max_price": 500000}}
+    ]
+  },
+  {
+    "name": "product follow-up",
+    "turns": [
+      {"message": "Tìm laptop RAM 16 GB dưới 20 triệu", "expect": {"route": "product", "max_price": 20000000, "min_products": 1}},
+      {"message": "Mẫu đầu tiên có pin bao nhiêu?", "expect": {"route": "product"}}
+    ]
+  },
+  {
+    "name": "no fabricated model",
+    "turns": [
+      {"message": "Tìm iPhone 99 Pro Max 1TB màu tím", "expect": {"route": "product", "max_products": 0}}
+    ]
+  }
+]

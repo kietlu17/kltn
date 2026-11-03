@@ -98,6 +98,15 @@ def safe_catalog_candidates(candidates: list[dict]) -> list[dict]:
         for key, limit in limits.items():
             value = clean_untrusted_text(candidate.get(key, ""), limit)
             item[key] = "[Nội dung catalog không đáng tin đã được loại bỏ]" if is_prompt_injection(value) else value
+        specifications = []
+        for spec in (candidate.get("specifications") or candidate.get("verifiedSpecs") or [])[:30]:
+            if not isinstance(spec, dict):
+                continue
+            name = clean_untrusted_text(spec.get("name", ""), 80)
+            value = clean_untrusted_text(spec.get("value", ""), 180)
+            if name and value and not is_prompt_injection(name) and not is_prompt_injection(value):
+                specifications.append({"name": name, "value": value})
+        item["specifications"] = specifications
         safe.append(item)
     return safe
 
