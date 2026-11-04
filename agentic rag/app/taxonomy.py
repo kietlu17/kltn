@@ -157,6 +157,15 @@ def resolve_category_ids(nodes: list[dict], value: str) -> list[str]:
     requested = terms(value)
     if not requested:
         return []
+    order = re.findall(
+        r"[a-z0-9]+",
+        "".join(
+            char
+            for char in unicodedata.normalize("NFD", str(value).casefold()).replace("đ", "d")
+            if not unicodedata.combining(char)
+        ),
+    )
+    first_position = {term: order.index(term) for term in requested}
     ranked: list[tuple[int, dict]] = []
 
     def visit(node: dict) -> None:
@@ -176,11 +185,19 @@ def resolve_category_ids(nodes: list[dict], value: str) -> list[str]:
     if not ranked:
         return []
     best = max(score for score, _node in ranked)
+    tied = [node for score, node in ranked if score == best]
+    # Vietnamese puts the head noun first: in "balo laptop" the branch named
+    # earliest in the phrase wins a tie.
+    position = {
+        id(node): min(first_position[term] for term in terms(node.get("name")))
+        for node in tied
+    }
+    earliest = min(position.values())
     return sorted(
         {
             category_id
-            for score, node in ranked
-            if score == best
+            for node in tied
+            if position[id(node)] == earliest
             for category_id in node.get("categoryIds", [])
             if re.fullmatch(r"[a-fA-F0-9]{24}", str(category_id))
         }

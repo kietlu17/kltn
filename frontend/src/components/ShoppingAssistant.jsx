@@ -5,6 +5,10 @@ import './ShoppingAssistant.css';
 import MicrophoneButton from './MicrophoneButton';
 import { useCart } from '../context/CartContext.jsx';
 
+// Image and voice search need backend support; set VITE_ASSISTANT_MEDIA=false
+// when the assistant backend has neither.
+const MEDIA_ENABLED = import.meta.env.VITE_ASSISTANT_MEDIA !== 'false';
+
 const welcome = { role: 'assistant', text: 'Chào bạn! Bạn đang tìm món gì? Gửi mô tả hoặc ảnh, tôi sẽ giúp tìm sản phẩm phù hợp trên sàn.' };
 
 export default function ShoppingAssistant() {
@@ -160,7 +164,7 @@ export default function ShoppingAssistant() {
         <section id="shopping-assistant-panel" className="sa-panel" role="dialog" aria-label="Trợ lý mua sắm"
           onKeyDown={(event) => { if (event.key === 'Escape') close(); }}>
           <header className="sa-header">
-            <div><strong>Trợ lý mua sắm</strong><span>Tìm bằng chữ, ảnh hoặc giọng nói</span></div>
+            <div><strong>Trợ lý mua sắm</strong><span>{MEDIA_ENABLED ? 'Tìm bằng chữ, ảnh hoặc giọng nói' : 'Hỏi về sản phẩm, giỏ hàng, đơn hàng và chính sách'}</span></div>
             <button type="button" onClick={close} aria-label="Đóng trợ lý">×</button>
           </header>
           <div className="sa-toolbar">
@@ -266,16 +270,18 @@ export default function ShoppingAssistant() {
             <button type="button" onClick={() => setAttachment(null)} aria-label="Bỏ ảnh đã chọn">×</button>
           </div>}
           <form className="sa-composer" onSubmit={(event) => { event.preventDefault(); send(); }}>
-            <MicrophoneButton disabled={busy} onBusy={setVoiceBusy} onError={setError}
-              onText={(text) => setInput((previous) => `${previous}${previous ? ' ' : ''}${text}`.slice(0, 2000))} />
-            <input ref={fileInput} type="file" accept="image/jpeg,image/png,image/webp" onChange={chooseImage} hidden />
-            <button className="sa-image-button" type="button" onClick={() => fileInput.current?.click()} disabled={busy}
-              aria-label="Chọn ảnh sản phẩm" title="Chọn ảnh JPG, PNG, WebP (tối đa 5 MB)">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
-                <rect x="3" y="3" width="18" height="18" rx="4" /><circle cx="8" cy="8" r="1.5" />
-                <path d="m4 18 5-6 4 4 3-4 5 6" />
-              </svg>
-            </button>
+            {MEDIA_ENABLED && <>
+              <MicrophoneButton disabled={busy} onBusy={setVoiceBusy} onError={setError}
+                onText={(text) => setInput((previous) => `${previous}${previous ? ' ' : ''}${text}`.slice(0, 2000))} />
+              <input ref={fileInput} type="file" accept="image/jpeg,image/png,image/webp" onChange={chooseImage} hidden />
+              <button className="sa-image-button" type="button" onClick={() => fileInput.current?.click()} disabled={busy}
+                aria-label="Chọn ảnh sản phẩm" title="Chọn ảnh JPG, PNG, WebP (tối đa 5 MB)">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
+                  <rect x="3" y="3" width="18" height="18" rx="4" /><circle cx="8" cy="8" r="1.5" />
+                  <path d="m4 18 5-6 4 4 3-4 5 6" />
+                </svg>
+              </button>
+            </>}
             <textarea ref={textInput} aria-label="Tin nhắn cho trợ lý" placeholder="Bạn muốn tìm món gì?" rows={2}
               maxLength={2000} value={input} disabled={busy} onChange={(event) => setInput(event.target.value)}
               onKeyDown={(event) => {
@@ -285,7 +291,7 @@ export default function ShoppingAssistant() {
               }} />
             <button className="sa-send" type="submit" disabled={busy || voiceBusy || (!input.trim() && !attachment)} aria-label="Gửi tin nhắn">Gửi</button>
           </form>
-          <p className="sa-footnote">Ảnh rõ một món đồ giúp tìm chính xác hơn. Giá và tồn kho có thể thay đổi.</p>
+          <p className="sa-footnote">{MEDIA_ENABLED ? 'Ảnh rõ một món đồ giúp tìm chính xác hơn. ' : ''}Giá và tồn kho có thể thay đổi.</p>
         </section>
       )}
     </div>

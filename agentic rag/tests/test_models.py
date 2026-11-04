@@ -1,7 +1,7 @@
 import unittest
 
 from app.config import AgenticSettings
-from app.models import GeminiGateway, gemini_response_schema
+from app.models import GeminiGateway, gemini_response_schema, openai_response_schema
 from app.schemas import (
     AgentPlan,
     CandidateVerification,
@@ -63,6 +63,30 @@ class StructuredOutputTests(unittest.IsolatedAsyncioTestCase):
         result = await gateway._structured("decide", 5, [], SemanticTurn)
         self.assertEqual(result.tasks[0].query, "loa")
         self.assertEqual(runnable.calls, 2)
+
+
+
+class OpenAISchemaTests(unittest.TestCase):
+    def test_every_property_is_required_at_every_level(self):
+        schema = openai_response_schema(SemanticTurn)
+        self.assertIn("confidence", schema["required"])
+        self.assertEqual(set(schema["required"]), set(schema["properties"]))
+        for definition in schema["$defs"].values():
+            self.assertEqual(set(definition["required"]), set(definition["properties"]))
+        self.assertNotIn("maxItems", str(schema))
+
+    def test_openai_provider_requires_gateway_settings(self):
+        settings = AgenticSettings(
+            gemini_api_key="g", llm_provider="openai", llm_base_url="", llm_api_key="", llm_model=""
+        )
+        with self.assertRaises(ValueError):
+            GeminiGateway(settings)
+        settings = AgenticSettings(
+            gemini_api_key="g", llm_provider="openai", llm_base_url="https://gateway.test/v1",
+            llm_api_key="k", llm_model="some-model",
+        )
+        self.assertEqual(GeminiGateway(settings).llm.model_name, "some-model")
+        self.assertEqual(settings.chat_model, "some-model")
 
 
 if __name__ == "__main__":

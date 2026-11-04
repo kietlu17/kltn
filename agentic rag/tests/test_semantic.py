@@ -48,7 +48,9 @@ class SemanticRegressionTests(unittest.IsolatedAsyncioTestCase):
         }
         answer = AgenticShoppingGraph._product_attribute_answer(state)
         self.assertIn("Trọng lượng: 1.62 kg", answer)
-        self.assertIn("Chưa có dữ liệu xác minh cho battery_life", answer)
+        # Missing specs are named in plain language, never as internal keys.
+        self.assertIn("chưa có trong thông số", answer)
+        self.assertNotIn("battery_life", answer)
         self.assertNotIn("bảng size", answer)
 
     def test_compare_resolves_stable_display_ordinals(self):
@@ -142,7 +144,8 @@ class SemanticRegressionTests(unittest.IsolatedAsyncioTestCase):
                 "retrieval_rounds": 0,
             }
         )
-        self.assertTrue(agent.models.seen_scope)
+        # Scope alone is settled on product names without a model call.
+        self.assertFalse(hasattr(agent.models, "seen_scope"))
         self.assertEqual(result["products"], [])
         self.assertEqual(result["tool_result"]["found"], 0)
 

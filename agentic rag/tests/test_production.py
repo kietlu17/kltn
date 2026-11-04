@@ -256,7 +256,7 @@ class VagueCustomerTests(unittest.IsolatedAsyncioTestCase):
 
 
 class VerifierFallbackTests(unittest.IsolatedAsyncioTestCase):
-    async def test_verifier_outage_keeps_only_name_grounded_products(self):
+    async def test_scope_check_keeps_only_name_grounded_products_without_model(self):
         class Retriever:
             async def search(self, *_args, **_kwargs):
                 return [{"productId": "1" * 24}, {"productId": "2" * 24}]
@@ -289,9 +289,186 @@ class VerifierFallbackTests(unittest.IsolatedAsyncioTestCase):
                 "retrieval_rounds": 0,
             }
         )
+        # The broken verifier is never called: scope is checked on names.
         self.assertEqual([item["id"] for item in result["products"]], ["1" * 24])
-        self.assertIn("UNVERIFIED", result["warnings"])
+        self.assertNotIn("UNVERIFIED", result["warnings"])
+
+
+class ProductHeadTests(unittest.IsolatedAsyncioTestCase):
+    async def test_known_kind_without_a_category_keeps_only_that_kind(self):
+        class Retriever:
+            async def search(self, *_args, **_kwargs):
+                return [{"productId": "1" * 24}, {"productId": "2" * 24}]
+
+        class Marketplace:
+            async def hydrate_products(self, *_args, **_kwargs):
+                return [
+                    {"id": "1" * 24, "name": "MUJI Dầu Thơm Nội Thất", "specifications": []},
+                    {"id": "2" * 24, "name": "Nồi chiên không dầu 5L", "specifications": []},
+                ]
+
+        agent = object.__new__(AgenticShoppingGraph)
+        agent.settings = SimpleNamespace(retrieval_limit=30, result_limit=6, max_retrieval_rounds=2)
+        agent.retriever = Retriever()
+        agent.marketplace = Marketplace()
+        agent.models = SemanticModels()
+        filters = SearchFilters(product_type="nồi chiên không dầu to")
+        result = await agent.retrieve({
+            "query": "nồi chiên không dầu loại to",
+            "message": "nồi chiên ko dầu loại to",
+            "plan": AgentPlan(query="nồi chiên", filters=filters).model_dump(),
+            "retrieval_rounds": 0,
+        })
+        self.assertEqual([item["id"] for item in result["products"]], ["2" * 24])
+
+
+class SlowModels(SemanticModels):
+    def __init__(self, turn=None, delay=0.0, error=None):
+        super().__init__(turn)
+        self.delay = delay
+        self.error = error
+
+    async def decide(self, *_args, **_kwargs):
+        self.decide_calls += 1
+        await asyncio.sleep(self.delay)
+        if self.error:
+            raise self.error
+        return self.turn
+
+
+def hedged(models):
+    return AgenticShoppingGraph(
+        AgenticSettings(gemini_api_key="test", decide_hedge=0.05),
+        models,
+        FakeRetriever(),
+        FakeMarketplace(),
+        checkpointer=MemorySaver(),
+    )
+
+
+class HedgedDecisionTests(unittest.IsolatedAsyncioTestCase):
+    async def test_slow_model_does_not_delay_a_plain_search(self):
+        agent = hedged(SlowModels(delay=5))
+        loop = asyncio.get_running_loop()
+        started = loop.time()
+        result = await agent.understand(state("tìm tai nghe bluetooth dưới 500k"))
+        self.assertLess(loop.time() - started, 1)
+        self.assertIn("PARSED_SEARCH", result["warnings"])
+        task = result["semantic_turn"]["tasks"][0]
+        self.assertEqual(task["intent"], "product_search")
+        prices = [item for item in task["constraints"] if item["key"] == "price"]
+        self.assertEqual([(item["operator"], item["value"]) for item in prices], [("lte", 500000)])
+
+    async def test_fast_model_answer_wins_over_the_parse(self):
+        turn = SemanticTurn(
+            tasks=[SemanticTask(intent="product_search", query="tai nghe chống ồn")],
+            confidence=0.97,
+        )
+        result = await hedged(SlowModels(turn)).understand(
+            state("tìm tai nghe bluetooth dưới 500k")
+        )
+        self.assertNotIn("PARSED_SEARCH", result["warnings"])
+        self.assertEqual(result["semantic_turn"]["tasks"][0]["query"], "tai nghe chống ồn")
+
+    async def test_model_outage_still_searches_instead_of_asking(self):
+        for message in ["laptop văn phòng pin trâu", "quà sinh nhật cho bạn gái"]:
+            result = await hedged(SlowModels(error=TimeoutError())).understand(state(message))
+            self.assertIn("MODEL_UNAVAILABLE", result["warnings"])
+            self.assertEqual(result["semantic_turn"]["tasks"][0]["intent"], "product_search")
+            self.assertFalse(result["semantic_turn"]["needs_clarification"])
+
+    async def test_policy_question_does_not_wait_for_a_slow_model(self):
+        result = await hedged(SlowModels(delay=5)).understand(state("chính sách đổi trả thế nào"))
+        self.assertIn("PARSED_SEARCH", result["warnings"])
+        self.assertEqual(result["semantic_turn"]["tasks"][0]["intent"], "policy")
+
+    async def test_unparsed_message_waits_for_the_model(self):
+        turn = SemanticTurn(tasks=[SemanticTask(intent="cart_view")], confidence=0.95)
+        result = await hedged(SlowModels(turn, delay=0.2)).understand(
+            state("giỏ hàng của tôi có gì")
+        )
+        self.assertEqual(result["semantic_turn"]["tasks"][0]["intent"], "cart_view")
 
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BenchmarkRegressionTests(unittest.IsolatedAsyncioTestCase):
+    def agent(self, products, models):
+        class Retriever:
+            async def search(self, *_args, **_kwargs):
+                return [{"productId": item["id"]} for item in products]
+
+        class Marketplace:
+            async def hydrate_products(self, *_args, **_kwargs):
+                return list(products)
+
+        agent = object.__new__(AgenticShoppingGraph)
+        agent.settings = SimpleNamespace(retrieval_limit=30, result_limit=6, max_retrieval_rounds=2)
+        agent.retriever = Retriever()
+        agent.marketplace = Marketplace()
+        agent.models = models
+        return agent
+
+    async def test_hard_spec_without_structured_data_goes_to_the_verifier(self):
+        from app.schemas import CandidateVerification, VerificationBatch
+
+        products = [
+            {"id": "1" * 24, "name": "Laptop Asus Vivobook 16 (Ultra 7, 16GB, 512GB)", "specifications": []},
+            {"id": "2" * 24, "name": "Laptop Dell (8GB)", "specifications": []},
+        ]
+
+        class Models:
+            sent = []
+
+            async def verify_candidates(self, _query, _constraints, candidates):
+                self.sent.extend(item["id"] for item in candidates)
+                return VerificationBatch(results=[
+                    CandidateVerification(
+                        productId=item["id"], verdict="match" if "16GB" in item["name"] else "no_match", evidence=[]
+                    )
+                    for item in candidates
+                ])
+
+        ram = SemanticConstraint(key="ram", operator="gte", value=16, unit="GB")
+        models = Models()
+        result = await self.agent(products, models).retrieve({
+            "query": "laptop ram 16gb", "message": "laptop ram 16gb dưới 20 triệu",
+            "plan": AgentPlan(query="laptop", filters=SearchFilters(product_type="laptop", spec_constraints=[ram])).model_dump(),
+            "retrieval_rounds": 0,
+        })
+        self.assertEqual(sorted(models.sent), ["1" * 24, "2" * 24])
+        self.assertEqual([item["id"] for item in result["products"]], ["1" * 24])
+
+    async def test_brand_missing_from_facets_still_filters_by_name(self):
+        products = [
+            {"id": "1" * 24, "name": "Tai nghe Sony WH-1000XM6", "specifications": []},
+            {"id": "2" * 24, "name": "Tai nghe JBL Tune 530BT", "specifications": []},
+        ]
+        result = await self.agent(products, SemanticModels()).retrieve({
+            "query": "tai nghe sony", "message": "tai nghe sony",
+            "plan": AgentPlan(query="tai nghe", filters=SearchFilters(product_type="tai nghe", brand="Sony")).model_dump(),
+            "retrieval_rounds": 0,
+        })
+        self.assertEqual([item["id"] for item in result["products"]], ["1" * 24])
+
+    def test_cheapest_mid_conversation_is_left_to_the_model(self):
+        self.assertIsNotNone(_deterministic_turn("cái nào rẻ nhất", [], "", {}))
+        history = [{"role": "user", "content": "áo thun nam"}, {"role": "assistant", "content": "Mình tìm thấy 6 sản phẩm"}]
+        self.assertIsNone(_deterministic_turn("cái nào rẻ nhất", history, "", {}))
+
+
+class FollowUpGuardTests(unittest.TestCase):
+    def test_new_product_kind_is_not_a_variant_pick_on_the_active_item(self):
+        self.assertIsNone(_deterministic_turn("áo khoác không phải màu đen", [], BASIC_ID, {}))
+        self.assertEqual(
+            _deterministic_turn("màu đen", [], BASIC_ID, {}).tasks[0].intent, "product_detail"
+        )
+
+    def test_unconfirmable_hard_spec_is_relaxed_last(self):
+        waterproof = SemanticConstraint(key="water_resistance", operator="contains", value="chống nước")
+        filters = SearchFilters(brand="sony", spec_constraints=[waterproof])
+        self.assertEqual(_next_relaxation(filters, []), "brand")
+        self.assertEqual(_next_relaxation(filters, ["brand"]), "spec.hard")
+        self.assertEqual(_apply_relaxation(filters, "spec.hard").spec_constraints, [])

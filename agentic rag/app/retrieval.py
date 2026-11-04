@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import re
 import time
 import unicodedata
@@ -12,6 +13,7 @@ from .schemas import SearchFilters
 from .sparse import SPARSE_VECTOR_NAME, query_sparse_vector
 from .specs import normalize_constraint
 
+log = logging.getLogger(__name__)
 
 _DYNAMIC_FACETS = {
     "product_type": "productType",
@@ -86,6 +88,28 @@ class StructuredProductRetriever:
             sparse = getattr(info.config.params, "sparse_vectors", None) or {}
             self._hybrid = SPARSE_VECTOR_NAME in sparse
         return self._hybrid
+
+    async def category_product_counts(self) -> dict[str, int]:
+        """Products per category id (one base chunk per product), cached."""
+        cached = self._facet_cache.get("__category_counts__")
+        now = time.monotonic()
+        if cached and cached[0] > now:
+            return cached[1]
+        try:
+            response = await self.client.facet(
+                self.collection,
+                key="categoryId",
+                facet_filter=models.Filter(
+                    must=[models.FieldCondition(key="chunkType", match=models.MatchValue(value="base"))]
+                ),
+                limit=_FACET_LIMIT,
+                exact=False,
+            )
+        except Exception:
+            return {}
+        counts = {str(hit.value): int(hit.count) for hit in response.hits}
+        self._facet_cache["__category_counts__"] = (now + _FACET_CACHE_SECONDS, counts)
+        return counts
 
     async def _facet_values(self, key: str) -> list[str] | None:
         cached = self._facet_cache.get(key)
@@ -450,7 +474,14 @@ class StructuredProductRetriever:
                 limit=min(max(limit * 3, 50), 200),
             )
             return self._ordered_hits(ordered_points, limit)
-        vector = await vector_task
+        try:
+            vector = await vector_task
+        except Exception as error:
+            # Embedding quota, timeout or turn budget: keyword search still
+            # finds products, a failed turn finds none.
+            log.warning("Query embedding failed, searching BM25 only: %s: %s",
+                        type(error).__name__, str(error)[:200])
+            vector = None
         group_args = {
             "group_by": "productId",
             "group_size": 2,
@@ -458,7 +489,19 @@ class StructuredProductRetriever:
             "with_payload": True,
         }
         sparse = query_sparse_vector(query)
-        if sparse["indices"] and await self._hybrid_ready():
+        hybrid_ready = sparse["indices"] and await self._hybrid_ready()
+        if vector is None:
+            if not hybrid_ready:
+                return []
+            response = await self.client.query_points_groups(
+                self.collection,
+                query=models.SparseVector(**sparse),
+                using=SPARSE_VECTOR_NAME,
+                query_filter=query_filter,
+                **group_args,
+            )
+            return self._group_hits(response.groups, "bm25")
+        if hybrid_ready:
             # Dense and BM25 candidates are fused server-side with RRF, then
             # grouped so every product occupies one slot regardless of how
             # many of its chunks matched.

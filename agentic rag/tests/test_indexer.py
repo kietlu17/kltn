@@ -268,6 +268,18 @@ class IndexerTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(health["hybridReady"])
         self.assertEqual(health["products"], len(self.products))
 
+    async def test_embedding_outage_falls_back_to_bm25(self):
+        await self.indexer.sync()
+
+        class QuotaModels:
+            async def embed_query(self, _query):
+                raise RuntimeError("429 RESOURCE_EXHAUSTED: embed per day")
+
+        retriever = StructuredProductRetriever(self.settings, QuotaModels(), client=self.client)
+        hits = await retriever.search("loa bluetooth", SearchFilters(), limit=5)
+        self.assertTrue(hits)
+        self.assertEqual(hits[0]["sources"], ["bm25"])
+
 
 class DocumentTests(unittest.TestCase):
     def test_long_products_split_into_bounded_self_describing_chunks(self):

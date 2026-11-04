@@ -126,8 +126,8 @@ def create_agentic_app() -> FastAPI:
             )
             return {
                 "status": "ready" if ready else "warming_up",
-                "llmProvider": "gemini",
-                "model": application.state.settings.gemini_model,
+                "llmProvider": application.state.settings.llm_provider,
+                "model": application.state.settings.chat_model,
                 "vector": vector,
                 "policy": policy,
                 "semanticSchemaVersion": vector.get("semanticSchemaVersion"),

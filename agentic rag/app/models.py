@@ -169,23 +169,38 @@ def gemini_response_schema(schema) -> dict:
     return _strip_keywords(schema.model_json_schema(), _UNSUPPORTED_SCHEMA_KEYWORDS)
 
 
+def _require_all(node):
+    if isinstance(node, dict):
+        node = {key: _require_all(value) for key, value in node.items()}
+        if node.get("type") == "object" and isinstance(node.get("properties"), dict):
+            node["required"] = list(node["properties"])
+        return node
+    if isinstance(node, list):
+        return [_require_all(value) for value in node]
+    return node
+
+
+def openai_response_schema(schema) -> dict:
+    """Every property required: OpenAI-compatible gateways omit optional
+    fields, and a missing confidence would read as 0 and force a clarification."""
+    return _require_all(gemini_response_schema(schema))
+
+
+def plain_chat_text(text: str) -> str:
+    """The chat widget shows plain text: turn markdown bullets, bold and
+    headings into readable text instead of literal "*" and "#"."""
+    text = re.sub(r"(?m)^\s*[*-]\s+", "• ", text)
+    text = re.sub(r"(?m)^\s*#{1,6}\s*", "", text)
+    text = re.sub(r"\*\*(.+?)\*\*|__(.+?)__", lambda m: m.group(1) or m.group(2), text)
+    return re.sub(r"\n{3,}", "\n\n", text).strip()
+
+
 class GeminiGateway:
     def __init__(self, settings: AgenticSettings):
         if not settings.gemini_api_key:
             raise ValueError("GEMINI_API_KEY is required")
         self.settings = settings
-        common = {
-            "model": settings.gemini_model,
-            "google_api_key": settings.gemini_api_key,
-            "temperature": 0,
-            "max_tokens": 4096,
-            "timeout": settings.model_timeout,
-            # Retries are decided per call inside the turn budget.
-            "max_retries": 0,
-        }
-        if settings.thinking_level:
-            common["thinking_level"] = settings.thinking_level
-        self.llm = ChatGoogleGenerativeAI(**common)
+        self.llm = self._chat_model(settings)
         self._structured_runnables: dict[type, object] = {}
         self.embeddings = GoogleGenerativeAIEmbeddings(
             model=f"models/{settings.embedding_model}",
@@ -195,6 +210,40 @@ class GeminiGateway:
         )
         self._embedding_cache: OrderedDict[str, tuple[float, list[float]]] = OrderedDict()
         self._verdict_cache: OrderedDict[str, tuple[float, dict]] = OrderedDict()
+
+    @staticmethod
+    def _chat_model(settings: AgenticSettings):
+        if settings.llm_provider == "openai":
+            if not (settings.llm_base_url and settings.llm_api_key and settings.llm_model):
+                raise ValueError(
+                    "AGENTIC_LLM_BASE_URL, AGENTIC_LLM_API_KEY and AGENTIC_LLM_MODEL are required"
+                )
+            from langchain_openai import ChatOpenAI
+
+            options = {
+                "model": settings.llm_model,
+                "base_url": settings.llm_base_url,
+                "api_key": settings.llm_api_key,
+                "temperature": 0,
+                "max_tokens": 4096,
+                "timeout": settings.model_timeout,
+                "max_retries": 0,
+            }
+            if settings.reasoning_effort:
+                options["reasoning_effort"] = settings.reasoning_effort
+            return ChatOpenAI(**options)
+        options = {
+            "model": settings.gemini_model,
+            "google_api_key": settings.gemini_api_key,
+            "temperature": 0,
+            "max_tokens": 4096,
+            "timeout": settings.model_timeout,
+            # Retries are decided per call inside the turn budget.
+            "max_retries": 0,
+        }
+        if settings.thinking_level:
+            options["thinking_level"] = settings.thinking_level
+        return ChatGoogleGenerativeAI(**options)
 
     @staticmethod
     def _cache_get(cache: OrderedDict, key: str):
@@ -224,9 +273,14 @@ class GeminiGateway:
     def _structured_runnable(self, schema):
         runnable = self._structured_runnables.get(schema)
         if runnable is None:
-            runnable = self.llm.with_structured_output(
-                gemini_response_schema(schema), method="json_schema"
-            )
+            if self.settings.llm_provider == "openai":
+                runnable = self.llm.with_structured_output(
+                    openai_response_schema(schema), method="json_schema", strict=False
+                )
+            else:
+                runnable = self.llm.with_structured_output(
+                    gemini_response_schema(schema), method="json_schema"
+                )
             self._structured_runnables[schema] = runnable
         return runnable
 
@@ -377,7 +431,7 @@ class GeminiGateway:
                 ]
             ),
         )
-        return response.text.strip()
+        return plain_chat_text(response.text)
 
     async def plan(
         self,
@@ -451,7 +505,7 @@ class GeminiGateway:
                 ]
             ),
         )
-        text = response.text.strip()
+        text = plain_chat_text(response.text)
         if not text:
             raise RuntimeError("Gemini returned an empty answer")
         return text

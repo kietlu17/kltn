@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 import json
+import logging
 import re
 import secrets
 import time
@@ -10,6 +12,13 @@ from langgraph.graph import END, START, StateGraph
 
 from .config import AgenticSettings
 from .retrieval import _search_terms
+from .indexer.documents import PRODUCT_TYPES
+from .search_parser import (
+    mentions_other_product,
+    parse_policy_turn,
+    parse_search_turn,
+    reconcile_turn,
+)
 from .schemas import (
     AgentPlan,
     AgentState,
@@ -31,6 +40,8 @@ from .specs import (
     verify_spec_constraints,
 )
 from .taxonomy import build_catalog_tree, compact_catalog_tree, resolve_category_ids
+
+log = logging.getLogger(__name__)
 
 
 def _normalized(value: str) -> str:
@@ -642,6 +653,10 @@ def _deterministic_turn(
     tokens = re.findall(r"[a-z0-9]+", _normalized(message))
     if not tokens or (short_only and len(tokens) > _FAST_PATH_MAX_TOKENS):
         return None
+    if mentions_other_product(message):
+        # "áo khoác không phải màu đen" names a product kind (and negates the
+        # colour): it is a new search, not a variant pick on the active item.
+        return None
     understood = _fallback_understanding(message, history, active_product_id)
     if understood.confidence < 0.95:
         return None
@@ -676,7 +691,9 @@ def _deterministic_turn(
             constraints=_variant_constraints(understood.colors, understood.sizes),
         )
         action = "continue"
-    elif act == "new_search" and understood.sort_by != "relevance":
+    elif act == "new_search" and understood.sort_by != "relevance" and not history:
+        # Mid-conversation "cái nào rẻ nhất" ranks the products being
+        # discussed, which only the model can tie to the previous search.
         task = SemanticTask(
             intent="product_search",
             query=message,
@@ -697,12 +714,30 @@ def _deterministic_turn(
     )
 
 
+_PRODUCT_HEADS = sorted(
+    {term.strip() for _kind, terms in PRODUCT_TYPES for term in terms},
+    key=len,
+    reverse=True,
+)
+
+
+def _product_head(phrase: str) -> str:
+    """The known product kind a phrase starts with ("noi chien" for "nồi
+    chiên không dầu"), or "" when the phrase does not start with one."""
+    folded = " ".join(re.findall(r"[a-z0-9]+", _normalized(phrase)))
+    return next(
+        (term for term in _PRODUCT_HEADS if re.match(rf"{re.escape(term)}(?!\w)", folded)),
+        "",
+    )
+
+
 _RELAX_LABELS = {
     "spec.soft": "thuộc tính phụ",
     "price": "khoảng giá (±15%)",
     "variant.color": "màu",
     "variant.size": "kích thước/size",
     "brand": "thương hiệu",
+    "spec.hard": "thông số (chưa xác nhận được)",
 }
 
 
@@ -714,6 +749,9 @@ def _next_relaxation(filters: SearchFilters, relaxed: list[str]) -> str | None:
         ("variant.color", bool(filters.colors)),
         ("variant.size", bool(filters.sizes)),
         ("brand", bool(filters.brand)),
+        # Last resort: most listings carry no evidence for features such as
+        # "chống nước"; show the closest products and say it is unconfirmed.
+        ("spec.hard", any(item.strength == "hard" for item in filters.spec_constraints)),
     )
     return next(
         (key for key, applies in candidates if applies and key not in relaxed), None
@@ -737,6 +775,8 @@ def _apply_relaxation(filters: SearchFilters, key: str) -> SearchFilters:
         relaxed.sizes = []
     elif key == "brand":
         relaxed.brand = None
+    elif key == "spec.hard":
+        relaxed.spec_constraints = []
     return relaxed
 
 
@@ -904,8 +944,11 @@ class AgenticShoppingGraph:
         if turn is not None:
             warnings.append("FAST_PATH")
         else:
-            try:
-                turn = await self.models.decide(
+            parsed = parse_search_turn(
+                message, active_product_id=active_product_id
+            ) or parse_policy_turn(message)
+            decision = asyncio.ensure_future(
+                self.models.decide(
                     message,
                     history,
                     state.get("focused_products", []),
@@ -913,10 +956,28 @@ class AgenticShoppingGraph:
                     selected,
                     state.get("shopping_phase", "exploring"),
                 )
-            except Exception:
+            )
+            try:
+                if parsed is None:
+                    turn = await decision
+                else:
+                    # A plain search or policy question must not wait on a slow
+                    # model: give it a short head start, then act on the parse.
+                    hedge = getattr(settings, "decide_hedge", 1.5)
+                    done, _pending = await asyncio.wait({decision}, timeout=hedge)
+                    if done:
+                        turn = decision.result()
+                    else:
+                        decision.cancel()
+                        turn = parsed
+                        warnings.append("PARSED_SEARCH")
+            except Exception as error:
+                log.warning("decide failed: %s: %s", type(error).__name__, str(error)[:300])
                 warnings.append("MODEL_UNAVAILABLE")
-                turn = _deterministic_turn(
+                turn = parsed or _deterministic_turn(
                     message, history, active_product_id, selected, short_only=False
+                ) or parse_search_turn(
+                    message, active_product_id=active_product_id, strict=False
                 ) or SemanticTurn(
                     tasks=[SemanticTask(intent="clarify")],
                     conversation_action="clarify",
@@ -925,6 +986,7 @@ class AgenticShoppingGraph:
                     needs_clarification=True,
                     clarification_question="Mình chưa hiểu chắc yêu cầu. Bạn muốn tìm sản phẩm, hỏi chính sách hay thao tác với đơn hàng?",
                 )
+        turn = reconcile_turn(turn, message)
         primary = turn.tasks[0]
         if turn.confidence < 0.75 and not turn.needs_clarification:
             # A plausible search is cheaper to show than another question:
@@ -1681,6 +1743,18 @@ class AgenticShoppingGraph:
         products = await self.marketplace.hydrate_products(
             hits, plan.filters, hydration_limit
         )
+        brand = _normalized(plan.filters.brand or "").strip()
+        if brand and not plan.product_ids:
+            # Brands missing from the facet vocabulary are dropped from the
+            # Qdrant filter, so "tai nghe sony" would list any headphones.
+            # Relaxation removes the brand, and says so, if none is left.
+            products = [
+                product for product in products
+                if re.search(
+                    rf"(?<!\w){re.escape(brand)}(?!\w)",
+                    _normalized(f"{product.get('name') or ''} {product.get('brand') or ''}"),
+                )
+            ]
         verification: list[dict] = []
         warnings = list(state.get("warnings", []))
         needs_semantic_verifier = False
@@ -1688,11 +1762,22 @@ class AgenticShoppingGraph:
             needs_semantic_verifier = requires_semantic_verifier(
                 plan.filters.spec_constraints
             )
-            grounded_products: list[dict] = []
-            for product in products:
-                verdict = verify_spec_constraints(
+            verdicts = {
+                str(product.get("id")): verify_spec_constraints(
                     product, plan.filters.spec_constraints
                 )
+                for product in products
+            }
+            if any(item.verdict == "unknown" for item in verdicts.values()) and any(
+                item.strength == "hard" for item in plan.filters.spec_constraints
+            ):
+                # Most listings carry no structured spec ("16GB" sits in the
+                # name or description): let the verifier read them instead of
+                # dropping every product and answering "nothing found".
+                needs_semantic_verifier = True
+            grounded_products: list[dict] = []
+            for product in products:
+                verdict = verdicts[str(product.get("id"))]
                 verification.append(
                     {
                         "productId": product.get("id"),
@@ -1733,25 +1818,76 @@ class AgenticShoppingGraph:
                     "strength": "hard",
                     "source": "semantic_query",
                 }
-                needs_semantic_verifier = True
+        head = _product_head(plan.filters.product_type or "")
+        relaxed_keys = SearchContext.model_validate(state.get("search_context") or {}).relaxed_keys
+        if not head and "spec.hard" in relaxed_keys:
+            # Once even the hard specs are dropped, nearest neighbours of a
+            # product the catalog lacks are unrelated ("sạc dự phòng" ->
+            # "áo phông"): keep only names that start the same way.
+            phrase = plan.filters.product_type or state.get("query") or ""
+            head = next(iter(re.findall(r"[a-z]{2,}", _normalized(phrase))), "")
+        if (
+            products
+            and head
+            and not (plan.filters.category_ids or plan.filters.category_id or plan.filters.category_path)
+        ):
+            # No category matched the phrase, so nothing scoped the search to
+            # the product kind: "nồi chiên" must not return "dầu thơm".
+            products = [
+                product for product in products
+                if re.search(rf"(?<!\w){re.escape(head)}(?!\w)", _normalized(str(product.get("name") or "")))
+            ]
+        if products and semantic_scope_constraint and not needs_semantic_verifier:
+            # Scope alone is checked against product names: hybrid search has
+            # already ranked by relevance, a model call here only adds latency.
+            query_terms = set(_search_terms(str(semantic_scope_constraint["value"])))
+            products = [
+                product
+                for product in products
+                if query_terms & set(_search_terms(str(product.get("name") or "")))
+            ]
+            semantic_scope_constraint = None
         if products and needs_semantic_verifier:
             verifier_constraints = [
                 item.model_dump() for item in plan.filters.spec_constraints
             ]
             if semantic_scope_constraint:
                 verifier_constraints.append(semantic_scope_constraint)
+            # Products whose specs already matched deterministically skip the
+            # model; only the undecided ones are sent.
+            deterministic_match = {
+                str(item.get("productId"))
+                for item in verification
+                if item.get("verdict") == "match"
+            } if not semantic_scope_constraint else set()
+            undecided = [
+                product for product in products
+                if str(product.get("id")) not in deterministic_match
+            ]
             try:
-                checked = await self.models.verify_candidates(
-                    state["query"], verifier_constraints, products
+                checked = (
+                    await self.models.verify_candidates(
+                        state["query"], verifier_constraints, undecided
+                    )
+                    if undecided
+                    else None
                 )
-                by_id = {item.productId: item for item in checked.results}
+                by_id = {item.productId: item for item in (checked.results if checked else [])}
                 products = [
                     product
                     for product in products
-                    if by_id.get(str(product.get("id")))
-                    and by_id[str(product.get("id"))].verdict == "match"
+                    if str(product.get("id")) in deterministic_match
+                    or (
+                        by_id.get(str(product.get("id")))
+                        and by_id[str(product.get("id"))].verdict == "match"
+                    )
                 ]
-                verification = [item.model_dump() for item in checked.results]
+                if checked:
+                    verified = {item.productId for item in checked.results}
+                    verification = [
+                        item for item in verification
+                        if str(item.get("productId")) not in verified
+                    ] + [item.model_dump() for item in checked.results]
             except Exception:
                 # Model unavailable or out of budget: fall back to evidence we
                 # can check deterministically instead of returning nothing.
@@ -1955,7 +2091,39 @@ class AgenticShoppingGraph:
         if denied:
             return denied
         cart = await self.marketplace.cart(state["user_id"])
-        return {"route": "cart_view", "tool_result": {"cart": cart}}
+        return {"route": "cart_view", "tool_result": {"cart": cart, "cartSummary": await self._cart_summary(cart)}}
+
+    async def _cart_summary(self, cart: dict) -> str:
+        """Name, quantity and price of every line, so the answer is useful
+        without another model call."""
+        lines = [item for item in (cart or {}).get("products", []) if item.get("productId")]
+        if not lines:
+            return "Giỏ hàng của bạn đang trống."
+        details = await asyncio.gather(
+            *(self.marketplace.product(str(item["productId"])) for item in lines[:10]),
+            return_exceptions=True,
+        )
+        rows, total = [], 0.0
+        for item, product in zip(lines, details):
+            if not isinstance(product, dict):
+                continue
+            variant = next(
+                (v for v in product.get("variants", []) if str(v.get("_id") or v.get("id")) == str(item.get("variantId"))),
+                None,
+            )
+            price = float((variant or {}).get("price") or product.get("price") or 0)
+            quantity = int(item.get("quantity") or 1)
+            total += price * quantity
+            label = product.get("name", "Sản phẩm") + (f" ({variant['name']})" if variant and variant.get("name") else "")
+            rows.append(f"{label} × {quantity} – {_price_text(price * quantity)}")
+        if not rows:
+            return f"Giỏ hàng của bạn có {len(lines)} sản phẩm."
+        more = f" (và {len(lines) - len(rows)} sản phẩm khác)" if len(lines) > len(rows) else ""
+        return (
+            f"Giỏ hàng của bạn có {len(lines)} sản phẩm{more}:\n• "
+            + "\n• ".join(rows)
+            + f"\nTạm tính: {_price_text(total)}."
+        )
 
     async def prepare_cart(self, state: AgentState) -> dict:
         denied = self._auth_error(state)
@@ -2188,7 +2356,9 @@ class AgenticShoppingGraph:
             cited_sources = [
                 source for source in sources if source["number"] in cited_numbers
             ]
-            return answer, cited_sources
+            # A model that answers without "[Nguồn n]" still answered from
+            # these documents: show them rather than no source at all.
+            return answer, cited_sources or sources[:3]
         except Exception:
             excerpt = str(context[0].get("text") or "")[:900]
             return f"Theo tài liệu đã truy xuất: {excerpt} [Nguồn {context[0]['number']}]", sources
@@ -2227,6 +2397,15 @@ class AgenticShoppingGraph:
             tree = build_catalog_tree(await self.marketplace.categories())
         except Exception:
             return []
+        counter = getattr(self.retriever, "category_product_counts", None)
+        counts = await counter() if counter else {}
+        if counts:
+            # Busiest branches first: suggestions should lead somewhere.
+            tree = sorted(
+                tree,
+                key=lambda node: sum(counts.get(str(item), 0) for item in node.get("categoryIds", [])),
+                reverse=True,
+            )
         return [str(node.get("name")) for node in tree if node.get("name")][:limit]
 
     async def clarify_guard(self, state: AgentState) -> dict:
@@ -2326,6 +2505,7 @@ class AgenticShoppingGraph:
             product = products[0]
             facts = normalize_specifications(product.get("specifications") or [])
             answers: list[str] = []
+            missing = False
             for attribute in requested:
                 if attribute == "price":
                     answers.append(
@@ -2357,8 +2537,15 @@ class AgenticShoppingGraph:
                         f"{fact['rawName']}: {fact['rawValue']}" for fact in matching[:3]
                     )
                 else:
-                    answers.append(f"Chưa có dữ liệu xác minh cho {attribute}")
-            return f"{product.get('name', 'Sản phẩm')}: " + "; ".join(answers) + "."
+                    missing = True
+            if not answers:
+                # No structured spec ("chống ồn" usually lives in the
+                # description): let the answer model read the product
+                # instead of printing an internal key such as
+                # "noise_cancellation".
+                return None
+            note = " Các thông tin còn lại chưa có trong thông số của sản phẩm." if missing else ""
+            return f"{product.get('name', 'Sản phẩm')}: " + "; ".join(answers) + "." + note
         if len(products) != 1:
             return None
         product = products[0]
@@ -2578,6 +2765,8 @@ class AgenticShoppingGraph:
             if "catalogTree" in result:
                 names = [item.get("name", "") for item in result["catalogTree"][:12]]
                 return "Các danh mục hiện có: " + ", ".join(name for name in names if name) + "."
+            if result.get("cartSummary"):
+                return result["cartSummary"]
             if "cart" in result:
                 count = len(result.get("cart", {}).get("products", []))
                 return f"Giỏ hàng hiện có {count} dòng sản phẩm."
@@ -2623,7 +2812,8 @@ class AgenticShoppingGraph:
         should_be_deterministic = isinstance(result, dict) and any(
             key in result
             for key in (
-                "error", "clarification", "confirmationRequired", "cancelled", "success", "policyAnswer"
+                "error", "clarification", "confirmationRequired", "cancelled", "success", "policyAnswer",
+                "cartSummary",
             )
         )
         if attribute_answer:

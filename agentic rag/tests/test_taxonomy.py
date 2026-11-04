@@ -64,6 +64,17 @@ class CatalogTaxonomyTests(unittest.TestCase):
             resolve_category_ids(tree, "quần áo"), [men_id, women_id]
         )
 
+    def test_tie_goes_to_the_branch_named_first(self):
+        backpack, laptop = "a" * 24, "b" * 24
+        tree = build_catalog_tree(
+            [
+                {"id": backpack, "name": "Phụ kiện › Balo"},
+                {"id": laptop, "name": "Máy tính › Laptop"},
+            ]
+        )
+        self.assertEqual(resolve_category_ids(tree, "balo laptop chống nước"), [backpack])
+        self.assertEqual(resolve_category_ids(tree, "laptop kèm balo"), [laptop])
+
 
 if __name__ == "__main__":
     unittest.main()

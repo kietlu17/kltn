@@ -288,7 +288,14 @@ class PendingAction(BaseModel):
     expires_at: float
 
     def public(self) -> dict:
-        return self.model_dump(exclude={"payload", "secret"})
+        data = self.model_dump(exclude={"payload", "secret"})
+        # The storefront widget renders its confirm/cancel buttons from these
+        # fields (the contract it shares with the previous chatbot service).
+        if self.kind == "checkout_confirm":
+            data.update(type="checkout_confirmation", quoteId=self.id)
+        else:
+            data.update(type="cart_mutation_confirmation", actionId=self.id)
+        return data
 
 
 class ChatRequest(BaseModel):

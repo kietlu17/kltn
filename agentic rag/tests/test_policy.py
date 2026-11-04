@@ -48,6 +48,32 @@ class PolicyRetrieverTests(unittest.IsolatedAsyncioTestCase):
             ],
         )
 
+    async def test_embedding_outage_falls_back_to_keyword_ranking(self):
+        class Models:
+            async def embed_query(self, _question):
+                raise RuntimeError("429 RESOURCE_EXHAUSTED")
+
+        documents = [
+            {"title": "Phí vận chuyển", "text": "Phí vận chuyển tính theo khối lượng.", "sourceUrl": "u1"},
+            {"title": "Đổi trả", "text": "Trả hàng do đổi ý trong 7 ngày.", "sourceUrl": "u2"},
+        ]
+
+        class Client:
+            async def collection_exists(self, _collection):
+                return True
+
+            async def scroll(self, *_args, **_kwargs):
+                return [SimpleNamespace(payload=item) for item in documents], None
+
+        settings = SimpleNamespace(
+            qdrant_url="http://qdrant:6333", request_timeout=10,
+            embedding_model="embedding-model", embedding_dimensions=768,
+        )
+        retriever = PolicyRetriever(settings, Models(), client=Client())
+        context, sources = await retriever.retrieve("muốn trả hàng vì đổi ý")
+        self.assertEqual(sources[0]["title"], "Đổi trả")
+        self.assertEqual(context[0]["text"], "Trả hàng do đổi ý trong 7 ngày.")
+
     async def test_policy_response_exposes_only_cited_sources(self):
         class Policy:
             async def retrieve(self, _question):

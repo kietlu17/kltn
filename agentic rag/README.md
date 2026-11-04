@@ -23,10 +23,17 @@ request
 ## Giới hạn LLM và độ trễ
 
 Mỗi lượt có một `TurnBudget` (`app/budget.py`): tối đa `AGENTIC_MAX_LLM_CALLS` lần gọi sinh văn bản
-(mặc định 4) và hạn chót `AGENTIC_TURN_DEADLINE_SECONDS` (mặc định 20s). Mỗi loại gọi có timeout riêng
-(`decide` 6s, `verify` 6s, `answer`/`policy` 8s, embedding 3s). Embedding chỉ tính thời gian, không tính lượt.
+(mặc định 4) và hạn chót `AGENTIC_TURN_DEADLINE_SECONDS` (mặc định 8s). Mỗi loại gọi có timeout riêng
+(`decide` 4s, `verify` 3s, `answer`/`policy` 4s, embedding 3s). Embedding chỉ tính thời gian, không tính lượt.
 Hết budget thì node dùng đường tất định: `_fallback_understanding`, câu trả lời template, verifier
 tất định theo tên/thông số (kèm warning `UNVERIFIED`). Chỉ `decide` được retry 1 lần khi lỗi tạm thời.
+
+Câu tìm kiếm thường ("tai nghe bluetooth dưới 500k", "áo thun nam màu đen size L") được
+`app/search_parser.py` phân tích không cần LLM: giá (dưới/trên/từ…đến/khoảng/số tiền trần), màu, size,
+cụm sản phẩm. `decide` vẫn chạy song song; nếu sau `AGENTIC_DECIDE_HEDGE_SECONDS` (mặc định 1.5s) model
+chưa trả lời thì tìm luôn theo kết quả parse (warning `PARSED_SEARCH`). Model lỗi thì vẫn tìm theo parse
+thay vì hỏi lại. Câu chính sách, giỏ hàng, đơn hàng, so sánh hoặc nhắc đến sản phẩm đã hiển thị luôn chờ model.
+Verifier LLM chỉ chạy cho thông số mơ hồ ("pin trâu"); kiểm tra đúng loại sản phẩm dùng tên sản phẩm.
 
 Các lượt thường không gọi LLM: xác nhận "có", chọn size/màu của sản phẩm đang xem, "rẻ nhất/mắc nhất",
 xem danh mục. Embedding câu truy vấn (1h), kết quả verifier (10 phút) và cây danh mục (5 phút) được cache.

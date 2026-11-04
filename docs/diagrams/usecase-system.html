@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>System use cases · Use case</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:   #f5f5f5;
+      --color-ink:     #2d3142;
+      --color-muted:   #4f5d75;
+      --color-accent:  #bf4520;
+      --font-sans:     'Geist', system-ui, sans-serif;
+      --font-serif:    'Instrument Serif', serif;
+      --font-mono:     'Geist Mono', ui-monospace, monospace;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-paper);
+      color: var(--color-ink);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem 2rem;
+    }
+
+    .frame { max-width: 1280px; width: 100%; }
+
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.66rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      margin-bottom: 0.5rem;
+    }
+
+    h1 {
+      font-family: var(--font-serif);
+      font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem);
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      color: var(--color-ink);
+      margin-bottom: 1.5rem;
+    }
+
+    .scroll { overflow-x: auto; }
+    svg { width: 100%; min-width: 1240px; display: block; }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Use case · ecommerce-microservices · Whole system</p>
+    <h1>Who does what on the platform</h1>
+
+    <div class="scroll">
+    <svg viewBox="0 0 1240 776" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="usecase-system-title usecase-system-desc">
+      <title id="usecase-system-title">System use cases</title>
+      <desc id="usecase-system-desc">Buyers browse, order, pay, track orders and manage their wallet; sellers run their shop, fulfil orders and withdraw earnings; admins moderate users and products; buyers and admins share dispute handling, and SePay takes part in QR payment and wallet top-up.</desc>
+      <defs>
+        <pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse">
+          <circle cx="1" cy="1" r="0.9" fill="rgba(45,49,66,0.10)"/>
+        </pattern>
+        <marker id="arrow-open" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polyline points="0 0, 8 3, 0 6" fill="none" stroke="#4f5d75" stroke-width="1.2"/>
+        </marker>
+      </defs>
+
+      <rect width="100%" height="100%" fill="#f5f5f5"/>
+      <rect width="100%" height="100%" fill="url(#dots)" opacity="0.55"/>
+
+      <!-- SYSTEM BOUNDARY -->
+      <rect x="232" y="88" width="776" height="432" rx="6" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.30)" stroke-width="1"/>
+      <text x="248" y="508" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">SYSTEM · E-COMMERCE PLATFORM</text>
+
+      <!-- ASSOCIATIONS -->
+      <g fill="none" stroke="#4f5d75" stroke-width="1.2">
+        <!-- Buyer -->
+        <path d="M120,312 H144 A8,8 0 0 0 152,304 V128 A8,8 0 0 1 160,120 H584 A8,8 0 0 1 592,128 V145"/>
+        <path d="M120,324 H160 A8,8 0 0 0 168,316 V176 A8,8 0 0 1 176,168 H280"/>
+        <path d="M120,336 H176 A8,8 0 0 0 184,328 V272 A8,8 0 0 1 192,264 H280"/>
+        <path d="M120,360 H280"/>
+        <path d="M120,372 H160 A8,8 0 0 1 168,380 V448 A8,8 0 0 0 176,456 H280"/>
+        <!-- Admin -->
+        <path d="M1096,168 H952"/>
+        <path d="M1096,156 H1040 A8,8 0 0 1 1032,148 V116 A8,8 0 0 0 1024,108 H648 A8,8 0 0 0 640,116 V145"/>
+        <!-- Seller -->
+        <path d="M1096,348 H1040 A8,8 0 0 1 1032,340 V272 A8,8 0 0 0 1024,264 H952"/>
+        <path d="M1096,360 H952"/>
+        <path d="M1096,372 H1040 A8,8 0 0 0 1032,380 V448 A8,8 0 0 1 1024,456 H952"/>
+        <!-- SePay -->
+        <path d="M616,560 V288"/>
+        <path d="M592,600 H384 A8,8 0 0 1 376,592 V480"/>
+      </g>
+
+      <!-- «include»: Place order → Pay order -->
+      <path d="M472,264 H520" fill="none" stroke="#4f5d75" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#arrow-open)"/>
+      <rect x="462" y="274" width="68" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="496" y="284" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">«INCLUDE»</text>
+
+      <!-- USE CASES -->
+      <g font-family="'Geist', sans-serif" text-anchor="middle">
+        <!-- Buyer column (cx 376) -->
+        <ellipse cx="376" cy="168" rx="96" ry="24" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <text x="376" y="167" fill="#2d3142" font-size="12" font-weight="600">Browse &amp; review products</text>
+        <text x="376" y="180" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace">product · review</text>
+
+        <ellipse cx="376" cy="264" rx="96" ry="24" fill="#fbeee9" stroke="#bf4520" stroke-width="1.2"/>
+        <text x="376" y="263" fill="#2d3142" font-size="12" font-weight="600">Place order</text>
+        <text x="376" y="276" fill="#bf4520" font-size="9" font-family="'Geist Mono', monospace">checkout · voucher</text>
+
+        <ellipse cx="376" cy="360" rx="96" ry="24" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <text x="376" y="359" fill="#2d3142" font-size="12" font-weight="600">Track / cancel order</text>
+        <text x="376" y="372" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace">order · shipment</text>
+
+        <ellipse cx="376" cy="456" rx="96" ry="24" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <text x="376" y="455" fill="#2d3142" font-size="12" font-weight="600">Manage wallet</text>
+        <text x="376" y="468" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace">top-up · withdraw</text>
+
+        <!-- Shared column (cx 616) -->
+        <ellipse cx="616" cy="168" rx="96" ry="24" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <text x="616" y="167" fill="#2d3142" font-size="12" font-weight="600">Handle dispute</text>
+        <text x="616" y="180" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace">open · resolve</text>
+
+        <ellipse cx="616" cy="264" rx="96" ry="24" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <text x="616" y="263" fill="#2d3142" font-size="12" font-weight="600">Pay order</text>
+        <text x="616" y="276" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace">wallet · cod · sepay qr</text>
+
+        <!-- Seller / Admin column (cx 856) -->
+        <ellipse cx="856" cy="168" rx="96" ry="24" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <text x="856" y="167" fill="#2d3142" font-size="12" font-weight="600">Moderate users &amp; products</text>
+        <text x="856" y="180" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace">lock · approve</text>
+
+        <ellipse cx="856" cy="264" rx="96" ry="24" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <text x="856" y="263" fill="#2d3142" font-size="12" font-weight="600">Manage shop &amp; products</text>
+        <text x="856" y="276" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace">shop · stock · voucher</text>
+
+        <ellipse cx="856" cy="360" rx="96" ry="24" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <text x="856" y="359" fill="#2d3142" font-size="12" font-weight="600">Fulfil orders</text>
+        <text x="856" y="372" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace">confirm · ship</text>
+
+        <ellipse cx="856" cy="456" rx="96" ry="24" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <text x="856" y="455" fill="#2d3142" font-size="12" font-weight="600">Withdraw earnings</text>
+        <text x="856" y="468" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace">settlement · payout</text>
+      </g>
+
+      <!-- ACTORS -->
+      <!-- Buyer (left) -->
+      <g fill="none" stroke="#2d3142" stroke-width="1.4" stroke-linecap="round">
+        <circle cx="96" cy="300" r="12" fill="#f5f5f5"/>
+        <line x1="96" y1="312" x2="96" y2="344"/>
+        <line x1="76" y1="324" x2="116" y2="324"/>
+        <line x1="96" y1="344" x2="80" y2="368"/>
+        <line x1="96" y1="344" x2="112" y2="368"/>
+      </g>
+      <text x="96" y="264" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Buyer</text>
+      <text x="96" y="278" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">role: buyer</text>
+
+      <!-- Admin (right, top) -->
+      <g fill="none" stroke="#2d3142" stroke-width="1.4" stroke-linecap="round">
+        <circle cx="1120" cy="144" r="12" fill="#f5f5f5"/>
+        <line x1="1120" y1="156" x2="1120" y2="188"/>
+        <line x1="1100" y1="168" x2="1140" y2="168"/>
+        <line x1="1120" y1="188" x2="1104" y2="212"/>
+        <line x1="1120" y1="188" x2="1136" y2="212"/>
+      </g>
+      <text x="1120" y="236" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Admin</text>
+      <text x="1120" y="250" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">role: admin</text>
+
+      <!-- Seller (right, middle) -->
+      <g fill="none" stroke="#2d3142" stroke-width="1.4" stroke-linecap="round">
+        <circle cx="1120" cy="336" r="12" fill="#f5f5f5"/>
+        <line x1="1120" y1="348" x2="1120" y2="380"/>
+        <line x1="1100" y1="360" x2="1140" y2="360"/>
+        <line x1="1120" y1="380" x2="1104" y2="404"/>
+        <line x1="1120" y1="380" x2="1136" y2="404"/>
+      </g>
+      <text x="1120" y="428" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Seller</text>
+      <text x="1120" y="442" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">shop owner</text>
+
+      <!-- SePay (external, bottom) -->
+      <g fill="none" stroke="#2e5aa8" stroke-width="1.4" stroke-linecap="round">
+        <circle cx="616" cy="572" r="12" fill="#f5f5f5"/>
+        <line x1="616" y1="584" x2="616" y2="616"/>
+        <line x1="596" y1="596" x2="636" y2="596"/>
+        <line x1="616" y1="616" x2="600" y2="640"/>
+        <line x1="616" y1="616" x2="632" y2="640"/>
+      </g>
+      <text x="616" y="664" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">SePay</text>
+      <text x="616" y="678" fill="#2e5aa8" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">bank QR · webhook</text>
+
+      <!-- LEGEND -->
+      <line x1="48" y1="712" x2="1192" y2="712" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+      <text x="48" y="728" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">LEGEND</text>
+
+      <g fill="none" stroke="#2d3142" stroke-width="1" stroke-linecap="round">
+        <circle cx="54" cy="747" r="3"/>
+        <line x1="54" y1="750" x2="54" y2="756"/>
+        <line x1="50" y1="752" x2="58" y2="752"/>
+        <line x1="54" y1="756" x2="51" y2="761"/>
+        <line x1="54" y1="756" x2="57" y2="761"/>
+      </g>
+      <text x="68" y="756" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Actor</text>
+
+      <g fill="none" stroke="#2e5aa8" stroke-width="1" stroke-linecap="round">
+        <circle cx="134" cy="747" r="3"/>
+        <line x1="134" y1="750" x2="134" y2="756"/>
+        <line x1="130" y1="752" x2="138" y2="752"/>
+        <line x1="134" y1="756" x2="131" y2="761"/>
+        <line x1="134" y1="756" x2="137" y2="761"/>
+      </g>
+      <text x="148" y="756" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">External system</text>
+
+      <ellipse cx="268" cy="753" rx="16" ry="7" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+      <text x="292" y="756" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Use case</text>
+
+      <ellipse cx="388" cy="753" rx="16" ry="7" fill="#fbeee9" stroke="#bf4520" stroke-width="1.2"/>
+      <text x="412" y="756" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Core use case</text>
+
+      <line x1="520" y1="753" x2="548" y2="753" stroke="#4f5d75" stroke-width="1.2"/>
+      <text x="556" y="756" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Association</text>
+
+      <line x1="648" y1="753" x2="676" y2="753" stroke="#4f5d75" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#arrow-open)"/>
+      <text x="684" y="756" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">«include»</text>
+
+      <rect x="768" y="744" width="28" height="18" rx="3" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.30)" stroke-width="1"/>
+      <text x="804" y="756" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">System boundary</text>
+    </svg>
+    </div>
+  </div>
+</body>
+</html>

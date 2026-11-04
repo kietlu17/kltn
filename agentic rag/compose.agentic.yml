@@ -9,7 +9,6 @@ services:
       - ../.env
     environment:
       AGENTIC_DATA_DIR: /data
-      AGENTIC_GEMINI_MODEL: gemini-3.5-flash-lite
       AGENTIC_MODEL_TIMEOUT_SECONDS: 20
       QDRANT_URL: http://qdrant:6333
       PRODUCT_SERVICE_URL: https://product-service:3004

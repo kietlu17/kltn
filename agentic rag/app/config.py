@@ -31,6 +31,24 @@ class AgenticSettings:
     gemini_model: str = field(
         default_factory=lambda: os.getenv("AGENTIC_GEMINI_MODEL", "gemini-3.5-flash-lite")
     )
+    # Chat model provider: "gemini" (Google API) or "openai" (any
+    # OpenAI-compatible gateway). Embeddings always stay on Gemini so the
+    # catalog index does not have to be rebuilt.
+    llm_provider: str = field(
+        default_factory=lambda: os.getenv("AGENTIC_LLM_PROVIDER", "gemini").strip().casefold()
+    )
+    llm_base_url: str = field(default_factory=lambda: os.getenv("AGENTIC_LLM_BASE_URL", "").strip())
+    llm_api_key: str = field(
+        default_factory=lambda: os.getenv("AGENTIC_LLM_API_KEY", "").strip(), repr=False
+    )
+    llm_model: str = field(default_factory=lambda: os.getenv("AGENTIC_LLM_MODEL", "").strip())
+    reasoning_effort: str = field(
+        default_factory=lambda: os.getenv("AGENTIC_REASONING_EFFORT", "none").strip()
+    )
+
+    @property
+    def chat_model(self) -> str:
+        return self.llm_model if self.llm_provider == "openai" and self.llm_model else self.gemini_model
     embedding_model: str = field(
         default_factory=lambda: os.getenv("AGENTIC_EMBEDDING_MODEL", "gemini-embedding-001")
     )
@@ -98,20 +116,25 @@ class AgenticSettings:
     )
     turn_deadline: float = field(
         default_factory=lambda: _bounded_float(
-            "AGENTIC_TURN_DEADLINE_SECONDS", 20, 5, 120
+            "AGENTIC_TURN_DEADLINE_SECONDS", 8, 3, 120
         )
     )
     max_llm_calls: int = field(
         default_factory=lambda: _bounded_int("AGENTIC_MAX_LLM_CALLS", 4, 1, 10)
     )
     decide_timeout: float = field(
-        default_factory=lambda: _bounded_float("AGENTIC_DECIDE_TIMEOUT_SECONDS", 6, 1, 60)
+        default_factory=lambda: _bounded_float("AGENTIC_DECIDE_TIMEOUT_SECONDS", 4, 1, 60)
+    )
+    # How long a plain search waits for the semantic model before it runs
+    # on the deterministic parse instead.
+    decide_hedge: float = field(
+        default_factory=lambda: _bounded_float("AGENTIC_DECIDE_HEDGE_SECONDS", 1.5, 0, 30)
     )
     verify_timeout: float = field(
-        default_factory=lambda: _bounded_float("AGENTIC_VERIFY_TIMEOUT_SECONDS", 6, 1, 60)
+        default_factory=lambda: _bounded_float("AGENTIC_VERIFY_TIMEOUT_SECONDS", 3, 1, 60)
     )
     answer_timeout: float = field(
-        default_factory=lambda: _bounded_float("AGENTIC_ANSWER_TIMEOUT_SECONDS", 8, 1, 60)
+        default_factory=lambda: _bounded_float("AGENTIC_ANSWER_TIMEOUT_SECONDS", 4, 1, 60)
     )
     embed_timeout: float = field(
         default_factory=lambda: _bounded_float("AGENTIC_EMBED_TIMEOUT_SECONDS", 3, 0.5, 30)

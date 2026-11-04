@@ -688,7 +688,7 @@ services:
       PAYMENT_GATEWAY_URL: https://payment-gateway:3012
       REVIEW_SERVICE_URL: https://review-service:3008
       CHAT_SERVICE_URL: https://chat-service:3009
-      CHATBOT_SERVICE_URL: http://chatbot-service:3021
+      CHATBOT_SERVICE_URL: ${ASSISTANT_SERVICE_URL:-http://agentic-rag:3030}
       RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-60000}
       RATE_LIMIT_MAX_REQUESTS: ${RATE_LIMIT_MAX_REQUESTS:-600}
       AUTH_RATE_LIMIT_WINDOW_MS: ${AUTH_RATE_LIMIT_WINDOW_MS:-60000}
