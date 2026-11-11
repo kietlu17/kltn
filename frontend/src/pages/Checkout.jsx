@@ -204,11 +204,14 @@ export default function Checkout() {
     }
   }, [canRequestInvoiceAtCheckout, invoiceRequested]);
 
+  // Stock falls back to product.quantity (often 0) until the inventory map
+  // arrives; warning before then flags in-stock items as sold out.
+  const stockLoaded = products.length > 0 && inventoryMap.size > 0;
   useEffect(() => {
-    if (hasOutOfStock) {
+    if (hasOutOfStock && stockLoaded) {
       showToast('Một số sản phẩm đã hết hàng. Vui lòng xóa trước khi tiếp tục.', 'error');
     }
-  }, [hasOutOfStock, showToast]);
+  }, [hasOutOfStock, stockLoaded, showToast]);
 
   const total = enrichedProducts.reduce(
     (sum, item) => sum + Number(item?.price || 0) * Number(item?.quantity || 0),

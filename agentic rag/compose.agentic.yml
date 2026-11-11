@@ -35,6 +35,7 @@ services:
   #   docker compose -f 'agentic rag/compose.agentic.yml' stop agentic-indexer
   #   docker compose -f 'agentic rag/compose.agentic.yml' start agentic-indexer
   # Change the API key without a restart: edit 'agentic rag/secrets/gemini_api_key'.
+  # Several keys (one per line) rotate; INDEXER_KEY_REQUEST_LIMIT caps texts per key per day.
   agentic-indexer:
     image: ecommerce-agentic-rag:test
     build:
@@ -56,6 +57,7 @@ services:
       INDEXER_REQUEST_INTERVAL_SECONDS: ${INDEXER_REQUEST_INTERVAL_SECONDS:-12}
       INDEXER_RETRY_SECONDS: ${INDEXER_RETRY_SECONDS:-60}
       INDEXER_MAX_BATCHES: ${INDEXER_MAX_BATCHES:-0}
+      INDEXER_KEY_REQUEST_LIMIT: ${INDEXER_KEY_REQUEST_LIMIT:-0}
       QDRANT_URL: http://qdrant:6333
       PRODUCT_SERVICE_URL: https://product-service:3004
       MTLS_ENABLED: "true"

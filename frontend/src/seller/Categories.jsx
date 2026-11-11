@@ -114,7 +114,7 @@ export default function SellerCategories() {
         </div>
         {categories.map((category) => (
           <div key={category._id || category.id} className="seller-table-row seller-category-row">
-            <div>{category.name}</div>
+            <div>{category.path || category.name}</div>
             <div className="muted">{category.description || '-'}</div>
             <div>
               <button className="btn btn-outline" onClick={() => editCategory(category)}>Sửa</button>

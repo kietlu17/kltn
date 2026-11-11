@@ -118,8 +118,34 @@ def _expand_aliases(text: str) -> str:
 
 _POLICY = re.compile(
     r"\b(?:doi tra|tra hang|hoan tien|bao hanh|chinh sach|van chuyen|giao hang|phi ship"
-    r"|phi van chuyen|thanh toan|bao lau|kiem hang|dong kiem)\b"
+    r"|phi van chuyen|bao lau|kiem hang|dong kiem"
+    # "thanh toán" alone is a checkout command; only questions about it are policy.
+    r"|(?:phuong thuc|hinh thuc|cach) thanh toan"
+    r"|thanh toan (?:nhu the nao|the nao|bang (?:gi|cach nao)|qua|duoc khong|co (?:nhung|may)|gom))\b"
 )
+_CHECKOUT = re.compile(r"\b(?:thanh toan|dat hang|checkout|chot don|len don)\b")
+_CHECKOUT_QUESTION = re.compile(
+    r"\b(?:nhu the nao|the nao|bang gi|bang cach nao|phuong thuc|hinh thuc|co nhung|duoc khong"
+    r"|bao lau|phi|chinh sach|tai sao|sao khong|loi)\b|\?"
+)
+
+
+def parse_checkout_turn(message: str) -> SemanticTurn | None:
+    """A checkout command ("thanh toán", "đặt hàng giỏ hàng", "chốt đơn")."""
+    folded = _fold(unicodedata.normalize("NFC", message.casefold())).strip()
+    if not _CHECKOUT.search(folded) or _CHECKOUT_QUESTION.search(folded) or _SEARCH_VERB.search(folded):
+        return None
+    if _known_product_type(folded):
+        # "đặt hàng tai nghe" names a product: the model decides cart vs search.
+        return None
+    if len(re.findall(r"[a-z0-9]+", folded)) > 10:
+        return None
+    return SemanticTurn(
+        tasks=[SemanticTask(intent="checkout", query=message.strip())],
+        conversation_action="new",
+        focus_update="keep",
+        confidence=STRICT_CONFIDENCE,
+    )
 _PERSONAL = re.compile(r"\b(?:don hang|don cua|gio hang|ma don|huy don|dat hang)\b")
 
 
@@ -151,8 +177,32 @@ def _money(number: str, unit: str | None) -> float | None:
     return value if value >= 1_000 else None
 
 
+_COMPOUND_MILLION = re.compile(r"\b(\d{1,3})\s*(?:trieu|tr|cu)\s*(\d{1,3})\b(?!\s*(?:k|nghin|ngan|d|dong|vnd)\b)")
+_MAX_AFTER = re.compile(
+    rf"{_AMOUNT}\s*(?:do lai|do xuong|tro lai|tro xuong|doi lai|ve lai|la toi da|max)\b"
+)
+_MIN_AFTER = re.compile(rf"{_AMOUNT}\s*(?:tro len|do len|tro di)\b")
+
+
+def _expand_compound_prices(folded: str) -> str:
+    """"1 triệu 390" -> 1390000, "1tr5" -> 1500000 (the tail is the next digits)."""
+
+    def expand(match: re.Match) -> str:
+        millions, tail = match.group(1), match.group(2)
+        return f"{int(millions) * 1_000_000 + int(tail) * 10 ** (6 - len(tail))} dong"
+
+    return _COMPOUND_MILLION.sub(expand, folded)
+
+
 def _price(folded: str) -> tuple[float | None, float | None, list[tuple[int, int]]]:
     """(min, max, matched spans) for the first price expression found."""
+    folded = _expand_compound_prices(folded)
+    match = _MAX_AFTER.search(folded)
+    if match and (value := _money(match.group(1), match.group(2))) is not None:
+        return None, value, [match.span()]
+    match = _MIN_AFTER.search(folded)
+    if match and (value := _money(match.group(1), match.group(2))) is not None:
+        return value, None, [match.span()]
     match = _RANGE.search(folded)
     if match:
         low = _money(match.group(1), match.group(2) or match.group(4))
@@ -164,7 +214,8 @@ def _price(folded: str) -> tuple[float | None, float | None, list[tuple[int, int
         return None, value, [match.span()]
     match = _AROUND.search(folded)
     if match and (value := _money(match.group(1), match.group(2))) is not None:
-        return round(value * 0.8), round(value * 1.2), [match.span()]
+        # "tầm 20 triệu" is a budget: at or a little under it, cheaper still ok.
+        return round(value * 0.5), round(value * 1.1), [match.span()]
     match = _MIN.search(folded)
     if match and (value := _money(match.group(1), match.group(2))) is not None:
         return value, None, [match.span()]
@@ -213,10 +264,15 @@ _BRANDS = (
 
 
 def _brand(folded: str) -> str:
-    return next(
-        (brand for brand in _BRANDS if re.search(rf"(?<!\w){re.escape(brand)}(?!\w)", folded)),
-        "",
-    )
+    """The brand the user wants to buy; "củ sạc cho iPhone" names the device
+    it must fit, not the charger's brand."""
+    for brand in _BRANDS:
+        for match in re.finditer(rf"(?<!\w){re.escape(brand)}(?!\w)", folded):
+            before = folded[: match.start()]
+            if re.search(r"(?:cho|danh cho|dung cho|tuong thich(?: voi)?|hop voi|ho tro)\s+$", before):
+                continue
+            return brand
+    return ""
 
 
 def _normalize_message(message: str) -> tuple[str, str]:
@@ -231,7 +287,7 @@ def mentions_other_product(message: str) -> bool:
     so it cannot be a plain variant pick ("màu đen", "size L")."""
     original, folded = _normalize_message(message)
     return _known_product_type(folded) or bool(
-        re.search(r"(?:khong phai|khong lay|khong muon|ngoai tru|tru)", folded)
+        re.search(r"\b(?:khong phai|khong lay|khong muon|ngoai tru|tru)\b", folded)
     )
 
 
@@ -243,7 +299,13 @@ def reconcile_turn(turn: SemanticTurn, message: str) -> SemanticTurn:
     min_price, max_price, _spans = _price(folded)
     negated = {_fold(color) for color, _span, is_negated in _color_matches(original) if is_negated}
     brand = _brand(folded)
-    if min_price is None and max_price is None and not negated and not brand:
+    compatible = {
+        _fold(match.group(1))
+        for match in re.finditer(
+            r"(?:cho|danh cho|dung cho|tuong thich(?: voi)?|hop voi)\s+([a-z0-9]+)", folded
+        )
+    }
+    if min_price is None and max_price is None and not negated and not brand and not compatible:
         return turn
     turn = turn.model_copy(deep=True)
     for task in turn.tasks:
@@ -254,6 +316,9 @@ def reconcile_turn(turn: SemanticTurn, message: str) -> SemanticTurn:
             key = constraint.key.casefold()
             if key in {"price", "min_price", "max_price"} and (min_price is not None or max_price is not None):
                 continue
+            if key == "brand" and compatible and _fold(str(constraint.value).casefold()).split()[:1] and                     _fold(str(constraint.value).casefold()).split()[0] in compatible:
+                # "củ sạc cho iPhone": the device it must fit, not the brand.
+                constraint = constraint.model_copy(update={"key": "compatibility", "strength": "soft"})
             if negated and key in {"color", "colors", "variant.color"}:
                 values = constraint.value if isinstance(constraint.value, list) else [constraint.value]
                 kept = [value for value in values if _fold(str(value).casefold()) not in negated]

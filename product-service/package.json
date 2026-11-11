@@ -4,7 +4,9 @@
   "main": "server.js",
   "type": "commonjs",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node --test tests/*.test.js",
+    "categories:tree": "node src/scripts/buildCategoryTree.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.879.0",

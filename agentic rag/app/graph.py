@@ -1,20 +1,51 @@
+"""Supervisor graph of the shopping assistant.
+
+One semantic decision per turn (``understand``) feeds a planner that routes
+the turn to a specialist:
+
+* ProductAgent: customer Q&A - catalog search, product details,
+  comparisons, policies and web research for the hard cases;
+* OrderAgent: cart, checkout, order tracking and confirmations.
+
+Policy and web research for a secondary task run as side branches next to
+the main route; ``finalize`` joins everything and writes the answer.
+"""
+
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import re
-import secrets
-import time
-import unicodedata
 
 from langgraph.graph import END, START, StateGraph
 
+from .agents import OrderAgent, ProductAgent
+from .agents.order import ORDER_NODES
 from .config import AgenticSettings
-from .retrieval import _search_terms
-from .indexer.documents import PRODUCT_TYPES
+from .conversation import (  # noqa: F401 - re-exported for callers and tests
+    _last_assistant_message,
+    _INTENT_LABELS,
+    _RELAX_LABELS,
+    _apply_constraint_deltas,
+    _apply_relaxation,
+    _apply_search_context,
+    _continues_active_product,
+    _deterministic_turn,
+    _fallback_understanding,
+    _focused_references,
+    _image_search_turn,
+    _last_offer_is_add_to_cart,
+    _merge_selected_options,
+    _next_relaxation,
+    _normalized,
+    _requests_purchase,
+    _search_template_answer,
+    _shopping_phase,
+    _size_tokens,
+    _sync_context_from_filters,
+)
 from .search_parser import (
-    mentions_other_product,
+    parse_checkout_turn,
     parse_policy_turn,
     parse_search_turn,
     reconcile_turn,
@@ -22,800 +53,186 @@ from .search_parser import (
 from .schemas import (
     AgentPlan,
     AgentState,
-    ConstraintDelta,
-    PendingAction,
     SearchConstraint,
     SearchContext,
     SearchFilters,
     SemanticConstraint,
-    SemanticReference,
     SemanticTask,
     SemanticTurn,
     TurnUnderstanding,
 )
-from .specs import (
-    canonical_spec_key,
-    normalize_specifications,
-    requires_semantic_verifier,
-    verify_spec_constraints,
+from .taxonomy import (
+    build_catalog_tree,
+    category_path_list,
+    resolve_category_ids,
+    resolve_category_path,
 )
-from .taxonomy import build_catalog_tree, compact_catalog_tree, resolve_category_ids
 
 log = logging.getLogger(__name__)
 
-
-def _normalized(value: str) -> str:
-    text = unicodedata.normalize("NFD", value.casefold()).replace("đ", "d")
-    return "".join(char for char in text if not unicodedata.combining(char))
-
-
-_REFERENCE_STOP_WORDS = {
-    "toi", "muon", "can", "mua", "mau", "chon", "lay", "them", "vao", "gio",
-    "san", "pham", "va", "voi", "so", "sanh", "cai", "con", "xem", "thong", "tin",
-}
-
-
-def _reference_tokens(value: str) -> set[str]:
-    return {
-        token
-        for token in re.findall(r"[a-z0-9]+", _normalized(value))
-        if len(token) > 1 and token not in _REFERENCE_STOP_WORDS
-    }
-
-
-def _is_model_token(token: str) -> bool:
-    return (
-        token.isdigit() and len(token) >= 2
-    ) or (
-        len(token) >= 3
-        and any(char.isalpha() for char in token)
-        and any(char.isdigit() for char in token)
-    )
-
-
-def _focused_references(message: str, focused: list[dict]) -> list[dict]:
-    """Resolve named follow-ups against products already shown to the user."""
-    message_tokens = _reference_tokens(message)
-    if not message_tokens:
-        return []
-    candidates = [
-        item
-        for item in focused
-        if re.fullmatch(r"[a-fA-F0-9]{24}", str(item.get("id") or ""))
-        and item.get("name")
-    ]
-    token_sets = [_reference_tokens(str(item["name"])) for item in candidates]
-    frequencies = {
-        token: sum(token in tokens for tokens in token_sets)
-        for token in set().union(*token_sets) if token_sets
-    }
-    ranked: list[tuple[float, set[str], dict]] = []
-    for item, name_tokens in zip(candidates, token_sets):
-        matched = name_tokens & message_tokens
-        message_model_tokens = {
-            token for token in message_tokens if _is_model_token(token)
-        }
-        candidate_model_tokens = {
-            token for token in name_tokens if _is_model_token(token)
-        }
-        matched_model_tokens = {
-            token
-            for token in matched
-            if _is_model_token(token)
-        }
-        unique_name_tokens = {
-            token
-            for token in name_tokens
-            if frequencies.get(token) == 1 and len(token) >= 3
-        }
-        unique_matches = matched & unique_name_tokens
-        name_coverage = len(matched) / max(len(name_tokens), 1)
-        if (
-            message_model_tokens
-            and candidate_model_tokens
-            and not matched_model_tokens
-        ):
-            continue
-        if not matched_model_tokens and not (
-            unique_matches and name_coverage >= 0.6
-        ):
-            continue
-        score = sum(1 / frequencies[token] for token in matched)
-        score += len(matched) / max(len(name_tokens), 1)
-        ranked.append((score, matched, item))
-
-    # Prefer the most specific model name. For example, A07 is a subset of
-    # A07 5G and must not be included when the user explicitly wrote "5G".
-    specific = [
-        entry
-        for entry in ranked
-        if not any(
-            entry[1] < other[1]
-            for other in ranked
-            if other is not entry
-        )
-    ]
-    specific.sort(key=lambda entry: entry[0], reverse=True)
-    return [entry[2] for entry in specific[:6]]
-
-
-def _requests_purchase(message: str) -> bool:
-    text = _normalized(message)
-    return any(
-        re.search(pattern, text)
-        for pattern in (
-            r"\b(?:toi\s+)?muon\s+(?:mua|mau)\b",
-            r"\bcho\s+toi\s+mua\b",
-            r"\bdat\s+mua\b",
-            r"\bchot\b",
-            r"\bthem\b.{0,60}\b(?:vao\s+)?gio\b",
-        )
-    )
-
-
-def _continues_active_product(message: str) -> bool:
-    text = _normalized(message)
-    if any(
-        re.search(pattern, text)
-        for pattern in (
-            r"\btim\b",
-            r"\bgoi y\b",
-            r"\b(?:san pham|mau|loai) khac\b",
-            r"\bcon\b.{0,40}\bnao\b",
-            r"\bso sanh\b",
-            r"\bshop ban\b",
-        )
-    ):
-        return False
-    if len(re.findall(r"[a-z0-9]+", text)) > 14:
-        return False
-    return any(
-        re.search(pattern, text)
-        for pattern in (
-            r"\bbao nhieu\b",
-            r"\bgia\b",
-            r"\bmau\b",
-            r"\bsize\b",
-            r"\bkich thuoc\b",
-            r"\bchat lieu\b",
-            r"\bcon hang\b",
-            r"\bbao hanh\b",
-            r"\bthong so\b",
-            r"\bbien the\b",
-            r"\bdung tich\b",
-            r"\bcong suat\b",
-            r"\bxuat xu\b",
-            r"\bpin\b",
-            r"\bram\b",
-            r"\bbo nho\b",
-            r"\b(?:xs|s|m|l|xl|xxl|2xl|3xl|4xl)\b",
-            r"\b(?:cao|nang|can nang)\b",
-            r"\b\d+(?:[.,]\d+)?\s*(?:kg|cm)\b",
-            r"\b\d+m\d{1,2}\b",
-        )
-    )
-
-
-_SIZE_PATTERN = re.compile(
-    r"(?<![a-z0-9])(?:size\s*)?(4xl|3xl|2xl|xxl|xl|xs|s|m|l)(?![a-z0-9])"
+_CONFIRM_REPLY = re.compile(
+    r"(?:xac nhan|dong y|ok|oke|okay|okie|co|chot|chot don|duoc|dc|u|uh|vang|yes|confirm|"
+    r"dat luon|them di|them luon|lam di|xac nhan nhe|ok luon|dong y nhe|co nhe|co a|"
+    r"thanh toan di|dat hang di)"
+)
+_CANCEL_REPLY = re.compile(
+    r"(?:huy|huy di|khong|ko|thoi|thoi khoi|bo qua|cancel|khong them|de sau|chua|chua can)"
 )
 
 
-def _size_tokens(value: str) -> list[str]:
-    return list(
-        dict.fromkeys(match.upper() for match in _SIZE_PATTERN.findall(_normalized(value)))
-    )
-
-
-def _variant_dimensions(variants: list[dict], product_name: str = "") -> dict:
-    colors: dict[str, str] = {}
-    sizes: dict[str, str] = {}
-    records: list[dict] = []
-    product_key = _normalized(product_name)
-    for variant in variants:
-        name = str(variant.get("name", "")).strip()
-        # MarketplaceClient represents a product without real variants as one
-        # offer whose name is the product name. It is not a color dimension.
-        parts = (
-            []
-            if product_key and _normalized(name) == product_key
-            else [
-                part.strip()
-                for part in re.split(r"\s*/\s*|\s*\|\s*", name)
-                if part.strip()
-            ]
-        )
-        variant_sizes = _size_tokens(name)
-        for size in variant_sizes:
-            sizes.setdefault(_normalized(size), size)
-        color_label = ""
-        for part in parts:
-            cleaned = re.sub(r"^màu\s+", "", part, flags=re.I)
-            cleaned = re.sub(r"\s+\d{3}$", "", cleaned).strip()
-            if cleaned and not _size_tokens(cleaned):
-                color_label = cleaned
-                break
-        color_key = _normalized(color_label)
-        if color_key:
-            colors.setdefault(color_key, color_label)
-        records.append(
-            {
-                "variant": variant,
-                "color": color_key,
-                "sizes": {_normalized(size) for size in variant_sizes},
-            }
-        )
-    return {"colors": colors, "sizes": sizes, "records": records}
-
-
-def _variant_selection(
-    message: str, variants: list[dict], product_name: str = ""
-) -> dict[str, list[str]]:
-    text = _normalized(message)
-    dimensions = _variant_dimensions(variants, product_name)
-    colors = [
-        key
-        for key in dimensions["colors"]
-        if re.search(rf"(?<!\w){re.escape(key)}(?!\w)", text)
-    ]
-    sizes = [
-        display
-        for key, display in dimensions["sizes"].items()
-        if re.search(rf"(?<!\w){re.escape(key)}(?!\w)", text)
-    ]
-    return {
-        "colors": sorted(colors, key=len, reverse=True)[:1],
-        "sizes": sizes[:1],
-    }
-
-
-def _has_size_chart(product: dict) -> bool:
-    text = _normalized(product.get("description", ""))
-    return bool(
-        re.search(r"\b(?:bang size|size chart|huong dan chon size)\b", text)
-        or re.search(r"\b\d{2,3}\s*(?:-|–|den)\s*\d{2,3}\s*kg\b", text)
-    )
-
-
-def _last_assistant_message(history: list[dict]) -> str:
-    for item in reversed(history):
-        if item.get("role") == "assistant":
-            return str(item.get("content") or "")
-    return ""
-
-
-def _last_offer_is_add_to_cart(history: list[dict]) -> bool:
-    text = _normalized(_last_assistant_message(history))
-    return bool(
-        re.search(r"\b(?:co muon|ban muon)\b.{0,80}\bthem\b.{0,40}\bgio\b", text)
-        or re.search(r"\bthem lua chon nay vao gio\b", text)
-    )
-
-
-def _fallback_understanding(
-    message: str, history: list[dict], active_product_id: str
-) -> TurnUnderstanding:
-    original = message.casefold().strip()
-    text = _normalized(message).strip()
-    active = bool(active_product_id)
-    sizes = _size_tokens(message)
-    color_match = re.search(r"\bmàu\s+([^\s,?.!]+)", original)
-    colors: list[str] = []
-    if color_match and color_match.group(1) not in {"gì", "nào", "những", "các"}:
-        colors = [color_match.group(1)]
-
-    short_reply = len(re.findall(r"[a-z0-9]+", text)) <= 4
-    if short_reply and text in {"co", "dong y", "ok", "okay", "yes"}:
-        return TurnUnderstanding(
-            dialogue_act="confirmation",
-            refers_to_active_product=active,
-            confirmation="yes",
-            confidence=0.99 if _last_offer_is_add_to_cart(history) else 0.65,
-        )
-    if short_reply and text in {"khong", "khong dau", "thoi", "huy", "no"}:
-        return TurnUnderstanding(
-            dialogue_act="confirmation",
-            refers_to_active_product=active,
-            confirmation="no",
-            confidence=0.95,
-        )
-    similar_search = bool(
-        re.search(r"\b(?:tuong tu|giong|thay the)\b", text)
-        or re.search(r"\b(?:re|dat|mac)\s+hon\b", text)
-    )
-    if similar_search:
-        price_relation = None
-        if re.search(r"\bre\s+hon\b", text):
-            price_relation = "cheaper"
-        elif re.search(r"\b(?:dat|mac)\s+hon\b", text):
-            price_relation = "more_expensive"
-        return TurnUnderstanding(
-            dialogue_act="new_search",
-            refers_to_active_product=active,
-            search_mode="similar",
-            price_relation=price_relation,
-            inherit_constraints=True,
-            confidence=0.98,
-        )
-    price_desc = bool(
-        re.search(r"\b(?:mac|mat|dat)\s+nhat\b", text)
-        or re.search(r"\bgia\s+(?:cao|dat)\s+nhat\b", text)
-    )
-    price_asc = bool(
-        re.search(r"\bre\s+nhat\b", text)
-        or re.search(r"\bgia\s+thap\s+nhat\b", text)
-    )
-    if price_desc or price_asc:
-        return TurnUnderstanding(
-            dialogue_act="new_search",
-            refers_to_active_product=False,
-            requested_attribute="price",
-            sort_by="price_desc" if price_desc else "price_asc",
-            result_limit=1,
-            confidence=0.99,
-        )
-    if _requests_purchase(message):
-        return TurnUnderstanding(
-            dialogue_act="purchase",
-            refers_to_active_product=active,
-            colors=colors,
-            sizes=sizes,
-            confidence=0.99,
-        )
-    if (
-        re.search(r"\b(?:cao|nang|can nang|vua size|size phu hop|tu van size)\b", text)
-        or re.search(r"\b\d+m\d{1,2}\b", text)
-        or re.search(r"\b\d+(?:[.,]\d+)?\s*(?:kg|cm)\b", text)
-    ):
-        return TurnUnderstanding(
-            dialogue_act="size_advice",
-            refers_to_active_product=active,
-            requested_attribute="fit",
-            confidence=0.98,
-        )
-    asks_size = bool(
-        re.search(r"\b(?:size|kich thuoc)\b", text)
-        and re.search(r"\b(?:gi|nao|co|khong|ko)\b", text)
-    )
-    if active and asks_size:
-        return TurnUnderstanding(
-            dialogue_act="ask_attribute",
-            refers_to_active_product=True,
-            colors=colors,
-            sizes=sizes,
-            requested_attribute="size",
-            confidence=0.97,
-        )
-    if active and (sizes or colors):
-        return TurnUnderstanding(
-            dialogue_act="select_variant",
-            refers_to_active_product=True,
-            colors=colors,
-            sizes=sizes,
-            confidence=0.97,
-        )
-    attribute_patterns = {
-        "color": r"\bmau\b",
-        "price": r"\b(?:gia|bao nhieu)\b",
-        "stock": r"\bcon hang\b",
-        "specification": r"\b(?:thong so|chat lieu|pin|ram|bo nho|cong suat)\b",
-    }
-    if active:
-        for attribute, pattern in attribute_patterns.items():
-            if re.search(pattern, text):
-                return TurnUnderstanding(
-                    dialogue_act="ask_attribute",
-                    refers_to_active_product=True,
-                    requested_attribute=attribute,
-                    confidence=0.94,
-                )
-    if re.search(r"\bso sanh\b", text):
-        return TurnUnderstanding(dialogue_act="compare_products", confidence=0.9)
-    if re.search(r"\b(?:shop ban gi|danh muc|nganh hang)\b", text):
-        return TurnUnderstanding(dialogue_act="browse_catalog", confidence=0.95)
-    return TurnUnderstanding(dialogue_act="new_search", confidence=0.6)
-
-
-def _asks_option_list(message: str, option: str) -> bool:
-    text = _normalized(message)
-    if option == "colors":
-        return bool(
-            re.search(r"\bmau\b", text)
-            and re.search(r"\b(?:gi|nao|nhung|cac|co)\b", text)
-            and not re.search(
-                r"\b(?:den|trang|do|vang|hong|tim|cam|nau|xam|xanh)\b", text
-            )
-        )
-    return bool(
-        re.search(r"\b(?:size|kich thuoc)\b", text)
-        and re.search(r"\b(?:gi|nao|nhung|cac|co)\b", text)
-        and not re.search(r"\b(?:xs|s|m|l|xl|xxl|2xl|3xl)\b", text)
-    )
-
-
-def _merge_selected_options(
-    message: str,
-    previous: dict,
-    filters: SearchFilters,
-    continue_context: bool,
-) -> dict[str, list[str]]:
-    selected = {"colors": [], "sizes": []}
-    for field in selected:
-        incoming = list(getattr(filters, field))
-        if not continue_context:
-            selected[field] = incoming
-        elif incoming:
-            selected[field] = incoming
-        elif _asks_option_list(message, field):
-            selected[field] = []
-        else:
-            selected[field] = list(previous.get(field) or [])
-        setattr(filters, field, selected[field])
-    return selected
-
-
-def _shopping_phase(intent: str, filters: SearchFilters, product_ids: list[str]) -> str:
-    if intent in {"cart_add", "cart_update", "cart_remove", "checkout"}:
-        return "selling"
-    if intent == "product_detail" or product_ids:
-        return "detailing"
-    if intent == "product_search" and any(
-        (
-            filters.category_id,
-            filters.category_path,
-            filters.category_ids,
-            filters.product_type,
-            filters.audience,
-            filters.brand,
-            filters.colors,
-            filters.sizes,
-            filters.min_price is not None,
-            filters.max_price is not None,
-        )
-    ):
-        return "narrowing"
-    return "exploring"
-
-
-def _set_constraint(
-    constraints: list[SearchConstraint], constraint: SearchConstraint
-) -> list[SearchConstraint]:
-    return [item for item in constraints if item.key != constraint.key] + [constraint]
-
-
-def _apply_constraint_deltas(
-    constraints: list[SearchConstraint], deltas: list[ConstraintDelta]
-) -> list[SearchConstraint]:
-    merged = list(constraints)
-    for delta in deltas:
-        key = delta.key.casefold()
-        if delta.action == "remove":
-            merged = [item for item in merged if item.key != key]
-        elif delta.value is not None:
-            merged = _set_constraint(
-                merged,
-                SearchConstraint(
-                    key=key,
-                    operator=delta.operator,
-                    value=delta.value,
-                    source="explicit",
-                    strength=delta.strength,
-                ),
-            )
-    return merged
-
-
-def _apply_search_context(
-    filters: SearchFilters, context: SearchContext
-) -> SearchFilters:
-    applied = filters.model_copy(deep=True)
-    for constraint in context.constraints:
-        key = constraint.key
-        value = constraint.value
-        values = value if isinstance(value, list) else [value]
-        text_values = [str(item) for item in values if str(item).strip()]
-        first = text_values[0] if text_values else ""
-        if key == "product_type" and first:
-            applied.product_type = first
-        elif key == "category_id" and re.fullmatch(r"[a-fA-F0-9]{24}", first):
-            applied.category_id = first
-        elif key == "audience" and first in {"nam", "nu", "tre_em", "unisex"}:
-            applied.audience = first
-        elif key == "brand" and first:
-            applied.brand = first
-        elif key in {"color", "colors", "variant.color"}:
-            applied.colors = text_values[:8]
-        elif key in {"size", "sizes", "variant.size"}:
-            applied.sizes = text_values[:8]
-        elif key in {"price", "max_price"} and constraint.operator in {"lt", "lte"}:
-            try:
-                applied.max_price = float(value)
-            except (TypeError, ValueError):
-                pass
-        elif key in {"price", "min_price"} and constraint.operator in {"gt", "gte"}:
-            try:
-                applied.min_price = float(value)
-            except (TypeError, ValueError):
-                pass
-    applied.exclude_product_ids = list(
-        dict.fromkeys([*applied.exclude_product_ids, *context.exclude_product_ids])
-    )
-    return SearchFilters.model_validate(applied.model_dump())
-
-
-def _sync_context_from_filters(
-    context: SearchContext, filters: SearchFilters
-) -> SearchContext:
-    synced = context.model_copy(deep=True)
-    existing = {constraint.key for constraint in synced.constraints}
-    candidates: list[SearchConstraint] = []
-    scalar_fields = (
-        ("product_type", filters.product_type),
-        ("category_id", filters.category_id),
-        ("audience", filters.audience),
-        ("brand", filters.brand),
-    )
-    for key, value in scalar_fields:
-        if value:
-            candidates.append(
-                SearchConstraint(
-                    key=key,
-                    value=str(value),
-                    source="planner",
-                    strength="hard",
-                )
-            )
-    if filters.colors:
-        candidates.append(
-            SearchConstraint(
-                key="variant.color",
-                operator="any",
-                value=filters.colors,
-                source="planner",
-                strength="soft",
-            )
-        )
-    if filters.sizes:
-        candidates.append(
-            SearchConstraint(
-                key="variant.size",
-                operator="any",
-                value=filters.sizes,
-                source="planner",
-                strength="soft",
-            )
-        )
-    if filters.min_price is not None:
-        candidates.append(
-            SearchConstraint(
-                key="price",
-                operator="gte",
-                value=filters.min_price,
-                source="planner",
-                strength="hard",
-            )
-        )
-    if filters.max_price is not None:
-        candidates.append(
-            SearchConstraint(
-                key="price",
-                operator="lte",
-                value=filters.max_price,
-                source="planner",
-                strength="hard",
-            )
-        )
-    for constraint in candidates:
-        if constraint.key not in existing:
-            synced.constraints.append(constraint)
-            existing.add(constraint.key)
-    synced.exclude_product_ids = list(
-        dict.fromkeys([*synced.exclude_product_ids, *filters.exclude_product_ids])
-    )
-    return SearchContext.model_validate(synced.model_dump())
-
-
-_FAST_PATH_MAX_TOKENS = 6
-
-
-def _variant_constraints(colors: list[str], sizes: list[str]) -> list[SemanticConstraint]:
-    constraints: list[SemanticConstraint] = []
-    if colors:
-        constraints.append(
-            SemanticConstraint(
-                key="variant.color", operator="any", value=list(colors), source="conversation"
-            )
-        )
-    if sizes:
-        constraints.append(
-            SemanticConstraint(
-                key="variant.size", operator="any", value=list(sizes), source="conversation"
-            )
-        )
-    return constraints
-
-
-def _deterministic_turn(
-    message: str,
-    history: list[dict],
-    active_product_id: str,
-    selected: dict,
-    *,
-    short_only: bool = True,
-) -> SemanticTurn | None:
-    """Build a SemanticTurn without the model for unambiguous short turns.
-
-    Only acts the deterministic interpreter is near-certain about are taken:
-    confirmations of a pending cart offer, variant picks on the active
-    product, price extremes and catalog browsing. Everything else returns
-    None so the semantic model decides.
-    """
-    tokens = re.findall(r"[a-z0-9]+", _normalized(message))
-    if not tokens or (short_only and len(tokens) > _FAST_PATH_MAX_TOKENS):
-        return None
-    if mentions_other_product(message):
-        # "áo khoác không phải màu đen" names a product kind (and negates the
-        # colour): it is a new search, not a variant pick on the active item.
-        return None
-    understood = _fallback_understanding(message, history, active_product_id)
-    if understood.confidence < 0.95:
-        return None
-    active = [SemanticReference(kind="active")] if active_product_id else []
-    colors = understood.colors or list(selected.get("colors") or [])
-    sizes = understood.sizes or list(selected.get("sizes") or [])
-    act = understood.dialogue_act
-    focus = "keep"
-    if act == "confirmation" and understood.confirmation == "yes":
-        if not active or not _last_offer_is_add_to_cart(history):
-            return None
-        task = SemanticTask(
-            intent="cart_add", references=active, constraints=_variant_constraints(colors, sizes)
-        )
-        action = "continue"
-    elif act == "purchase" and active and len(tokens) <= _FAST_PATH_MAX_TOKENS:
-        task = SemanticTask(
-            intent="cart_add", references=active, constraints=_variant_constraints(colors, sizes)
-        )
-        action = "continue"
-    elif (
-        act in {"select_variant", "ask_attribute"}
-        and active
-        and understood.requested_attribute in {None, "color", "size", "price", "stock"}
-    ):
-        task = SemanticTask(
-            intent="product_detail",
-            references=active,
-            requested_attributes=(
-                [understood.requested_attribute] if understood.requested_attribute else []
-            ),
-            constraints=_variant_constraints(understood.colors, understood.sizes),
-        )
-        action = "continue"
-    elif act == "new_search" and understood.sort_by != "relevance" and not history:
-        # Mid-conversation "cái nào rẻ nhất" ranks the products being
-        # discussed, which only the model can tie to the previous search.
-        task = SemanticTask(
-            intent="product_search",
-            query=message,
-            sort_by=understood.sort_by,
-            result_limit=understood.result_limit or 1,
-        )
-        action, focus = "new", "replace"
-    elif act == "browse_catalog":
-        task = SemanticTask(intent="browse_categories")
-        action = "new"
-    else:
-        return None
-    return SemanticTurn(
-        tasks=[task],
-        conversation_action=action,
-        focus_update=focus,
-        confidence=understood.confidence,
-    )
-
-
-_PRODUCT_HEADS = sorted(
-    {term.strip() for _kind, terms in PRODUCT_TYPES for term in terms},
-    key=len,
-    reverse=True,
+_VAGUE_BRAND = re.compile(
+    r"\b(?:cung hang|cung thuong hieu|thuong hieu|hang nao|khong can|bat ky|uy tin|noi tieng|chinh hang)\b"
+)
+_NEUTRAL = re.compile(r"\b(?:trung tinh|neutral|basic|don gian)\b")
+_NEUTRAL_COLORS = ["be", "đen", "trắng", "xám", "nâu", "kem"]
+_SIZE_VALUE = re.compile(r"(?:xxs|xs|s|m|l|xl|xxl|xxxl|[2-5]xl|free ?size|[1-5]?\d(?:[.,]5)?)")
+_UNVERIFIABLE_KEY = re.compile(
+    r"(?:deliver|shipping|ship|giao|gift|wrap|goi qua|personali|ca nhan|warranty|bao hanh|"
+    r"total|tong|location|origin|seller|authentic|chinh hang|return|doi tra|voucher|discount)"
+)
+# Spec keys whose numbers the catalog carries: only these can stay hard.
+_MEASURABLE_KEY = re.compile(
+    r"(?:storage|rom|ram|memory|screen|display|battery|capacity|dung tich|weight|power|"
+    r"wattage|refresh|camera|resolution|size_inch|inch|volume|area|dien tich)"
 )
 
 
-def _product_head(phrase: str) -> str:
-    """The known product kind a phrase starts with ("noi chien" for "nồi
-    chiên không dầu"), or "" when the phrase does not start with one."""
-    folded = " ".join(re.findall(r"[a-z0-9]+", _normalized(phrase)))
-    return next(
-        (term for term in _PRODUCT_HEADS if re.match(rf"{re.escape(term)}(?!\w)", folded)),
-        "",
+def _soften(constraint: SemanticConstraint) -> SemanticConstraint:
+    """Keep a spec hard only when it is a number the listings state
+    (256GB, 16GB RAM, 5 lít); wishes ("không quá nặng", "chống nước",
+    "dễ vệ sinh") rank the results instead of emptying them."""
+    if constraint.strength != "hard":
+        return constraint
+    value = constraint.value
+    numeric = isinstance(value, (int, float)) or bool(
+        re.fullmatch(r"\s*\d+(?:[.,]\d+)?\s*[a-zA-Z%²]*\s*", str(value))
     )
+    if numeric and _MEASURABLE_KEY.search(constraint.key.casefold()):
+        return constraint
+    return constraint.model_copy(update={"strength": "soft"})
 
 
-_RELAX_LABELS = {
-    "spec.soft": "thuộc tính phụ",
-    "price": "khoảng giá (±15%)",
-    "variant.color": "màu",
-    "variant.size": "kích thước/size",
-    "brand": "thương hiệu",
-    "spec.hard": "thông số (chưa xác nhận được)",
+def _pending_reply(message: str) -> str | None:
+    """'confirm' / 'cancel' when the whole message only answers the action
+    waiting for confirmation; anything longer goes to the model."""
+    text = re.sub(r"[^\w\s]", " ", _normalized(message)).split()
+    phrase = " ".join(word for word in text if word not in {"nhe", "nha", "a", "ban", "minh", "giup"})
+    if not phrase or len(text) > 5:
+        return None
+    if _CONFIRM_REPLY.fullmatch(phrase):
+        return "confirm"
+    if _CANCEL_REPLY.fullmatch(phrase):
+        return "cancel"
+    return None
+
+
+_EXPLICIT_CONFIRM = re.compile(
+    r"^\W*(?:xac nhan|dong y|ok|oke|okay|chot|dat luon|dat hang|thanh toan|them (?:di|luon|vao gio)|"
+    r"co,? them|lay (?:di|luon)|duoc,? them)\b"
+)
+_EXPLICIT_CANCEL = re.compile(r"^\W*(?:huy|khong them|thoi khong|bo qua|khong dat|dung lai|cancel)\b")
+
+
+_ATTRIBUTE_HINTS = {
+    "weight": r"\b(?:khoi luong|trong luong|nang|weight)\b",
+    "battery": r"\b(?:pin|battery)\b",
+    "camera": r"\b(?:camera|chup|quay)\b",
+    "screen": r"\b(?:man hinh|screen|display|tan so quet|do phan giai man)\b",
+    "ram": r"\b(?:ram)\b",
+    "storage": r"\b(?:rom|bo nho trong|dung luong luu tru|o cung|ssd|storage)\b",
+    "charging": r"\b(?:sac|charging)\b",
+    "chip": r"\b(?:chip|cpu|vi xu ly|processor)\b",
+}
+_ATTRIBUTE_FROM_REQUEST = {
+    "weight": "weight", "battery_capacity": "battery", "battery_life": "battery", "battery": "battery",
+    "camera": "camera", "screen_size": "screen", "display": "screen", "ram": "ram", "storage": "storage",
+    "charging": "charging", "chip": "chip", "cpu": "chip",
 }
 
 
-def _next_relaxation(filters: SearchFilters, relaxed: list[str]) -> str | None:
-    """Pick the next constraint to loosen, least important first."""
-    candidates = (
-        ("spec.soft", any(item.strength == "soft" for item in filters.spec_constraints)),
-        ("price", filters.max_price is not None or filters.min_price is not None),
-        ("variant.color", bool(filters.colors)),
-        ("variant.size", bool(filters.sizes)),
-        ("brand", bool(filters.brand)),
-        # Last resort: most listings carry no evidence for features such as
-        # "chống nước"; show the closest products and say it is unconfirmed.
-        ("spec.hard", any(item.strength == "hard" for item in filters.spec_constraints)),
-    )
-    return next(
-        (key for key, applies in candidates if applies and key not in relaxed), None
-    )
+def _compared_attributes(message: str, requested: list[str]) -> list[str]:
+    attributes = [_ATTRIBUTE_FROM_REQUEST[item] for item in requested if item in _ATTRIBUTE_FROM_REQUEST]
+    text = _normalized(message)
+    for attribute, pattern in _ATTRIBUTE_HINTS.items():
+        if re.search(pattern, text) or (attribute == "weight" and re.search(r"\bnhe\b", text)):
+            attributes.append(attribute)
+    return list(dict.fromkeys(attributes))[:4]
 
 
-def _apply_relaxation(filters: SearchFilters, key: str) -> SearchFilters:
-    relaxed = filters.model_copy(deep=True)
-    if key == "spec.soft":
-        relaxed.spec_constraints = [
-            item for item in relaxed.spec_constraints if item.strength == "hard"
+def _number(value: str, unit_scale: dict[str, float]) -> float | None:
+    match = re.search(r"(\d+(?:[.,]\d+)?)\s*(kg|g|mah|wh)\b", _normalized(value))
+    if not match:
+        return None
+    return float(match.group(1).replace(",", ".")) * unit_scale.get(match.group(2), 1)
+
+
+def _spec_comparison(state: AgentState) -> dict | None:
+    """Exact values of the attributes being compared ("cái nào nhẹ hơn",
+    "pin trâu nhất"), read from each listing, so the answer model compares
+    numbers instead of guessing."""
+    products = [item for item in state.get("products", []) if item.get("specifications")]
+    if len(products) < 2:
+        return None
+    turn = state.get("semantic_turn") or {}
+    requested = [
+        attribute
+        for task in turn.get("tasks", [])
+        for attribute in task.get("requested_attributes", [])
+    ]
+    attributes = _compared_attributes(state.get("message", ""), requested)
+    if not attributes:
+        return None
+    rows = []
+    for position, product in enumerate(products[:6], 1):
+        values = {}
+        for attribute in attributes:
+            pattern = _ATTRIBUTE_HINTS[attribute]
+            found = [
+                f"{spec.get('name')}: {spec.get('value')}"
+                for spec in product.get("specifications", [])
+                if re.search(pattern, _normalized(str(spec.get("name") or "")))
+            ][:3]
+            values[attribute] = "; ".join(found) if found else "chưa có trong tin đăng"
+        rows.append({"position": position, "name": product.get("name"), "values": values})
+    summary = {}
+    for attribute, scale, best in (("weight", {"kg": 1000, "g": 1}, min), ("battery", {"mah": 1, "wh": 1}, max)):
+        if attribute not in attributes:
+            continue
+        measured = [
+            (number, row["name"])
+            for row in rows
+            if (number := _number(row["values"][attribute], scale)) is not None
         ]
-    elif key == "price":
-        if relaxed.max_price is not None:
-            relaxed.max_price = round(relaxed.max_price * 1.15)
-        if relaxed.min_price is not None:
-            relaxed.min_price = round(relaxed.min_price * 0.85)
-    elif key == "variant.color":
-        relaxed.colors = []
-    elif key == "variant.size":
-        relaxed.sizes = []
-    elif key == "brand":
-        relaxed.brand = None
-    elif key == "spec.hard":
-        relaxed.spec_constraints = []
-    return relaxed
+        if len(measured) >= 2:
+            value, name = best(measured)
+            label = "nhẹ nhất" if attribute == "weight" else "pin lớn nhất"
+            summary[attribute] = f"{label}: {name}"
+    return {"attributes": attributes, "rows": rows, "computed": summary}
 
 
-def _soft_context_keys(context: SearchContext) -> set[str]:
-    return {
-        constraint.key
-        for constraint in context.constraints
-        if constraint.strength == "soft" and constraint.key not in context.relaxed_keys
-    }
+_ACTION_CLAIM = re.compile(
+    r"(?<!\w)(?:mình|tôi|em)\s+(?:đã|vừa)\s+(?:thêm|bỏ|xóa|xoá|cập nhật|đặt|gửi|tạo|hủy|huỷ)\b[^.!?\n]*"
+    r"(?:giỏ|đơn|yêu cầu)[^.!?\n]*[.!?]?",
+    re.IGNORECASE,
+)
 
 
-def _price_text(value) -> str:
-    return f"{float(value or 0):,.0f}".replace(",", ".") + "đ"
+def _drop_unbacked_action_claims(answer: str, tool_result: dict) -> str:
+    """The model must never report a cart change, order or ticket that no
+    tool performed; such sentences are replaced by an offer to do it."""
+    if not answer or (isinstance(tool_result, dict) and tool_result.get("success")):
+        return answer
+    cleaned, count = _ACTION_CLAIM.subn("", answer)
+    if not count:
+        return answer
+    cleaned = re.sub(r"[ \t]{2,}", " ", cleaned).strip()
+    offer = "Bạn chọn phiên bản và nhắn “thêm vào giỏ”, mình sẽ tạo yêu cầu để bạn xác nhận nhé."
+    return f"{cleaned}\n\n{offer}" if cleaned else offer
 
 
-def _search_template_answer(products: list[dict]) -> str:
-    listed = "; ".join(
-        f"{item.get('name', 'Sản phẩm')} ({_price_text(item.get('price'))})"
-        for item in products[:3]
-    )
-    more = f" và {len(products) - 3} mẫu khác" if len(products) > 3 else ""
-    return (
-        f"Mình tìm thấy {len(products)} sản phẩm phù hợp và còn hàng: {listed}{more}. "
-        "Bạn muốn xem chi tiết hoặc so sánh mẫu nào?"
-    )
-
-
-_INTENT_LABELS = {
-    "browse_categories": "xem danh mục",
-    "product_search": "tìm sản phẩm",
-    "product_detail": "hỏi chi tiết sản phẩm",
-    "compare_products": "so sánh sản phẩm",
-    "cart_view": "xem giỏ hàng",
-    "cart_add": "thêm vào giỏ",
-    "cart_update": "sửa giỏ hàng",
-    "cart_remove": "xóa khỏi giỏ",
-    "checkout": "thanh toán",
-    "order_status": "tra cứu đơn hàng",
-}
+def _explicit_pending_answer(message: str, decision: str) -> bool:
+    text = _normalized(message)
+    return bool((_EXPLICIT_CONFIRM if decision == "confirm" else _EXPLICIT_CANCEL).search(text))
 
 
 class AgenticShoppingGraph:
@@ -827,30 +244,31 @@ class AgenticShoppingGraph:
         marketplace,
         policy=None,
         checkpointer=None,
+        reranker=None,
+        visual=None,
     ):
         self.settings = settings
         self.models = models_gateway
         self.retriever = retriever
         self.marketplace = marketplace
         self.policy = policy
+        self.reranker = reranker
+        self.visual = visual
+        self.product_agent = ProductAgent(
+            settings, models_gateway, retriever, marketplace,
+            policy=policy, reranker=reranker, visual=visual,
+        )
+        self.order_agent = OrderAgent(settings, models_gateway, marketplace)
         self.graph = self._compile(checkpointer)
+
+    # Product answers are composed from catalog facts by the product agent.
+    _product_attribute_answer = staticmethod(ProductAgent._product_attribute_answer)
 
     def _compile(self, checkpointer):
         builder = StateGraph(AgentState)
         builder.add_node("understand", self.understand)
         builder.add_node("resolve_context", self.resolve_context)
         builder.add_node("plan", self.plan)
-        builder.add_node("browse_categories", self.browse_categories)
-        builder.add_node("retrieve", self.retrieve)
-        builder.add_node("relax", self.relax_constraints)
-        builder.add_node("product_detail", self.product_detail)
-        builder.add_node("cart_view", self.cart_view)
-        builder.add_node("prepare_cart", self.prepare_cart)
-        builder.add_node("prepare_checkout", self.prepare_checkout)
-        builder.add_node("order_status", self.order_status)
-        builder.add_node("policy", self.policy_answer)
-        builder.add_node("policy_side", self.policy_side)
-        builder.add_node("resolve_pending", self.resolve_pending)
         builder.add_node("clarify_guard", self.clarify_guard)
         builder.add_node("general", self.general)
         builder.add_node("collect", self.collect)
@@ -858,46 +276,25 @@ class AgenticShoppingGraph:
         builder.add_edge(START, "understand")
         builder.add_edge("understand", "resolve_context")
         builder.add_edge("resolve_context", "plan")
-        # The main route and the policy side-branch run in the same superstep;
-        # finalize waits for both through the collect barrier.
-        builder.add_conditional_edges(
-            "plan",
-            self.route_after_plan,
-            {
-                "browse_categories": "browse_categories",
-                "product_search": "retrieve",
-                "product_detail": "product_detail",
-                "cart_view": "cart_view",
-                "prepare_cart": "prepare_cart",
-                "prepare_checkout": "prepare_checkout",
-                "order_status": "order_status",
-                "policy": "policy",
-                "policy_side": "policy_side",
-                "resolve_pending": "resolve_pending",
-                "clarify_guard": "clarify_guard",
-                "general": "general",
-            },
-        )
-        builder.add_conditional_edges(
-            "retrieve",
-            self.route_after_retrieval,
-            {"relax": "relax", "collect": "collect"},
-        )
-        builder.add_edge("relax", "retrieve")
-        for node in (
-            "browse_categories",
-            "product_detail",
-            "cart_view",
-            "prepare_cart",
-            "prepare_checkout",
-            "order_status",
-            "policy",
-            "resolve_pending",
-            "clarify_guard",
-            "general",
-        ):
+        self.product_agent.register(builder, join="collect")
+        self.order_agent.register(builder, join="collect")
+        # The main route and the side branches (policy, web research) run in
+        # the same superstep; finalize waits for all of them.
+        routes = {
+            "browse_categories": "browse_categories",
+            "product_search": "retrieve",
+            "product_detail": "product_detail",
+            "policy": "policy",
+            "clarify_guard": "clarify_guard",
+            "general": "general",
+            "policy_side": "policy_side",
+            "research_side": "research_side",
+            **{node: node for node in ORDER_NODES},
+        }
+        builder.add_conditional_edges("plan", self.route_after_plan, routes)
+        for node in ("clarify_guard", "general"):
             builder.add_edge(node, "collect")
-        builder.add_edge(["collect", "policy_side"], "finalize")
+        builder.add_edge(["collect", "policy_side", "research_side"], "finalize")
         builder.add_edge("finalize", END)
         return builder.compile(checkpointer=checkpointer)
 
@@ -940,13 +337,40 @@ class AgenticShoppingGraph:
 
         warnings = list(state.get("warnings", []))
         selected = state.get("selected_options", {}) or {}
-        turn = _deterministic_turn(message, history, active_product_id, selected)
-        if turn is not None:
+        # LLM-first: the semantic model decides every text turn; the rule
+        # fast path and the hedged parse only back it up when it fails.
+        llm_first = bool(getattr(settings, "llm_first", False))
+        turn = None if llm_first else _deterministic_turn(
+            message, history, active_product_id, selected
+        )
+        pending_reply = _pending_reply(message) if state.get("pending_action") else None
+        if pending_reply and not (state.get("request") or {}).get("image"):
+            # A bare "xác nhận" / "thôi" answers the waiting action at once:
+            # no model call, same effect as the confirm or cancel button.
+            return {
+                "semantic_turn": SemanticTurn(
+                    tasks=[SemanticTask(intent="general", query=message)],
+                    conversation_action="continue",
+                    confidence=1,
+                    pending_decision=pending_reply,
+                ).model_dump(),
+                "understanding": {},
+                "warnings": [*warnings, "TEXT_CONFIRMATION"],
+            }
+        if (state.get("request") or {}).get("image"):
+            # A photo is a visual product search: only price, colour, size
+            # and brand from the caption ("giống ảnh này nhưng dưới 500k")
+            # narrow it; the model is not needed to decide what to do.
+            turn = _image_search_turn(message)
+            warnings.append("IMAGE_SEARCH")
+        elif turn is not None:
             warnings.append("FAST_PATH")
         else:
-            parsed = parse_search_turn(
-                message, active_product_id=active_product_id
-            ) or parse_policy_turn(message)
+            parsed = (
+                parse_checkout_turn(message)
+                or parse_search_turn(message, active_product_id=active_product_id)
+                or parse_policy_turn(message)
+            )
             decision = asyncio.ensure_future(
                 self.models.decide(
                     message,
@@ -955,10 +379,12 @@ class AgenticShoppingGraph:
                     active_product_id or None,
                     selected,
                     state.get("shopping_phase", "exploring"),
+                    category_paths=await self._category_paths(),
+                    conversation_state=self._conversation_state(state),
                 )
             )
             try:
-                if parsed is None:
+                if parsed is None or llm_first:
                     turn = await decision
                 else:
                     # A plain search or policy question must not wait on a slow
@@ -974,10 +400,18 @@ class AgenticShoppingGraph:
             except Exception as error:
                 log.warning("decide failed: %s: %s", type(error).__name__, str(error)[:300])
                 warnings.append("MODEL_UNAVAILABLE")
-                turn = parsed or _deterministic_turn(
+                turn = (
+                    _deterministic_turn(message, history, active_product_id, selected)
+                    if llm_first
+                    else None
+                ) or parsed or _deterministic_turn(
                     message, history, active_product_id, selected, short_only=False
-                ) or parse_search_turn(
-                    message, active_product_id=active_product_id, strict=False
+                ) or (
+                    # The loose parse turns long sentences into nonsense
+                    # queries; with the model down, asking again is better.
+                    None
+                    if llm_first
+                    else parse_search_turn(message, active_product_id=active_product_id, strict=False)
                 ) or SemanticTurn(
                     tasks=[SemanticTask(intent="clarify")],
                     conversation_action="clarify",
@@ -1043,6 +477,152 @@ class AgenticShoppingGraph:
             "understanding": compatibility.model_dump(),
             "warnings": warnings,
         }
+
+    @staticmethod
+    def _last_recommended(state: AgentState, focused: list[dict]) -> str:
+        """The listed product the last reply named first ("A07 có pin trâu
+        nhất"), else the first card."""
+        reply = _normalized(_last_assistant_message(state.get("history", [])))
+        positions = []
+        for item in focused:
+            name = _normalized(str(item.get("name") or ""))
+            short = re.sub(r"^(?:dien thoai|laptop|tai nghe|loa bluetooth|loa|ao|quan)\s+", "", name)
+            found = [index for index in (reply.find(name), reply.find(short)) if index >= 0 and len(short) >= 4]
+            if found:
+                positions.append((min(found), str(item.get("id") or "")))
+        if positions:
+            return min(positions)[1]
+        return str(focused[0].get("id") or "")
+
+    @staticmethod
+    def _carry_over(filters: SearchFilters, last: dict) -> SearchFilters:
+        """A follow-up for the same kind of product keeps what was said
+        before ("tầm 15 triệu", "Android") when the model left it out; a new
+        kind of product starts fresh."""
+        if not last:
+            return filters
+        def kind(value) -> str:
+            return _normalized(str(value or "")).strip()
+
+        new_kind = kind(filters.product_type)
+        old_kind = kind(last.get("product_type"))
+        new_path = kind(filters.category_path)
+        old_path = kind(last.get("category_path"))
+        same_kind = (
+            not new_kind
+            or not old_kind
+            or new_kind in old_kind
+            or old_kind in new_kind
+        ) and (not new_path or not old_path or new_path.startswith(old_path) or old_path.startswith(new_path))
+        if not same_kind or not (old_kind or old_path):
+            return filters
+
+        def keep_wishes(merged: SearchFilters) -> SearchFilters:
+            # Wishes said earlier ("chống nước", "pin 8 tiếng") stay for the
+            # same kind of product; they only rank (soft) so a stale one never
+            # empties the result, and a wish restated now wins.
+            said_now = {item.key.casefold() for item in merged.spec_constraints}
+            for raw in last.get("spec_constraints") or []:
+                try:
+                    earlier = SemanticConstraint.model_validate(raw)
+                except Exception:
+                    continue
+                if earlier.key.casefold() in said_now:
+                    continue
+                merged.spec_constraints.append(
+                    earlier.model_copy(update={"strength": "soft", "source": "conversation"})
+                )
+                said_now.add(earlier.key.casefold())
+            return merged
+
+        new_brand, old_brand = kind(filters.brand), kind(last.get("brand"))
+        if new_brand and old_brand and new_brand != old_brand:
+            # "shop có iPhone không" after Samsung at 8 triệu: switching to
+            # another brand is a new question, not the old budget. Naming a
+            # brand for the first time only narrows the same search.
+            merged = filters.model_copy(deep=True)
+            if not merged.category_path and last.get("category_path"):
+                merged.category_path = last["category_path"]
+            if not merged.product_type and last.get("product_type"):
+                merged.product_type = last["product_type"]
+            return SearchFilters.model_validate(keep_wishes(merged).model_dump())
+        merged = filters.model_copy(deep=True)
+        if not merged.product_type and last.get("product_type"):
+            merged.product_type = last["product_type"]
+        if not merged.category_path and last.get("category_path"):
+            merged.category_path = last["category_path"]
+        if merged.min_price is None and merged.max_price is None:
+            merged.min_price = last.get("min_price")
+            merged.max_price = last.get("max_price")
+        for field in ("brand", "audience"):
+            if not getattr(merged, field) and last.get(field):
+                setattr(merged, field, last[field])
+        for field in ("colors", "sizes"):
+            if not getattr(merged, field) and last.get(field):
+                setattr(merged, field, list(last[field]))
+        return SearchFilters.model_validate(keep_wishes(merged).model_dump())
+
+    @staticmethod
+    def _search_criteria(query: str, filters: SearchFilters) -> dict:
+        """The criteria a follow-up turn should keep unless the user changes them."""
+        criteria = {
+            "query": query,
+            "product_type": filters.product_type,
+            "category_path": filters.category_path,
+            "min_price": filters.min_price,
+            "max_price": filters.max_price,
+            "brand": filters.brand,
+            "audience": filters.audience,
+            "colors": filters.colors,
+            "sizes": filters.sizes,
+            "other": [
+                f"{item.key} {item.operator} {item.value}{(' ' + item.unit) if item.unit else ''}"
+                for item in filters.spec_constraints[:8]
+            ],
+            # Structured copy for _carry_over; "other" is what the model reads.
+            "spec_constraints": [item.model_dump() for item in filters.spec_constraints[:8]],
+        }
+        return {key: value for key, value in criteria.items() if value not in (None, "", [])}
+
+    @staticmethod
+    def _conversation_state(state: AgentState) -> dict:
+        """What the model must remember beyond the transcript: the action
+        waiting for confirmation and the criteria of the latest search."""
+        context: dict = {}
+        pending = state.get("pending_action") or {}
+        if pending:
+            context["pending_confirmation"] = {
+                "kind": pending.get("kind"),
+                "summary": pending.get("summary"),
+            }
+        last_search = state.get("last_search") or {}
+        if last_search:
+            context["last_search_criteria"] = {
+                key: value for key, value in last_search.items() if key != "spec_constraints"
+            }
+        return context
+
+    async def _category_paths(self) -> list[str]:
+        """The catalog tree as paths the semantic model may choose from."""
+        marketplace = getattr(self, "marketplace", None)
+        if marketplace is None or not hasattr(marketplace, "categories"):
+            return []
+        try:
+            return category_path_list(build_catalog_tree(await marketplace.categories()))
+        except Exception:
+            return []
+
+    @staticmethod
+    def _resolve_categories(tree: list[dict], filters: SearchFilters) -> list[str]:
+        """Category ids for the branch the model picked (exact path), else the
+        branch named by the category phrase or the product kind."""
+        if filters.category_path:
+            exact = resolve_category_path(tree, filters.category_path)
+            if exact:
+                # Same-kind siblings from other shops ("Nữ › Áo Thun" of one
+                # seller, "Nữ › Áo thun nữ" of another) belong to the branch.
+                return sorted({*exact, *resolve_category_ids(tree, filters.category_path)})
+        return resolve_category_ids(tree, filters.category_path or filters.product_type or "")
 
     async def resolve_context(self, state: AgentState) -> dict:
         understanding = TurnUnderstanding.model_validate(
@@ -1228,6 +808,115 @@ class AgenticShoppingGraph:
         )
 
     @staticmethod
+    def _detail_task_guard(
+        task: SemanticTask, references: list[str], message: str, history: list[dict] | None = None
+    ) -> SemanticTask:
+        """A question about one product's attributes ("mẫu basic có mấy màu")
+        is a detail question, and the previous search's colour/size filters
+        the model copied along must not narrow it to the colour searched.
+
+        A bare "có" to "xem thêm thông tin về sản phẩm này?" asks for the
+        overview, not the attribute the user asked about just before."""
+        if task.intent == "product_search" and len(references) == 1 and task.requested_attributes:
+            task = task.model_copy(update={"intent": "product_detail"})
+        if task.intent != "product_detail":
+            return task
+        said = _normalized(message)
+        previous_user = next(
+            (
+                _normalized(str(item.get("content") or ""))
+                for item in reversed(history or [])
+                if item.get("role") == "user"
+            ),
+            "",
+        )
+        asked_before = {
+            "color": r"\bmau\b",
+            "size": r"\b(?:size|kich thuoc|co nao)\b",
+        }
+        if (
+            re.fullmatch(r"\s*(?:co|ok|oke|okay|u|uh|um|vang|duoc|dong y|yes|xem|xem them|co a|co nhe)\s*[.!]*\s*", said)
+            and task.requested_attributes
+            and all(
+                attribute in asked_before and re.search(asked_before[attribute], previous_user)
+                for attribute in task.requested_attributes
+            )
+        ):
+            task = task.model_copy(update={
+                "requested_attributes": ["specification"],
+                "query": "giới thiệu tổng quan sản phẩm: giá, chất liệu, màu và size có sẵn, điểm nổi bật",
+            })
+        kept = [
+            constraint
+            for constraint in task.constraints
+            if constraint.key.casefold() not in {"color", "colors", "variant.color", "size", "sizes", "variant.size"}
+            or all(
+                re.search(rf"(?<!\w){re.escape(_normalized(str(value)))}(?!\w)", said)
+                for value in (constraint.value if isinstance(constraint.value, list) else [constraint.value])
+            )
+        ]
+        if len(kept) == len(task.constraints):
+            return task
+        return task.model_copy(update={"constraints": kept})
+
+    async def _catalog_references(
+        self, task: SemanticTask, state: AgentState, resolved: list[str]
+    ) -> list[str]:
+        """Name references to products not on screen ("so với loa rezo play")
+        are looked up in the catalog instead of asking which product."""
+        focused_names = [
+            _normalized(str(item.get("name") or "")) for item in state.get("focused_products", [])
+        ]
+        references = list(resolved)
+        # Products the assistant named earlier in the chat: "mẫu Samsung lúc
+        # nãy" is the one it showed, not the catalog's shortest Samsung name.
+        mentioned = " ".join(
+            _normalized(str(item.get("content") or ""))
+            for item in state.get("history", [])
+            if item.get("role") == "assistant"
+        )
+        for reference in task.references:
+            if reference.kind != "name" or len(references) >= 6:
+                continue
+            name = _normalized(reference.name)
+            if not name or any(name in focused for focused in focused_names):
+                continue
+            product_id = await self._lookup_product_by_name(reference.name, mentioned)
+            if product_id and product_id not in references:
+                references.append(product_id)
+        return references
+
+    async def _lookup_product_by_name(self, name: str, mentioned: str = "") -> str | None:
+        """The catalog product whose name contains every word the user said:
+        one the assistant already named in this chat first, else the one with
+        the fewest extra words ("rezo play" -> "Rezo Play", not "Rezo Play
+        Pro 2"); None when no listing carries all the words."""
+        wanted = re.findall(r"\w+", _normalized(name))
+        if not wanted:
+            return None
+        try:
+            hits = await self.retriever.search(name, SearchFilters(in_stock=False), limit=8)
+        except Exception as error:
+            log.warning("name lookup failed: %s: %s", type(error).__name__, str(error)[:200])
+            return None
+        best: tuple[int, str] | None = None
+        for hit in hits:
+            text = str((hit.get("payload") or {}).get("text") or "")
+            title = text.splitlines()[0] if text else ""
+            title = title.split(":", 1)[1] if title.startswith("Tên sản phẩm:") else title
+            words = re.findall(r"\w+", _normalized(title))
+            if not words or not set(wanted) <= set(words):
+                continue
+            extra = len(set(words) - set(wanted))
+            seen = bool(mentioned) and _normalized(title.strip()) in mentioned
+            rank = (0 if seen else 1, extra)
+            if best is None or rank < best[0]:
+                best = (rank, str(hit.get("productId") or ""))
+        if best and re.fullmatch(r"[a-fA-F0-9]{24}", best[1]):
+            return best[1]
+        return None
+
+    @staticmethod
     def _semantic_references(task: SemanticTask, state: AgentState) -> list[str]:
         focused = state.get("focused_products", [])
         active = str(state.get("active_product_id") or "")
@@ -1263,6 +952,9 @@ class AgenticShoppingGraph:
         for constraint in task.constraints:
             key = constraint.key.casefold()
             value = constraint.value
+            values = [str(item) for item in value] if isinstance(value, list) else [str(value)]
+            if key == "payment_method":
+                continue
             if key == "product_type" and isinstance(value, str):
                 filters.product_type = value
             elif key == "category_path" and isinstance(value, str):
@@ -1270,25 +962,49 @@ class AgenticShoppingGraph:
             elif key == "audience" and value in {"nam", "nu", "tre_em", "unisex"}:
                 filters.audience = value
             elif key == "brand" and isinstance(value, str):
-                filters.brand = value
+                if not _VAGUE_BRAND.search(_normalized(value)):
+                    filters.brand = value
             elif key in {"color", "colors", "variant.color"}:
-                filters.colors = list(value) if isinstance(value, list) else [str(value)]
+                for color in values:
+                    expanded = _NEUTRAL_COLORS if _NEUTRAL.search(_normalized(color)) else [color]
+                    filters.colors = list(dict.fromkeys([*filters.colors, *expanded]))[:8]
             elif key in {"size", "sizes", "variant.size"}:
-                filters.sizes = list(value) if isinstance(value, list) else [str(value)]
+                sizes = [item for item in values if _SIZE_VALUE.fullmatch(_normalized(item).strip())]
+                if sizes:
+                    filters.sizes = list(dict.fromkeys([*filters.sizes, *sizes]))[:8]
+                else:
+                    # "nhỏ gọn" is a wish about the product, not a variant size.
+                    filters.spec_constraints.append(constraint.model_copy(update={"strength": "soft"}))
             elif key in {"max_price", "price"} and constraint.operator in {"lt", "lte"}:
                 filters.max_price = float(value)
             elif key in {"min_price", "price"} and constraint.operator in {"gt", "gte"}:
                 filters.min_price = float(value)
             elif key == "price" and constraint.operator == "eq":
-                filters.min_price = filters.max_price = float(value)
+                # A stated price is a budget, never an exact match.
+                filters.min_price = round(float(value) * 0.5)
+                filters.max_price = round(float(value) * 1.1)
+            elif _UNVERIFIABLE_KEY.search(key):
+                # Delivery time, gift wrap, warranty, total for several items:
+                # no listing field proves them, so they cannot filter results.
+                continue
             else:
-                filters.spec_constraints.append(constraint)
+                filters.spec_constraints.append(_soften(constraint))
         return SearchFilters.model_validate(filters.model_dump())
 
     async def _plan_semantic(self, state: AgentState, turn: SemanticTurn) -> dict:
         request = state.get("request", {})
         focused = state.get("focused_products", [])
         skipped_tasks: list[str] = []
+        asked_about_list = (
+            turn.needs_clarification
+            and focused
+            and turn.tasks
+            and turn.tasks[0].intent in {"product_detail", "compare_products"}
+        )
+        if asked_about_list:
+            # "mẫu nào có màn OLED" right after a list: the list is the subject,
+            # so answer from it rather than ask which product.
+            turn = turn.model_copy(update={"needs_clarification": False, "clarification_question": ""})
         if turn.needs_clarification:
             task = SemanticTask(intent="clarify")
         else:
@@ -1303,6 +1019,17 @@ class AgenticShoppingGraph:
                 and item.intent in _INTENT_LABELS
             ]
         references = self._semantic_references(task, state)
+        if task.intent in {"product_detail", "compare_products", "cart_add"}:
+            references = await self._catalog_references(task, state, references)
+        guarded = self._detail_task_guard(
+            task, references, state.get("message", ""), state.get("history", [])
+        )
+        if guarded is not task:
+            # Later nodes (attribute answer, web research) read the turn.
+            turn = turn.model_copy(
+                update={"tasks": [guarded if item is task else item for item in turn.tasks]}
+            )
+            task = guarded
         trusted_product = str(request.get("referenceProductId") or "")
         if re.fullmatch(r"[a-fA-F0-9]{24}", trusted_product):
             references = [trusted_product]
@@ -1315,27 +1042,75 @@ class AgenticShoppingGraph:
         ):
             references = [active]
 
+        assumed_product = False
         filters = self._semantic_filters(task)
+        if task.intent == "product_search" and not references and turn.focus_update != "clear":
+            filters = self._carry_over(filters, state.get("last_search") or {})
         intent = task.intent
         clarification = ""
         if turn.needs_clarification or intent == "clarify":
             intent = "general"
             clarification = turn.clarification_question or "Bạn có thể nói rõ hơn nhu cầu cần hỗ trợ không?"
+        elif task.intent == "support_request":
+            intent = "general"
         elif task.intent == "out_of_scope":
             intent = "general"
-            clarification = "Mình chỉ hỗ trợ mua sắm, chính sách, giỏ hàng và đơn hàng; mình không thể thực hiện yêu cầu đó."
+            clarification = (
+                "Câu này nằm ngoài phạm vi của mình rồi. Mình là trợ lý mua sắm của shop: có thể giúp bạn tìm "
+                "và so sánh sản phẩm, xem giỏ hàng, thanh toán, tra đơn hoặc giải đáp chính sách. Bạn đang cần tìm gì nhé?"
+            )
+        elif (
+            task.web_research
+            and task.intent in {"compare_products", "product_detail"}
+            and not references
+        ):
+            # A knowledge question about products not on screen ("Snapdragon
+            # 8 Gen 3 hay Dimensity 9300"): answered from web research.
+            intent = "general"
         elif task.intent == "compare_products":
+            if not references and len(focused) >= 2:
+                references = [str(item.get("id") or "") for item in focused[:4] if item.get("id")]
+            if len(references) == 1 and focused:
+                # "so với Rezo Play thì cái nào rẻ hơn" while a list is on
+                # screen: the named product is compared with that list.
+                references = list(dict.fromkeys([
+                    references[0],
+                    *(str(item.get("id") or "") for item in focused[:4]),
+                ]))
+                references = [item for item in references if re.fullmatch(r"[a-fA-F0-9]{24}", item)]
             if len(references) < 2:
                 intent = "general"
                 clarification = "Bạn muốn so sánh những sản phẩm nào trong danh sách?"
             else:
                 intent = "product_search"
+        elif task.intent == "product_detail" and len(references) > 1:
+            # "RAM bao nhiêu" about the whole list: answered side by side.
+            references = references[:4]
+            intent = "product_search"
+        elif task.intent == "product_detail" and not references and focused and str(focused[0].get("id") or ""):
+            # "có màu đen không" right after a list: answer for the product
+            # the assistant just recommended (else the first result) and name it.
+            references = [self._last_recommended(state, focused)]
+            assumed_product = True
         elif task.intent == "product_detail" and len(references) != 1:
             intent = "general"
             clarification = "Bạn muốn hỏi chi tiết sản phẩm nào?"
-        elif task.intent in {"cart_add", "cart_update", "cart_remove"} and len(references) != 1:
+        elif task.intent == "cart_add" and not 1 <= len(references) <= 4:
             intent = "general"
-            clarification = "Bạn muốn thao tác với sản phẩm nào?"
+            clarification = "Bạn muốn thêm sản phẩm nào vào giỏ?"
+        elif task.intent in {"cart_update", "cart_remove"} and len(references) > 1:
+            # Without a reference the order agent matches the cart lines.
+            intent = "general"
+            clarification = "Bạn muốn thay đổi sản phẩm nào trong giỏ hàng?"
+        payment_method = next(
+            (
+                str(item.value)
+                for item in task.constraints
+                if item.key.casefold() == "payment_method"
+                and str(item.value) in {"cod", "bank_transfer"}
+            ),
+            None,
+        )
 
         query = task.query or state.get("message", "")
         plan = AgentPlan(
@@ -1349,13 +1124,13 @@ class AgenticShoppingGraph:
             clarification=clarification,
             sort_by=task.sort_by,
             result_limit=task.result_limit,
+            order_id=task.order_id,
+            payment_method=payment_method,
         )
         if intent == "product_search" and not references and (filters.category_path or filters.product_type):
             try:
                 category_tree = build_catalog_tree(await self.marketplace.categories())
-                filters.category_ids = resolve_category_ids(
-                    category_tree, filters.category_path or filters.product_type or ""
-                )
+                filters.category_ids = self._resolve_categories(category_tree, filters)
                 plan.filters = filters
             except Exception:
                 pass
@@ -1381,9 +1156,15 @@ class AgenticShoppingGraph:
             "selected_options": selected_options,
             "shopping_phase": _shopping_phase(intent, filters, references),
             "tool_result": {},
-            "warnings": list(state.get("warnings", [])),
+            "warnings": [*state.get("warnings", []), *(["ASSUMED_FIRST_PRODUCT"] if assumed_product else [])],
             "route": task.intent if task.intent in {"clarify", "out_of_scope"} else intent,
             "skipped_tasks": skipped_tasks,
+            "semantic_turn": turn.model_dump(),
+            **(
+                {"last_search": self._search_criteria(query, filters)}
+                if intent == "product_search" and not references
+                else {}
+            ),
             "committed": False,
         }
 
@@ -1391,6 +1172,25 @@ class AgenticShoppingGraph:
         request = state.get("request", {})
         if request.get("confirmActionId") or request.get("cancelActionId"):
             return {"route": "resolve_pending", "committed": False}
+        pending = state.get("pending_action") or {}
+        decision = (state.get("semantic_turn") or {}).get("pending_decision", "none")
+        if (
+            decision in {"confirm", "cancel"}
+            and "TEXT_CONFIRMATION" not in state.get("warnings", [])
+            and not _explicit_pending_answer(state.get("message", ""), decision)
+        ):
+            # The model read "có thể, nhưng..." as a yes: a cart change or an
+            # order needs words that clearly answer the confirmation.
+            decision = "none"
+        if pending.get("id") and decision in {"confirm", "cancel"}:
+            # A typed answer to the waiting action is the same as its button;
+            # a policy question in the same message still runs alongside.
+            key = "confirmActionId" if decision == "confirm" else "cancelActionId"
+            return {
+                "route": "resolve_pending",
+                "committed": False,
+                "request": {**request, key: pending["id"]},
+            }
         if state.get("semantic_turn"):
             return await self._plan_semantic(
                 state, SemanticTurn.model_validate(state["semantic_turn"])
@@ -1630,9 +1430,7 @@ class AgenticShoppingGraph:
         ):
             try:
                 category_tree = build_catalog_tree(await self.marketplace.categories())
-                filters.category_ids = resolve_category_ids(
-                    category_tree, filters.category_path or filters.product_type or ""
-                )
+                filters.category_ids = self._resolve_categories(category_tree, filters)
             except Exception:
                 # Taxonomy resolution narrows a search, but is not required for
                 # semantic retrieval to degrade gracefully.
@@ -1698,695 +1496,7 @@ class AgenticShoppingGraph:
 
     @classmethod
     def route_after_plan(cls, state: AgentState) -> list[str]:
-        return [cls._main_route(state), "policy_side"]
-
-    async def browse_categories(self, state: AgentState) -> dict:
-        categories = await self.marketplace.categories()
-        tree = build_catalog_tree(categories)
-        return {
-            "route": "browse_categories",
-            "shopping_phase": "exploring",
-            "tool_result": {
-                "catalogTree": compact_catalog_tree(tree),
-                "sourceCategoryCount": len(categories),
-                "rootCategoryCount": len(tree),
-            },
-        }
-
-    async def retrieve(self, state: AgentState) -> dict:
-        plan = AgentPlan.model_validate(state["plan"])
-        if plan.product_ids:
-            hits = [
-                {"productId": product_id, "vectorScore": None, "sources": ["conversation"]}
-                for product_id in plan.product_ids
-            ]
-        else:
-            hits = await self.retriever.search(
-                state["query"],
-                plan.filters,
-                limit=max(
-                    self.settings.retrieval_limit,
-                    plan.result_limit or self.settings.result_limit,
-                ),
-                sort_by=plan.sort_by,
-            )
-        requested_limit = plan.result_limit or self.settings.result_limit
-        hydration_limit = (
-            requested_limit
-            if plan.product_ids
-            or plan.sort_by != "relevance"
-            else max(
-                requested_limit,
-                min(len(hits), self.settings.retrieval_limit),
-            )
-        )
-        products = await self.marketplace.hydrate_products(
-            hits, plan.filters, hydration_limit
-        )
-        brand = _normalized(plan.filters.brand or "").strip()
-        if brand and not plan.product_ids:
-            # Brands missing from the facet vocabulary are dropped from the
-            # Qdrant filter, so "tai nghe sony" would list any headphones.
-            # Relaxation removes the brand, and says so, if none is left.
-            products = [
-                product for product in products
-                if re.search(
-                    rf"(?<!\w){re.escape(brand)}(?!\w)",
-                    _normalized(f"{product.get('name') or ''} {product.get('brand') or ''}"),
-                )
-            ]
-        verification: list[dict] = []
-        warnings = list(state.get("warnings", []))
-        needs_semantic_verifier = False
-        if plan.filters.spec_constraints:
-            needs_semantic_verifier = requires_semantic_verifier(
-                plan.filters.spec_constraints
-            )
-            verdicts = {
-                str(product.get("id")): verify_spec_constraints(
-                    product, plan.filters.spec_constraints
-                )
-                for product in products
-            }
-            if any(item.verdict == "unknown" for item in verdicts.values()) and any(
-                item.strength == "hard" for item in plan.filters.spec_constraints
-            ):
-                # Most listings carry no structured spec ("16GB" sits in the
-                # name or description): let the verifier read them instead of
-                # dropping every product and answering "nothing found".
-                needs_semantic_verifier = True
-            grounded_products: list[dict] = []
-            for product in products:
-                verdict = verdicts[str(product.get("id"))]
-                verification.append(
-                    {
-                        "productId": product.get("id"),
-                        "verdict": verdict.verdict,
-                        "evidence": list(verdict.evidence),
-                        "reason": verdict.reason,
-                    }
-                )
-                if verdict.verdict == "match":
-                    grounded_products.append(product)
-                elif verdict.verdict == "unknown" and needs_semantic_verifier:
-                    grounded_products.append(product)
-                elif verdict.verdict == "unknown" and not any(
-                    item.strength == "hard"
-                    for item in plan.filters.spec_constraints
-                ):
-                    grounded_products.append(product)
-            products = grounded_products
-        semantic_scope_constraint: dict | None = None
-        raw_turn = state.get("semantic_turn")
-        if raw_turn and not plan.product_ids:
-            turn = SemanticTurn.model_validate(raw_turn)
-            product_task = next(
-                (task for task in turn.tasks if task.intent == "product_search"), None
-            )
-            has_structured_scope = bool(
-                plan.filters.product_type
-                or plan.filters.category_id
-                or plan.filters.category_ids
-                or plan.filters.category_path
-            )
-            if product_task and not has_structured_scope:
-                semantic_scope_constraint = {
-                    "key": "semantic_product_scope",
-                    "operator": "contains",
-                    "value": product_task.query or state["query"],
-                    "unit": "",
-                    "strength": "hard",
-                    "source": "semantic_query",
-                }
-        head = _product_head(plan.filters.product_type or "")
-        relaxed_keys = SearchContext.model_validate(state.get("search_context") or {}).relaxed_keys
-        if not head and "spec.hard" in relaxed_keys:
-            # Once even the hard specs are dropped, nearest neighbours of a
-            # product the catalog lacks are unrelated ("sạc dự phòng" ->
-            # "áo phông"): keep only names that start the same way.
-            phrase = plan.filters.product_type or state.get("query") or ""
-            head = next(iter(re.findall(r"[a-z]{2,}", _normalized(phrase))), "")
-        if (
-            products
-            and head
-            and not (plan.filters.category_ids or plan.filters.category_id or plan.filters.category_path)
-        ):
-            # No category matched the phrase, so nothing scoped the search to
-            # the product kind: "nồi chiên" must not return "dầu thơm".
-            products = [
-                product for product in products
-                if re.search(rf"(?<!\w){re.escape(head)}(?!\w)", _normalized(str(product.get("name") or "")))
-            ]
-        if products and semantic_scope_constraint and not needs_semantic_verifier:
-            # Scope alone is checked against product names: hybrid search has
-            # already ranked by relevance, a model call here only adds latency.
-            query_terms = set(_search_terms(str(semantic_scope_constraint["value"])))
-            products = [
-                product
-                for product in products
-                if query_terms & set(_search_terms(str(product.get("name") or "")))
-            ]
-            semantic_scope_constraint = None
-        if products and needs_semantic_verifier:
-            verifier_constraints = [
-                item.model_dump() for item in plan.filters.spec_constraints
-            ]
-            if semantic_scope_constraint:
-                verifier_constraints.append(semantic_scope_constraint)
-            # Products whose specs already matched deterministically skip the
-            # model; only the undecided ones are sent.
-            deterministic_match = {
-                str(item.get("productId"))
-                for item in verification
-                if item.get("verdict") == "match"
-            } if not semantic_scope_constraint else set()
-            undecided = [
-                product for product in products
-                if str(product.get("id")) not in deterministic_match
-            ]
-            try:
-                checked = (
-                    await self.models.verify_candidates(
-                        state["query"], verifier_constraints, undecided
-                    )
-                    if undecided
-                    else None
-                )
-                by_id = {item.productId: item for item in (checked.results if checked else [])}
-                products = [
-                    product
-                    for product in products
-                    if str(product.get("id")) in deterministic_match
-                    or (
-                        by_id.get(str(product.get("id")))
-                        and by_id[str(product.get("id"))].verdict == "match"
-                    )
-                ]
-                if checked:
-                    verified = {item.productId for item in checked.results}
-                    verification = [
-                        item for item in verification
-                        if str(item.get("productId")) not in verified
-                    ] + [item.model_dump() for item in checked.results]
-            except Exception:
-                # Model unavailable or out of budget: fall back to evidence we
-                # can check deterministically instead of returning nothing.
-                # Unknown hard specs and products whose name shares no term
-                # with the query still never leak into the response.
-                warnings.append("UNVERIFIED")
-                deterministic = {
-                    str(item.get("productId")): item.get("verdict")
-                    for item in verification
-                }
-                has_hard_specs = any(
-                    item.strength == "hard" for item in plan.filters.spec_constraints
-                )
-                query_terms = set(_search_terms(state["query"]))
-                products = [
-                    product
-                    for product in products
-                    if (
-                        not has_hard_specs
-                        or deterministic.get(str(product.get("id"))) == "match"
-                    )
-                    and (
-                        not semantic_scope_constraint
-                        or query_terms & set(_search_terms(str(product.get("name") or "")))
-                    )
-                ]
-        referenced_ids = list(plan.product_ids)
-        if not referenced_ids:
-            named_products = _focused_references(
-                state.get("message", ""), products
-            )
-            if named_products:
-                referenced_ids = [str(item["id"]) for item in named_products]
-                products_by_id = {str(item.get("id")): item for item in products}
-                products = [
-                    products_by_id[product_id]
-                    for product_id in referenced_ids
-                    if product_id in products_by_id
-                ]
-            else:
-                products = products[:requested_limit]
-        ranking_price = None
-        if products and plan.sort_by != "relevance":
-            def price_getter(product: dict) -> float:
-                prices = [
-                    float(variant.get("price") or 0)
-                    for variant in product.get("variants", [])
-                ]
-                if not prices:
-                    return float(product.get("price") or 0)
-                return (
-                    max(prices)
-                    if plan.sort_by == "price_desc"
-                    else min(prices)
-                )
-
-            products.sort(
-                key=price_getter,
-                reverse=plan.sort_by == "price_desc",
-            )
-            products = products[:requested_limit]
-            ranking_price = price_getter(products[0]) if products else None
-        rounds = (
-            self.settings.max_retrieval_rounds
-            if plan.product_ids
-            else int(state.get("retrieval_rounds", 0)) + 1
-        )
-        search_context = SearchContext.model_validate(
-            state.get("search_context") or {}
-        )
-        if len(products) == 1:
-            search_context.anchor_product_id = str(products[0].get("id") or "") or None
-            search_context.anchor_product_name = str(products[0].get("name") or "")
-        resolved_active_product = (
-            referenced_ids[0]
-            if len(referenced_ids) == 1
-            else str(products[0].get("id") or "")
-            if len(products) == 1
-            else None
-        )
-        return {
-            "route": "product_search",
-            "retrieval_hits": hits,
-            "retrieval_rounds": rounds,
-            "products": products,
-            "warnings": list(dict.fromkeys(warnings)),
-            "active_product_id": resolved_active_product,
-            "search_context": search_context.model_dump(),
-            "tool_result": {
-                "query": state["query"],
-                "filters": plan.filters.model_dump(),
-                "found": len(products),
-                "referencedProductIds": referenced_ids,
-                "sortBy": plan.sort_by,
-                "rankingPrice": ranking_price,
-                "relaxedConstraints": search_context.relaxed_keys,
-                "verification": verification,
-            },
-        }
-
-    def route_after_retrieval(self, state: AgentState) -> str:
-        if state.get("products"):
-            return "collect"
-        if int(state.get("retrieval_rounds", 0)) >= self.settings.max_retrieval_rounds:
-            return "collect"
-        plan = AgentPlan.model_validate(state["plan"])
-        context = SearchContext.model_validate(state.get("search_context") or {})
-        if (context.mode == "similar" and _soft_context_keys(context)) or _next_relaxation(
-            plan.filters, context.relaxed_keys
-        ):
-            return "relax"
-        # Retrying the same query with the same filters cannot change the result.
-        return "collect"
-
-    async def relax_constraints(self, state: AgentState) -> dict:
-        """Loosen one constraint per round instead of asking a model to rewrite.
-
-        Every relaxed key is recorded so the answer can say what changed.
-        """
-        plan = AgentPlan.model_validate(state["plan"])
-        context = SearchContext.model_validate(state.get("search_context") or {})
-        warnings = list(state.get("warnings", []))
-        relaxable = _soft_context_keys(context) if context.mode == "similar" else set()
-        if relaxable:
-            context.constraints = [
-                constraint
-                for constraint in context.constraints
-                if constraint.key not in relaxable
-            ]
-            context.relaxed_keys.extend(sorted(relaxable))
-            filters = plan.filters.model_copy(deep=True)
-            if relaxable & {"color", "colors", "variant.color"}:
-                filters.colors = []
-            if relaxable & {"size", "sizes", "variant.size"}:
-                filters.sizes = []
-            plan.filters = filters
-            relaxed_text = ", ".join(
-                _RELAX_LABELS.get(key, key) for key in sorted(relaxable)
-            )
-            warnings.append(
-                f"Không có kết quả khớp hoàn toàn; đã nới: {relaxed_text}."
-            )
-        else:
-            key = _next_relaxation(plan.filters, context.relaxed_keys)
-            if key:
-                plan.filters = _apply_relaxation(plan.filters, key)
-                context.relaxed_keys.append(key)
-                warnings.append(
-                    f"Không có kết quả khớp hoàn toàn; đã nới: {_RELAX_LABELS[key]}."
-                )
-        return {
-            "plan": plan.model_dump(),
-            "search_context": context.model_dump(),
-            "warnings": warnings,
-        }
-
-    async def product_detail(self, state: AgentState) -> dict:
-        product_id = state.get("plan", {}).get("product_id")
-        if not product_id:
-            return {"tool_result": {"clarification": "Bạn muốn hỏi sản phẩm nào?"}}
-        # Detail questions need the complete in-stock sibling variants so the
-        # agent can answer negative availability (for example "Be có size S?").
-        card = await self.marketplace.product_card(product_id, SearchFilters())
-        selected_options = {
-            "colors": list(state.get("selected_options", {}).get("colors") or []),
-            "sizes": list(state.get("selected_options", {}).get("sizes") or []),
-        }
-        if card:
-            inferred = _variant_selection(
-                state.get("message", ""),
-                card.get("variants", []),
-                card.get("name", ""),
-            )
-            for field in ("colors", "sizes"):
-                if inferred[field]:
-                    selected_options[field] = inferred[field]
-        return {
-            "route": "product_detail",
-            "products": [card] if card else [],
-            "active_product_id": product_id if card else None,
-            "selected_options": selected_options,
-            "tool_result": {
-                "found": bool(card),
-                "productId": product_id,
-                "selectedOptions": selected_options,
-            },
-        }
-
-    @staticmethod
-    def _auth_error(state: AgentState) -> dict | None:
-        if not state.get("user_id") or state.get("role") not in {"buyer", "admin"}:
-            return {
-                "tool_result": {
-                    "error": "Bạn cần đăng nhập bằng tài khoản người mua để thực hiện thao tác này."
-                }
-            }
-        return None
-
-    async def cart_view(self, state: AgentState) -> dict:
-        denied = self._auth_error(state)
-        if denied:
-            return denied
-        cart = await self.marketplace.cart(state["user_id"])
-        return {"route": "cart_view", "tool_result": {"cart": cart, "cartSummary": await self._cart_summary(cart)}}
-
-    async def _cart_summary(self, cart: dict) -> str:
-        """Name, quantity and price of every line, so the answer is useful
-        without another model call."""
-        lines = [item for item in (cart or {}).get("products", []) if item.get("productId")]
-        if not lines:
-            return "Giỏ hàng của bạn đang trống."
-        details = await asyncio.gather(
-            *(self.marketplace.product(str(item["productId"])) for item in lines[:10]),
-            return_exceptions=True,
-        )
-        rows, total = [], 0.0
-        for item, product in zip(lines, details):
-            if not isinstance(product, dict):
-                continue
-            variant = next(
-                (v for v in product.get("variants", []) if str(v.get("_id") or v.get("id")) == str(item.get("variantId"))),
-                None,
-            )
-            price = float((variant or {}).get("price") or product.get("price") or 0)
-            quantity = int(item.get("quantity") or 1)
-            total += price * quantity
-            label = product.get("name", "Sản phẩm") + (f" ({variant['name']})" if variant and variant.get("name") else "")
-            rows.append(f"{label} × {quantity} – {_price_text(price * quantity)}")
-        if not rows:
-            return f"Giỏ hàng của bạn có {len(lines)} sản phẩm."
-        more = f" (và {len(lines) - len(rows)} sản phẩm khác)" if len(lines) > len(rows) else ""
-        return (
-            f"Giỏ hàng của bạn có {len(lines)} sản phẩm{more}:\n• "
-            + "\n• ".join(rows)
-            + f"\nTạm tính: {_price_text(total)}."
-        )
-
-    async def prepare_cart(self, state: AgentState) -> dict:
-        denied = self._auth_error(state)
-        if denied:
-            return denied
-        plan = AgentPlan.model_validate(state["plan"])
-        if not plan.product_id:
-            return {
-                "tool_result": {
-                    "clarification": "Bạn hãy chọn rõ sản phẩm cần thay đổi trong giỏ hàng."
-                }
-            }
-        variant_id = plan.variant_id
-        product_name = plan.product_id
-        if plan.intent == "cart_add":
-            card = await self.marketplace.product_card(plan.product_id, plan.filters)
-            if not card:
-                return {"tool_result": {"error": "Sản phẩm không còn bán hoặc đã hết hàng."}}
-            product_name = card["name"]
-            variants = card.get("variants", [])
-            if not variant_id and len(variants) > 1:
-                return {
-                    "products": [card],
-                    "suggestions": [
-                        f"Thêm {variant['name']} vào giỏ"
-                        for variant in variants[:8]
-                        if variant.get("name")
-                    ],
-                    "tool_result": {
-                        "clarification": "Sản phẩm có nhiều biến thể. Hãy chọn màu/size trước khi thêm vào giỏ.",
-                        "variants": variants[:12],
-                    },
-                }
-            if not variant_id and len(variants) == 1:
-                variant_id = variants[0].get("id")
-        labels = {
-            "cart_add": "Thêm",
-            "cart_update": "Đặt số lượng",
-            "cart_remove": "Xóa",
-        }
-        summary = (
-            f"{labels[plan.intent]} {product_name}"
-            + (f" — số lượng {plan.quantity}" if plan.intent != "cart_remove" else "")
-        )
-        action = PendingAction(
-            id=f"act_{secrets.token_urlsafe(18)}",
-            kind=plan.intent,
-            summary=summary,
-            payload={
-                "productId": plan.product_id,
-                "variantId": variant_id,
-                "quantity": plan.quantity,
-            },
-            expires_at=time.time() + self.settings.action_ttl,
-        )
-        return {
-            "route": plan.intent,
-            "pending_action": action.model_dump(),
-            "tool_result": {
-                "confirmationRequired": True,
-                "summary": summary,
-                "actionId": action.id,
-            },
-        }
-
-    async def prepare_checkout(self, state: AgentState) -> dict:
-        denied = self._auth_error(state)
-        if denied:
-            return denied
-        request = state.get("request", {})
-        address_id = request.get("addressId")
-        payment_method = request.get("paymentMethod")
-        if not address_id:
-            addresses = await self.marketplace.addresses(state["user_id"])
-            return {
-                "tool_result": {
-                    "clarification": "Bạn hãy chọn địa chỉ giao hàng trước khi tạo báo giá.",
-                    "addresses": addresses,
-                }
-            }
-        if payment_method not in {"cod", "bank_transfer"}:
-            return {
-                "tool_result": {
-                    "clarification": "Bạn chọn thanh toán COD hay chuyển khoản ngân hàng?"
-                }
-            }
-        cart = await self.marketplace.cart(state["user_id"])
-        items = cart.get("products", []) if isinstance(cart, dict) else []
-        if not items:
-            return {"tool_result": {"error": "Giỏ hàng đang trống."}}
-        products = [
-            {
-                "productId": str(item.get("productId")),
-                "variantId": item.get("variantId"),
-                "quantity": int(item.get("quantity", 1)),
-            }
-            for item in items
-            if item.get("productId") and int(item.get("quantity", 0)) > 0
-        ]
-        quote = await self.marketplace.checkout_quote(
-            state["user_id"],
-            state["session_id"],
-            products,
-            address_id,
-            payment_method,
-            request.get("voucherCode"),
-        )
-        confirmation_token = str(quote.pop("confirmationToken", ""))
-        if not quote.get("quoteId") or not confirmation_token:
-            return {"tool_result": {"error": "Không tạo được báo giá thanh toán."}}
-        summary = (
-            f"Thanh toán {len(products)} dòng hàng, tổng {float(quote.get('totalPrice', 0)):,.0f}đ "
-            f"bằng {'COD' if payment_method == 'cod' else 'chuyển khoản'}"
-        )
-        action = PendingAction(
-            id=f"act_{secrets.token_urlsafe(18)}",
-            kind="checkout_confirm",
-            summary=summary,
-            payload={"quoteId": str(quote["quoteId"])},
-            secret=confirmation_token,
-            expires_at=time.time() + self.settings.action_ttl,
-        )
-        return {
-            "route": "checkout",
-            "pending_action": action.model_dump(),
-            "tool_result": {
-                "quote": quote,
-                "confirmationRequired": True,
-                "summary": summary,
-                "actionId": action.id,
-            },
-        }
-
-    async def order_status(self, state: AgentState) -> dict:
-        denied = self._auth_error(state)
-        if denied:
-            return denied
-        plan = AgentPlan.model_validate(state["plan"])
-        orders = await self.marketplace.orders(state["user_id"])
-        if plan.order_id:
-            order = next(
-                (item for item in orders if int(item.get("id", 0)) == plan.order_id), None
-            )
-            shipment = (
-                await self.marketplace.shipment(state["user_id"], plan.order_id)
-                if order
-                else None
-            )
-            return {
-                "route": "order_status",
-                "tool_result": {"order": order, "shipment": shipment},
-            }
-        return {"route": "order_status", "tool_result": {"orders": orders[:10]}}
-
-    async def resolve_pending(self, state: AgentState) -> dict:
-        denied = self._auth_error(state)
-        if denied:
-            return denied
-        request = state.get("request", {})
-        raw = state.get("pending_action")
-        if not raw:
-            return {"tool_result": {"error": "Không có thao tác nào đang chờ xác nhận."}}
-        action = PendingAction.model_validate(raw)
-        cancel_id = request.get("cancelActionId")
-        confirm_id = request.get("confirmActionId")
-        if cancel_id:
-            if cancel_id != action.id:
-                return {"tool_result": {"error": "Mã hành động không khớp."}}
-            return {
-                "pending_action": None,
-                "route": action.kind,
-                "tool_result": {"cancelled": True, "summary": action.summary},
-            }
-        if confirm_id != action.id:
-            return {"tool_result": {"error": "Mã xác nhận không khớp."}}
-        if action.expires_at <= time.time():
-            return {
-                "pending_action": None,
-                "tool_result": {"error": "Xác nhận đã hết hạn. Hãy tạo lại thao tác."},
-            }
-        payload = action.payload
-        if action.kind == "cart_add":
-            result = await self.marketplace.add_to_cart(
-                state["user_id"],
-                payload["productId"],
-                payload.get("variantId"),
-                int(payload["quantity"]),
-                action.id,
-            )
-        elif action.kind in {"cart_update", "cart_remove"}:
-            result = await self.marketplace.set_cart_line(
-                state["user_id"],
-                payload["productId"],
-                payload.get("variantId"),
-                0 if action.kind == "cart_remove" else int(payload["quantity"]),
-            )
-        else:
-            result = await self.marketplace.confirm_checkout(
-                state["user_id"],
-                state["session_id"],
-                payload["quoteId"],
-                action.secret,
-            )
-        return {
-            "pending_action": None,
-            "route": action.kind,
-            "tool_result": {
-                "success": True,
-                "summary": action.summary,
-                "result": result,
-            },
-        }
-
-    async def _policy_result(self, question: str) -> tuple[str, list[dict]]:
-        if not self.policy:
-            return "Mình chưa có kho tài liệu chính sách để kiểm tra thông tin này.", []
-        try:
-            context, sources = await self.policy.retrieve(question)
-        except Exception:
-            # A policy lookup failure must not take the rest of the turn down.
-            return "Mình chưa tra cứu được chính sách lúc này, bạn thử lại sau nhé.", []
-        if not context:
-            return "Mình chưa tìm thấy chính sách phù hợp trong kho tài liệu hiện tại.", []
-        try:
-            answer = await self.models.answer_policy(question, context)
-            cited_numbers = {
-                int(number)
-                for number in re.findall(r"\[Nguồn\s+(\d+)\]", answer)
-            }
-            cited_sources = [
-                source for source in sources if source["number"] in cited_numbers
-            ]
-            # A model that answers without "[Nguồn n]" still answered from
-            # these documents: show them rather than no source at all.
-            return answer, cited_sources or sources[:3]
-        except Exception:
-            excerpt = str(context[0].get("text") or "")[:900]
-            return f"Theo tài liệu đã truy xuất: {excerpt} [Nguồn {context[0]['number']}]", sources
-
-    async def policy_answer(self, state: AgentState) -> dict:
-        answer, sources = await self._policy_result(
-            state.get("query") or state.get("message", "")
-        )
-        return {
-            "route": "policy",
-            "render_product_cards": False,
-            "tool_result": {"policyAnswer": answer},
-            "sources": sources,
-        }
-
-    async def policy_side(self, state: AgentState) -> dict:
-        """Answer a secondary policy task in parallel with the main route."""
-        raw = state.get("semantic_turn")
-        if not raw or state.get("route") in {"policy", "resolve_pending"}:
-            return {}
-        turn = SemanticTurn.model_validate(raw)
-        task = next((item for item in turn.tasks if item.intent == "policy"), None)
-        if not task:
-            return {}
-        answer, sources = await self._policy_result(
-            task.query or state.get("message", "")
-        )
-        return {"policy_appendix": answer, "policy_sources": sources}
+        return [cls._main_route(state), "policy_side", "research_side"]
 
     async def collect(self, _state: AgentState) -> dict:
         """Join point of the main route before the policy barrier."""
@@ -2417,9 +1527,28 @@ class AgenticShoppingGraph:
         plan = state.get("plan", {})
         clarification = str(plan.get("clarification") or "")
         message_key = _normalized(state.get("message", "")).strip()[:200]
-        count = int(state.get("clarify_count") or 0) + 1
-        if message_key and message_key == state.get("last_clarify_key"):
-            count = max(count, 2)
+        previous_count = int(state.get("clarify_count") or 0)
+        repeated = bool(message_key) and message_key == state.get("last_clarify_key")
+        if "MODEL_UNAVAILABLE" in state.get("warnings", []):
+            # Our own outage is not the customer being unclear: ask once,
+            # plainly, and do not move them towards a human handoff for it.
+            return {
+                "route": "clarify",
+                "render_product_cards": False,
+                "tool_result": {
+                    "clarification": "Xin lỗi, mình xử lý câu vừa rồi hơi chậm. "
+                    "Bạn gửi lại giúp mình, hoặc nói ngắn gọn sản phẩm và ngân sách bạn cần nhé."
+                },
+                "suggestions": await self._category_suggestions(4),
+                "handoff": False,
+                "clarify_count": previous_count,
+                "last_clarify_key": message_key,
+            }
+        # Each new, different message is a fresh attempt: escalate only when
+        # the customer repeats themselves or the model keeps asking.
+        count = previous_count + 1
+        if repeated:
+            count = max(count, 3)
         route = state.get("route") if state.get("route") in {"clarify", "out_of_scope"} else "clarify"
         focused_names = [
             str(item.get("name"))
@@ -2431,18 +1560,16 @@ class AgenticShoppingGraph:
         )
         product_choices = focused_names[:4] if asks_product and focused_names else []
         handoff = False
-        if count >= 3:
+        if count >= 4:
             text = (
-                "Mình vẫn chưa hiểu đúng nhu cầu của bạn. "
-                "Bạn có muốn chat trực tiếp với nhân viên shop để được hỗ trợ nhanh hơn không?"
-            )
+                (clarification + " ") if clarification else ""
+            ) + "Nếu tiện, bạn có thể chat trực tiếp với nhân viên shop để được hỗ trợ nhanh hơn."
             suggestions = product_choices or await self._category_suggestions(3)
             handoff = True
-        elif count == 2:
+        elif count == 3:
             text = (
-                "Để mình gợi ý nhanh nhé: bạn chọn một mục bên dưới, hoặc mô tả theo mẫu "
-                "“loại sản phẩm + ngân sách + người dùng” (ví dụ: “tai nghe dưới 1 triệu cho học sinh”)."
-            )
+                (clarification + " ") if clarification else ""
+            ) + "Bạn cũng có thể chọn nhanh một mục bên dưới, hoặc nói theo kiểu “loại sản phẩm + ngân sách” (ví dụ: “tai nghe dưới 1 triệu”)."
             suggestions = product_choices or await self._category_suggestions(5)
         else:
             text = clarification
@@ -2465,286 +1592,38 @@ class AgenticShoppingGraph:
                 "render_product_cards": False,
                 "tool_result": {"clarification": clarification},
             }
+        raw = state.get("semantic_turn")
+        support = next(
+            (task for task in SemanticTurn.model_validate(raw).tasks if task.intent == "support_request"),
+            None,
+        ) if raw else None
+        if support:
+            # Say plainly what the assistant cannot do, and hand over to staff.
+            return {
+                "route": "general",
+                "render_product_cards": False,
+                "handoff": True,
+                "tool_result": {
+                    "supportRequest": support.query or state.get("message", ""),
+                    "assistantCannot": "tạo yêu cầu hỗ trợ, hủy hoặc sửa đơn, đổi địa chỉ giao, giục đơn vị vận chuyển",
+                    "assistantCan": "tra trạng thái đơn theo mã đơn của tài khoản, giải thích chính sách hủy/đổi trả, chuyển sang nhân viên shop",
+                },
+            }
+        if raw and any(task.web_research for task in SemanticTurn.model_validate(raw).tasks):
+            # A product-knowledge question: the product agent's web research
+            # (side branch) supplies the facts for the answer.
+            return {"route": "general", "render_product_cards": False, "tool_result": {"question": state.get("message", "")}}
         return {
             "route": "general",
             "tool_result": {
                 "capabilities": [
-                    "tìm và so sánh sản phẩm",
-                    "xem hoặc cập nhật giỏ hàng có xác nhận",
-                    "xem đơn hàng",
-                    "tạo báo giá và xác nhận checkout",
+                    "tư vấn, tìm và so sánh sản phẩm (product agent)",
+                    "tra cứu chính sách và thông tin sản phẩm trên web",
+                    "xem hoặc cập nhật giỏ hàng có xác nhận (order agent)",
+                    "thanh toán và theo dõi đơn hàng (order agent)",
                 ]
             },
         }
-
-    @staticmethod
-    def _product_attribute_answer(state: AgentState) -> str | None:
-        products = state.get("products", [])
-        if state.get("semantic_turn"):
-            turn = SemanticTurn.model_validate(state["semantic_turn"])
-            task = next(
-                (
-                    item
-                    for item in turn.tasks
-                    if item.intent in {"product_detail", "compare_products"}
-                ),
-                None,
-            )
-            if task and task.intent == "compare_products":
-                return None
-            requested = task.requested_attributes if task else []
-            # Variant-oriented questions (color/size/fit or a bare variant pick)
-            # fall through to the deterministic variant logic below.
-            spec_question = (
-                task is not None
-                and len(products) == 1
-                and bool(requested)
-                and not set(requested) <= {"color", "size", "fit"}
-            )
-        if state.get("semantic_turn") and spec_question:
-            product = products[0]
-            facts = normalize_specifications(product.get("specifications") or [])
-            answers: list[str] = []
-            missing = False
-            for attribute in requested:
-                if attribute == "price":
-                    answers.append(
-                        "Giá: "
-                        + f"{float(product.get('price') or 0):,.0f}".replace(",", ".")
-                        + "đ"
-                    )
-                    continue
-                if attribute == "stock":
-                    available = sum(
-                        float(item.get("availableStock") or 0)
-                        for item in product.get("variants", [])
-                    )
-                    answers.append(f"Tồn kho khả dụng: {available:g}")
-                    continue
-                if attribute in {"color", "size"}:
-                    values = []
-                    for variant in product.get("variants", []):
-                        name = str(variant.get("name") or "")
-                        if name and name not in values:
-                            values.append(name)
-                    if values:
-                        answers.append("Biến thể: " + ", ".join(values[:12]))
-                    continue
-                key = canonical_spec_key(attribute)
-                matching = [fact for fact in facts if fact.get("key") == key]
-                if matching:
-                    answers.extend(
-                        f"{fact['rawName']}: {fact['rawValue']}" for fact in matching[:3]
-                    )
-                else:
-                    missing = True
-            if not answers:
-                # No structured spec ("chống ồn" usually lives in the
-                # description): let the answer model read the product
-                # instead of printing an internal key such as
-                # "noise_cancellation".
-                return None
-            note = " Các thông tin còn lại chưa có trong thông số của sản phẩm." if missing else ""
-            return f"{product.get('name', 'Sản phẩm')}: " + "; ".join(answers) + "." + note
-        if len(products) != 1:
-            return None
-        product = products[0]
-        variants = [item for item in product.get("variants", []) if item.get("name")]
-        if not variants:
-            return None
-        message = _normalized(state.get("message", ""))
-        plan = state.get("plan", {})
-        sort_by = plan.get("sort_by", "relevance") if isinstance(plan, dict) else "relevance"
-        if sort_by in {"price_asc", "price_desc"}:
-            ranking_price = (state.get("tool_result") or {}).get("rankingPrice")
-            if ranking_price is None:
-                ranking_price = product.get("price", 0)
-            price_text = f"{float(ranking_price):,.0f}".replace(",", ".") + "đ"
-            label = "cao nhất" if sort_by == "price_desc" else "thấp nhất"
-            return (
-                f"{product.get('name', 'Sản phẩm')} là kết quả có giá {label} "
-                f"trong nhóm hàng đang tìm và còn hàng, với giá {price_text}."
-            )
-        if state.get("route") == "product_search":
-            return None
-        dimensions = _variant_dimensions(variants, product.get("name", ""))
-        raw_filters = plan.get("filters", {}) if isinstance(plan, dict) else {}
-        selected = state.get("selected_options", {})
-        mentioned = _variant_selection(
-            state.get("message", ""), variants, product.get("name", "")
-        )
-        color_source = (
-            mentioned.get("colors")
-            or selected.get("colors")
-            or raw_filters.get("colors")
-            or []
-        )
-        size_source = (
-            mentioned.get("sizes")
-            or selected.get("sizes")
-            or raw_filters.get("sizes")
-            or []
-        )
-        requested_colors = list(
-            dict.fromkeys(_normalized(str(value)) for value in color_source if value)
-        )
-        requested_sizes = list(
-            dict.fromkeys(_normalized(str(value)) for value in size_source if value)
-        )
-
-        def matching_records(*, use_size: bool = True) -> list[dict]:
-            return [
-                record
-                for record in dimensions["records"]
-                if (
-                    not requested_colors
-                    or record["color"] in requested_colors
-                )
-                and (
-                    not use_size
-                    or not requested_sizes
-                    or bool(record["sizes"] & set(requested_sizes))
-                )
-            ]
-
-        color_records = matching_records(use_size=False)
-        size_order = {
-            value: index
-            for index, value in enumerate(
-                ("xs", "s", "m", "l", "xl", "xxl", "2xl", "3xl", "4xl")
-            )
-        }
-        available_size_keys = sorted(
-            {size for record in color_records for size in record["sizes"]},
-            key=lambda value: (size_order.get(value, 999), value),
-        )
-        available_sizes = [
-            dimensions["sizes"].get(key, key.upper()) for key in available_size_keys
-        ]
-        color_display = [
-            dimensions["colors"].get(value, value) for value in requested_colors
-        ]
-        color_suffix = f" màu {', '.join(color_display)}" if color_display else ""
-
-        asks_fit = bool(
-            re.search(r"\b(?:lam sao|tu van|phu hop|vua)\b.{0,40}\bsize\b", message)
-            or re.search(r"\bsize\b.{0,30}\b(?:phu hop|vua)\b", message)
-            or re.search(r"\b(?:cao|nang|can nang)\b", message)
-            or re.search(r"\b\d+m\d{1,2}\b", message)
-            or re.search(r"\b\d+(?:[.,]\d+)?\s*(?:kg|cm)\b", message)
-        )
-        if asks_fit:
-            if _has_size_chart(product):
-                return None
-            size_text = ", ".join(available_sizes) if available_sizes else "chưa xác định"
-            return (
-                f"{product.get('name', 'Sản phẩm')} chưa có bảng size và cũng không có khoảng số đo đủ rõ để "
-                "suy ra size từ chiều cao/cân nặng. "
-                f"Các size đang còn hàng{color_suffix}: {size_text}. "
-                "Bạn nên đối chiếu bảng size riêng của sản phẩm hoặc hỏi shop trước khi chọn."
-            )
-
-        asks_size = bool(
-            re.search(r"\b(?:size|kich thuoc)\b", message)
-            or mentioned.get("sizes")
-        )
-        if asks_size:
-            if requested_sizes:
-                relevant = matching_records()
-                requested_display = [
-                    dimensions["sizes"].get(value, value.upper())
-                    for value in requested_sizes
-                ]
-                size_text = ", ".join(requested_display)
-                if relevant:
-                    prices = sorted(
-                        {
-                            float(
-                                record["variant"].get(
-                                    "price", product.get("price", 0)
-                                )
-                                or 0
-                            )
-                            for record in relevant
-                        }
-                    )
-                    price_text = " – ".join(
-                        f"{price:,.0f}".replace(",", ".") + "đ"
-                        for price in prices
-                    )
-                    return (
-                        f"{product.get('name', 'Sản phẩm')}{color_suffix}, size {size_text} "
-                        f"đang còn hàng với giá {price_text}. Bạn có muốn thêm lựa chọn này vào giỏ không?"
-                    )
-                alternatives = ", ".join(available_sizes) or "không còn size nào"
-                return (
-                    f"{product.get('name', 'Sản phẩm')}{color_suffix} không có size {size_text} "
-                    f"đang còn hàng. Các size hiện có: {alternatives}."
-                )
-            return (
-                f"{product.get('name', 'Sản phẩm')}{color_suffix} có các size đang còn hàng: "
-                + (", ".join(available_sizes) if available_sizes else "chưa có thông tin")
-                + "."
-            )
-
-        asks_colors = bool(
-            re.search(r"\bmau\b", message)
-            and re.search(r"\b(?:gi|nao|nhung|cac|co)\b", message)
-        )
-        if asks_colors:
-            if dimensions["colors"]:
-                colors = list(dimensions["colors"].values())
-                return (
-                    f"{product.get('name', 'Sản phẩm')} có các màu: "
-                    + ", ".join(colors)
-                    + "."
-                )
-            return (
-                f"Catalog hiện chưa có thông tin màu hoặc biến thể màu cho "
-                f"{product.get('name', 'sản phẩm này')}."
-            )
-
-        asks_price = bool(re.search(r"\b(?:gia|bao nhieu)\b", message))
-        relevant = matching_records()
-        if not relevant:
-            return (
-                f"{product.get('name', 'Sản phẩm')} không có biến thể "
-                + " ".join([*requested_colors, *requested_sizes])
-                + " đang còn hàng."
-            )
-        if not asks_price:
-            if mentioned.get("colors") and available_sizes:
-                return (
-                    f"{product.get('name', 'Sản phẩm')}{color_suffix} có các size đang còn hàng: "
-                    + ", ".join(available_sizes)
-                    + ". Bạn muốn chọn size nào?"
-                )
-            return None
-        prices = sorted(
-            {
-                float(
-                    record["variant"].get("price", product.get("price", 0)) or 0
-                )
-                for record in relevant
-            }
-        )
-        price_text = " – ".join(
-            f"{price:,.0f}".replace(",", ".") + "đ" for price in prices
-        )
-        option_text = ", ".join(
-            [
-                *color_display,
-                *[
-                    dimensions["sizes"].get(value, value.upper())
-                    for value in requested_sizes
-                ],
-            ]
-        )
-        return (
-            f"{product.get('name', 'Sản phẩm')}"
-            + (f" màu/biến thể {option_text}" if option_text else "")
-            + f" có giá {price_text}."
-        )
 
     @staticmethod
     def _fallback_answer(state: AgentState) -> str:
@@ -2765,13 +1644,19 @@ class AgenticShoppingGraph:
             if "catalogTree" in result:
                 names = [item.get("name", "") for item in result["catalogTree"][:12]]
                 return "Các danh mục hiện có: " + ", ".join(name for name in names if name) + "."
+            if result.get("handoffMessage"):
+                return result["handoffMessage"]
             if result.get("cartSummary"):
                 return result["cartSummary"]
             if "cart" in result:
                 count = len(result.get("cart", {}).get("products", []))
                 return f"Giỏ hàng hiện có {count} dòng sản phẩm."
             if result.get("found") == 0:
-                return "Mình chưa tìm thấy sản phẩm còn hàng phù hợp. Bạn muốn nới điều kiện nào?"
+                kind = str((state.get("plan", {}).get("filters") or {}).get("product_type") or "sản phẩm")
+                return (
+                    f"Hiện shop chưa có {kind} còn hàng khớp đủ các tiêu chí này. "
+                    "Bạn thử bỏ bớt một tiêu chí, ví dụ tầm giá hoặc màu, để mình tìm lại nhé."
+                )
         products = state.get("products", [])
         if products:
             return f"Mình tìm thấy {len(products)} sản phẩm phù hợp và còn hàng."
@@ -2809,18 +1694,49 @@ class AgenticShoppingGraph:
             if isinstance(result, dict)
             else result
         )
+        web = state.get("web_research") or {}
+        web_summary = str(web.get("summary") or "").strip()
+        if web_summary and isinstance(model_result, dict):
+            model_result["webResearch"] = {
+                "summary": web_summary,
+                "sources": [item.get("title") for item in web.get("sources") or []],
+            }
+            sources = sources + [
+                {
+                    "number": len(sources) + index,
+                    "title": str(item.get("title") or item.get("url") or "")[:500],
+                    "url": str(item.get("url") or ""),
+                }
+                for index, item in enumerate(web.get("sources") or [], 1)
+            ]
         should_be_deterministic = isinstance(result, dict) and any(
             key in result
             for key in (
                 "error", "clarification", "confirmationRequired", "cancelled", "success", "policyAnswer",
-                "cartSummary",
+                "cartSummary", "handoffMessage",
             )
         )
-        if attribute_answer:
+        # LLM-first: product answers are written by the model from catalog
+        # facts (and web research); attribute facts and the search template
+        # are what it is given and what is shown if it fails. Transactional
+        # results stay deterministic.
+        model_answers = bool(
+            getattr(self.settings, "llm_first", False)
+            and state.get("semantic_turn")
+            and "MODEL_UNAVAILABLE" not in state.get("warnings", [])
+        ) or bool(web_summary)
+        if attribute_answer and isinstance(model_result, dict):
+            model_result["verifiedFacts"] = attribute_answer
+        comparison = _spec_comparison(state)
+        if comparison and isinstance(model_result, dict):
+            model_result["specComparison"] = comparison
+        if "ASSUMED_FIRST_PRODUCT" in state.get("warnings", []) and isinstance(model_result, dict):
+            model_result["assumedFirstProduct"] = True
+        if attribute_answer and not model_answers:
             answer = attribute_answer
         elif should_be_deterministic:
             answer = direct
-        elif template_answer:
+        elif template_answer and not model_answers:
             answer = template_answer
         else:
             try:
@@ -2831,9 +1747,10 @@ class AgenticShoppingGraph:
                     products,
                     state.get("history", []),
                 )
-            except Exception:
-                answer = direct
-                if products and relaxed:
+            except Exception as error:
+                log.warning("answer failed, using template: %s: %s", type(error).__name__, str(error)[:200])
+                answer = attribute_answer or (template_answer if not relaxed else "") or direct
+                if products and relaxed and not attribute_answer:
                     answer = (
                         _search_template_answer(products)
                         + " Lưu ý: không có mẫu khớp hoàn toàn nên mình đã nới "
@@ -2845,12 +1762,26 @@ class AgenticShoppingGraph:
             query = str(plan.get("query") or state.get("message", "")).strip()
             answer = f"Mình hiểu bạn đang tìm “{query}”. {answer}"
             suggestions = suggestions or await self._category_suggestions(4)
-        skipped = list(state.get("skipped_tasks") or [])
+        answer = _drop_unbacked_action_claims(answer, state.get("tool_result") or {})
+        # A second task is covered only by a route that does the same work: a
+        # list answers another search, a side-by-side answers a comparison,
+        # and either answers a detail question. A single product's detail does
+        # not answer "gợi ý mẫu nào nên mua".
+        compared = len(plan.get("product_ids") or []) >= 2
+        covered_by = {
+            "tìm sản phẩm": state.get("route") == "product_search",
+            "so sánh sản phẩm": state.get("route") == "product_search" and compared,
+            "hỏi chi tiết sản phẩm": state.get("route") in {"product_search", "product_detail"},
+        }
+        skipped = [
+            label
+            for label in state.get("skipped_tasks") or []
+            if not covered_by.get(label, False)
+        ]
         if skipped:
             answer += (
-                "\n\nMình đã xử lý yêu cầu chính trước; phần "
-                + ", ".join(skipped)
-                + " bạn nhắn tiếp giúp mình nhé."
+                "\n\nCòn phần " + ", ".join(skipped)
+                + ", bạn nhắn tiếp ngay sau đây là mình làm luôn nhé."
             )
         if policy_appendix:
             answer = f"{answer}\n\n{policy_appendix}" if answer else policy_appendix
@@ -2876,10 +1807,9 @@ class AgenticShoppingGraph:
             "focused_products": focused,
             "sources": sources,
             "suggestions": suggestions[:8],
-            "handoff": bool(state.get("handoff")) and clarifying,
+            "handoff": bool(state.get("handoff")) and (clarifying or "supportRequest" in (state.get("tool_result") or {})),
             "clarify_count": int(state.get("clarify_count") or 0) if clarifying else 0,
             "last_clarify_key": state.get("last_clarify_key", "") if clarifying else "",
             "route": "multi" if multi_route else state.get("route", "general"),
             "committed": True,
         }
-

@@ -45,6 +45,26 @@ class AgenticSettings:
     reasoning_effort: str = field(
         default_factory=lambda: os.getenv("AGENTIC_REASONING_EFFORT", "none").strip()
     )
+    # A stronger model for turn understanding (plan) only; answers, ranking
+    # and order resolution keep llm_model. Same OpenAI-compatible gateway.
+    decide_model: str = field(default_factory=lambda: os.getenv("AGENTIC_DECIDE_MODEL", "").strip())
+    decide_reasoning_effort: str = field(
+        default_factory=lambda: os.getenv("AGENTIC_DECIDE_REASONING_EFFORT", "").strip()
+    )
+
+    # The model that writes the reply the customer reads. Empty keeps the chat
+    # model; a stronger one here changes how the assistant sounds far more
+    # than it changes cost, since it runs once per turn.
+    answer_model: str = field(default_factory=lambda: os.getenv("AGENTIC_ANSWER_MODEL", "").strip())
+    # Classification, ranking and verification stay at 0; the reply uses the
+    # temperature Gemini 3 models are tuned for (1.0) so it does not read canned.
+    answer_temperature: float = field(
+        default_factory=lambda: _bounded_float("AGENTIC_ANSWER_TEMPERATURE", 1.0, 0, 2)
+    )
+    # Messages (user + assistant) the reply model reads as the conversation.
+    answer_history_messages: int = field(
+        default_factory=lambda: _bounded_int("AGENTIC_ANSWER_HISTORY_MESSAGES", 16, 2, 40)
+    )
 
     @property
     def chat_model(self) -> str:
@@ -116,14 +136,48 @@ class AgenticSettings:
     )
     turn_deadline: float = field(
         default_factory=lambda: _bounded_float(
-            "AGENTIC_TURN_DEADLINE_SECONDS", 8, 3, 120
+            "AGENTIC_TURN_DEADLINE_SECONDS", 15, 3, 120
         )
     )
     max_llm_calls: int = field(
-        default_factory=lambda: _bounded_int("AGENTIC_MAX_LLM_CALLS", 4, 1, 10)
+        default_factory=lambda: _bounded_int("AGENTIC_MAX_LLM_CALLS", 6, 1, 12)
+    )
+    # LLM-first: every turn is decided, ranked and answered by the model; the
+    # deterministic parsers, fast path and templates only run when the model
+    # fails or the turn budget is spent. false restores the latency-first
+    # mode (rule fast path, hedged parse, template answers).
+    llm_first: bool = field(
+        default_factory=lambda: os.getenv("AGENTIC_LLM_FIRST", "true").strip().casefold()
+        in {"1", "true", "yes", "on"}
+    )
+    # Product agent web search (Gemini grounded Google Search) for questions
+    # the catalog cannot answer. It always uses the Gemini key.
+    web_search_enabled: bool = field(
+        default_factory=lambda: os.getenv("AGENTIC_WEB_SEARCH", "true").strip().casefold()
+        in {"1", "true", "yes", "on"}
+    )
+    web_search_model: str = field(
+        default_factory=lambda: os.getenv("AGENTIC_WEB_SEARCH_MODEL", "").strip()
+    )
+    # "gemini": grounded Google Search with the Gemini key (sources cited).
+    # "gateway": the OpenAI-compatible gateway model answers from its own
+    # knowledge (no live search, no sources) when the Gemini key has no quota.
+    web_search_provider: str = field(
+        default_factory=lambda: os.getenv("AGENTIC_WEB_SEARCH_PROVIDER", "gemini").strip().casefold()
+    )
+    web_search_timeout: float = field(
+        default_factory=lambda: _bounded_float("AGENTIC_WEB_SEARCH_TIMEOUT_SECONDS", 7, 1, 60)
     )
     decide_timeout: float = field(
         default_factory=lambda: _bounded_float("AGENTIC_DECIDE_TIMEOUT_SECONDS", 4, 1, 60)
+    )
+    # With a separate (slower) decide model: after this many seconds without
+    # an answer, the default chat model is asked too and the first valid
+    # turn wins, so a slow gateway never drops the turn to the rule parser.
+    decide_fallback_after: float = field(
+        default_factory=lambda: _bounded_float(
+            "AGENTIC_DECIDE_FALLBACK_AFTER_SECONDS", 6, 0, 60
+        )
     )
     # How long a plain search waits for the semantic model before it runs
     # on the deterministic parse instead.
@@ -134,7 +188,7 @@ class AgenticSettings:
         default_factory=lambda: _bounded_float("AGENTIC_VERIFY_TIMEOUT_SECONDS", 3, 1, 60)
     )
     answer_timeout: float = field(
-        default_factory=lambda: _bounded_float("AGENTIC_ANSWER_TIMEOUT_SECONDS", 4, 1, 60)
+        default_factory=lambda: _bounded_float("AGENTIC_ANSWER_TIMEOUT_SECONDS", 8, 1, 60)
     )
     embed_timeout: float = field(
         default_factory=lambda: _bounded_float("AGENTIC_EMBED_TIMEOUT_SECONDS", 3, 0.5, 30)
@@ -142,8 +196,63 @@ class AgenticSettings:
     retrieval_limit: int = field(
         default_factory=lambda: _bounded_int("AGENTIC_RETRIEVAL_LIMIT", 30, 6, 100)
     )
+    # Top-k products shown per search, after re-ranking.
     result_limit: int = field(
-        default_factory=lambda: _bounded_int("AGENTIC_RESULT_LIMIT", 6, 1, 12)
+        default_factory=lambda: _bounded_int("AGENTIC_RESULT_LIMIT", 5, 1, 12)
+    )
+    # Local model server (CLIP image embeddings + cross-encoder re-ranker).
+    model_server_url: str = field(
+        default_factory=lambda: os.getenv(
+            "AGENTIC_MODEL_SERVER_URL", "http://image-embedding:3022"
+        ).strip()
+    )
+    rerank_enabled: bool = field(
+        default_factory=lambda: os.getenv("AGENTIC_RERANK", "true").strip().casefold()
+        in {"1", "true", "yes", "on"}
+    )
+    # Hybrid search returns this many candidates; the cross-encoder keeps top-k.
+    rerank_candidates: int = field(
+        default_factory=lambda: _bounded_int("AGENTIC_RERANK_CANDIDATES", 20, 2, 50)
+    )
+    rerank_timeout: float = field(
+        default_factory=lambda: _bounded_float("AGENTIC_RERANK_TIMEOUT_SECONDS", 2, 0.2, 30)
+    )
+    # llm: the cross-encoder pre-sorts, then the chat model grades the short
+    #      list against the need (and ambiguous specs) and decides the top-k.
+    # cross_encoder: blended cross-encoder score with an adaptive cut-off.
+    # off: hybrid order only.
+    rerank_mode: str = field(
+        default_factory=lambda: os.getenv("AGENTIC_RERANK_MODE", "llm").strip().casefold()
+    )
+    llm_rerank_candidates: int = field(
+        default_factory=lambda: _bounded_int("AGENTIC_LLM_RERANK_CANDIDATES", 10, 3, 20)
+    )
+    rank_timeout: float = field(
+        default_factory=lambda: _bounded_float("AGENTIC_RANK_TIMEOUT_SECONDS", 4, 1, 60)
+    )
+    # Share of the final cross-encoder score taken from its own probability;
+    # the rest comes from the hybrid (dense + BM25) rank.
+    rerank_weight: float = field(
+        default_factory=lambda: _bounded_float("AGENTIC_RERANK_WEIGHT", 0.75, 0, 1)
+    )
+    # Cross-encoder top-k keeps candidates scoring at least this share of the
+    # best one, so a clear winner is not padded with unrelated products.
+    rerank_relative_cutoff: float = field(
+        default_factory=lambda: _bounded_float("AGENTIC_RERANK_RELATIVE_CUTOFF", 0.3, 0, 1)
+    )
+    image_model: str = field(
+        default_factory=lambda: os.getenv("AGENTIC_IMAGE_MODEL", "openai/clip-vit-base-patch32")
+    )
+    image_revision: str = field(
+        default_factory=lambda: os.getenv(
+            "AGENTIC_IMAGE_REVISION", "3d74acf9a28c67741b2f4f2ea7635f0aaf6f0268"
+        )
+    )
+    image_min_score: float = field(
+        default_factory=lambda: _bounded_float("AGENTIC_IMAGE_MIN_SCORE", 0.65, 0, 1)
+    )
+    image_timeout: float = field(
+        default_factory=lambda: _bounded_float("AGENTIC_IMAGE_TIMEOUT_SECONDS", 10, 1, 120)
     )
     min_score: float = field(
         default_factory=lambda: _bounded_float("AGENTIC_MIN_SCORE", 0.35, 0, 1)

@@ -138,40 +138,139 @@ def compact_catalog_tree(
     return [compact(node, 1) for node in nodes[:max_children]]
 
 
-def resolve_category_ids(nodes: list[dict], value: str) -> list[str]:
-    """Resolve a natural category path to descendant source category IDs.
-
-    Resolution is deliberately conservative: a node name must be fully present
-    in the requested phrase. Ancestor matches only rank otherwise valid nodes,
-    so a generic token cannot silently force an unrelated catalog branch.
-    """
-
-    def terms(text: object) -> set[str]:
-        normalized = unicodedata.normalize("NFD", str(text or "").casefold())
-        normalized = normalized.replace("đ", "d")
-        normalized = "".join(
-            char for char in normalized if not unicodedata.combining(char)
-        )
-        return set(re.findall(r"[a-z0-9]+", normalized))
-
-    requested = terms(value)
-    if not requested:
-        return []
-    order = re.findall(
-        r"[a-z0-9]+",
-        "".join(
-            char
-            for char in unicodedata.normalize("NFD", str(value).casefold()).replace("đ", "d")
-            if not unicodedata.combining(char)
-        ),
+def _terms(text: object) -> set[str]:
+    normalized = unicodedata.normalize("NFD", str(text or "").casefold())
+    normalized = normalized.replace("đ", "d")
+    normalized = "".join(
+        char for char in normalized if not unicodedata.combining(char)
     )
+    return set(re.findall(r"[a-z0-9]+", normalized))
+
+
+# Everyday names of a whole branch ("quần áo nữ" is women's fashion, not
+# women's trousers), on accent-free text.
+_BRANCH_ALIASES = (
+    ("quan ao", "thoi trang"),
+    ("do mac", "thoi trang"),
+    ("thiet bi dien tu", "dien tu"),
+    ("do dien tu", "dien tu"),
+    ("do cong nghe", "dien tu"),
+    ("cong nghe", "dien tu"),
+    ("my pham", "lam dep"),
+    ("do an", "thuc pham"),
+    ("do gia dung", "nha cua"),
+)
+
+
+def _folded_words(value: object) -> str:
+    normalized = unicodedata.normalize("NFD", str(value or "").casefold()).replace("đ", "d")
+    return " ".join(re.findall(
+        r"[a-z0-9]+", "".join(char for char in normalized if not unicodedata.combining(char))
+    ))
+
+
+def _path_text(parts: list[str]) -> str:
+    return " › ".join(parts)
+
+
+def category_paths(categories: list[dict]) -> dict[str, str]:
+    """Full display path of every category id ("Thời trang › Nữ › Áo thun nữ")."""
+    by_id = {
+        str(item.get("id") or item.get("_id")): item
+        for item in categories
+        if isinstance(item, dict) and (item.get("id") or item.get("_id"))
+    }
+    return {
+        category_id: _path_text(_category_path(category, by_id))
+        for category_id, category in by_id.items()
+    }
+
+
+def category_path_list(nodes: list[dict], *, max_depth: int = 3, limit: int = 300) -> list[str]:
+    """Browse paths the semantic model may pick from, shallow ones first."""
+    paths: list[str] = []
+    level = list(nodes)
+    for _depth in range(max_depth):
+        next_level = []
+        for node in level:
+            paths.append(_path_text(node.get("path") or [node.get("name", "")]))
+            next_level.extend(node.get("children", []))
+        level = next_level
+    return paths[:limit]
+
+
+def resolve_category_path(nodes: list[dict], value: str) -> list[str]:
+    """Category ids of the node whose path is exactly ``value``, as the
+    semantic model copied it from category_path_list (accents and separators
+    may differ). [] when no node has that path."""
+    wanted = [
+        " ".join(sorted(_terms(part)))
+        for part in _PATH_SEPARATOR.split(str(value or ""))
+        if _terms(part)
+    ]
+    if not wanted:
+        return []
+
+    def visit(node: dict) -> list[str] | None:
+        path = [" ".join(sorted(_terms(part))) for part in node.get("path", [])]
+        if path == wanted:
+            return [
+                str(category_id) for category_id in node.get("categoryIds", [])
+                if re.fullmatch(r"[a-fA-F0-9]{24}", str(category_id))
+            ]
+        if path == wanted[: len(path)]:
+            for child in node.get("children", []):
+                found = visit(child)
+                if found is not None:
+                    return found
+        return None
+
+    for root in nodes:
+        found = visit(root)
+        if found is not None:
+            return sorted(found)
+    return []
+
+
+def _valid_ids(found: list[dict]) -> list[str]:
+    return sorted({
+        str(category_id)
+        for node in found
+        for category_id in node.get("categoryIds", [])
+        if re.fullmatch(r"[a-fA-F0-9]{24}", str(category_id))
+    })
+
+
+def _covering(nodes: list[dict], requested: set[str]) -> list[str]:
+    """Nodes whose path holds every requested word and whose own name holds
+    at least one; a match stops the descent (its ids include descendants)."""
+    found: list[dict] = []
+
+    def visit(node: dict) -> None:
+        path_terms = set().union(*(_terms(part) for part in node.get("path", [])))
+        if requested <= path_terms and _terms(node.get("name")) & requested:
+            found.append(node)
+            return
+        for child in node.get("children", []):
+            visit(child)
+
+    for root in nodes:
+        visit(root)
+    return _valid_ids(found)
+
+
+def _best_named(nodes: list[dict], phrase: str) -> list[str]:
+    """The most specific nodes whose whole name appears in the phrase; ties
+    go to the branch named first (Vietnamese puts the head noun first)."""
+    requested = _terms(phrase)
+    order = phrase.split()
     first_position = {term: order.index(term) for term in requested}
     ranked: list[tuple[int, dict]] = []
 
     def visit(node: dict) -> None:
-        name_terms = terms(node.get("name"))
+        name_terms = _terms(node.get("name"))
         if name_terms and name_terms <= requested:
-            path_terms = set().union(*(terms(part) for part in node.get("path", [])))
+            path_terms = set().union(*(_terms(part) for part in node.get("path", [])))
             score = 4 * len(name_terms) + len(path_terms & requested)
             if name_terms == requested:
                 score += 20
@@ -186,19 +285,40 @@ def resolve_category_ids(nodes: list[dict], value: str) -> list[str]:
         return []
     best = max(score for score, _node in ranked)
     tied = [node for score, node in ranked if score == best]
-    # Vietnamese puts the head noun first: in "balo laptop" the branch named
-    # earliest in the phrase wins a tie.
     position = {
-        id(node): min(first_position[term] for term in terms(node.get("name")))
+        id(node): min(first_position[term] for term in _terms(node.get("name")))
         for node in tied
     }
     earliest = min(position.values())
-    return sorted(
-        {
-            category_id
-            for node in tied
-            if position[id(node)] == earliest
-            for category_id in node.get("categoryIds", [])
-            if re.fullmatch(r"[a-fA-F0-9]{24}", str(category_id))
-        }
-    )
+    return _valid_ids([node for node in tied if position[id(node)] == earliest])
+
+
+def resolve_category_ids(nodes: list[dict], value: str) -> list[str]:
+    """Resolve a natural category phrase to descendant source category IDs.
+
+    1. Covering nodes: every requested word appears on the node's path and
+       the node itself names part of it. "áo thun" covers Nam › Áo Thun,
+       Nữ › Áo Thun and every "Áo thun nam/nữ/trẻ em" leaf, so no shop's
+       branch is lost; "áo thun nữ" covers only women's T-shirts.
+    2. Otherwise the most specific node whose whole name appears in the
+       phrase ("tai nghe bluetooth chống ồn" -> Tai nghe). Ancestor matches
+       only rank otherwise valid nodes, so a generic token cannot silently
+       force an unrelated catalog branch.
+    Branch aliases ("quần áo nữ" -> "thời trang nữ") are tried before the
+    literal phrase at each step, so a catalog whose root is literally named
+    "Quần áo" still matches.
+    """
+    original = _folded_words(value)
+    if not original:
+        return []
+    aliased = original
+    for phrase, root in _BRANCH_ALIASES:
+        aliased = re.sub(rf"(?<!\w){phrase}(?!\w)", root, aliased)
+    phrases = list(dict.fromkeys([aliased, original]))
+    for phrase in phrases:
+        if found := _covering(nodes, _terms(phrase)):
+            return found
+    for phrase in phrases:
+        if found := _best_named(nodes, phrase):
+            return found
+    return []

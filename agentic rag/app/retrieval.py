@@ -8,6 +8,7 @@ import unicodedata
 
 from qdrant_client import AsyncQdrantClient, models
 
+from .brands import canonical_brand
 from .config import AgenticSettings
 from .schemas import SearchFilters
 from .sparse import SPARSE_VECTOR_NAME, query_sparse_vector
@@ -160,6 +161,9 @@ class StructuredProductRetriever:
             for field in _DYNAMIC_FACETS
             if getattr(filters, field)
         }
+        if requested.get("brand"):
+            # The index stores canonical brands ("iphone" is filed as Apple).
+            requested["brand"] = canonical_brand(requested["brand"]) or requested["brand"]
         if not requested:
             return resolved
 

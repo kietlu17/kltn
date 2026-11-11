@@ -4,6 +4,7 @@ const { connectMongo } = require('../config/db');
 const Product = require('../models/Product');
 const { htmlToPlainText } = require('../utils/catalogText');
 const Category = require('../models/Category');
+const { canonicalPath, ensureCategoryPath } = require('../utils/categoryTaxonomy');
 const { initProducer, closeProducer, publishProductCreated } = require('../kafka/producer');
 
 const APPLY = process.argv.includes('--apply');
@@ -188,11 +189,10 @@ async function listing(source, page) {
 }
 
 async function ensureCategory(source) {
-  return Category.findOneAndUpdate(
-    { name: source.categoryName, shopId: SHOP_ID },
-    { $setOnInsert: { description: `Danh mục ${source.categoryName.toLocaleLowerCase('vi')} nhập từ dữ liệu công khai và biên soạn lại.` } },
-    { new: true, upsert: true }
-  );
+  // Placed in the shared tree: Thời trang › Nam, Thời trang › Nữ.
+  return ensureCategoryPath(Category, canonicalPath(source.categoryName), SHOP_ID, {
+    description: `Danh mục ${source.categoryName.toLocaleLowerCase('vi')} nhập từ dữ liệu công khai và biên soạn lại.`
+  });
 }
 
 async function importAudience(source) {

@@ -47,7 +47,7 @@ class ChatApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(body["route"], "clarify")
         self.assertEqual(body["suggestions"], ["Thời trang"])
         session = body["sessionId"]
-        for message in ("cái kia", "nói chung vậy"):
+        for message in ("cái kia", "nói chung vậy", "thì cái đó á"):
             last = await self.client.post(
                 "/assistant/chat",
                 json={"message": message, "sessionId": session},
@@ -75,7 +75,9 @@ class ChatApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertLess(names.index("products"), names.index("final"))
         final = events[-1][1]
         self.assertEqual(final["route"], "product_search")
-        self.assertIn("Mình tìm thấy 1 sản phẩm", final["answer"])
+        # LLM-first: the model writes the search answer from the product cards.
+        self.assertEqual(final["answer"], "Có 1 kết quả đã kiểm tra.")
+        self.assertEqual(self.models.answer_calls, 1)
         self.assertEqual(self.app.state.busy_sessions, set())
 
 

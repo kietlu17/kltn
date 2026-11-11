@@ -10,6 +10,7 @@ import unicodedata
 from dataclasses import dataclass
 from uuid import NAMESPACE_URL, uuid5
 
+from ..brands import brand_in_text, canonical_brand, stated_brand
 from ..specs import normalize_specifications
 
 # ~2,600 Vietnamese characters stay near 1,000 tokens, well under the
@@ -117,6 +118,10 @@ def spec_payload(product: dict) -> list[dict]:
     ]
 
 
+def explicit_brand(product: dict) -> str:
+    return plain_text(product.get("brand") or product.get("brandName"), 100)
+
+
 def product_metadata(product: dict, category_name: str = "") -> dict:
     variants = product.get("variants") or []
     searchable = " ".join(
@@ -139,11 +144,15 @@ def product_metadata(product: dict, category_name: str = "") -> dict:
     prices = [
         price for item in (variants or [product]) if (price := _price(item, product)) is not None
     ]
-    explicit_brand = plain_text(product.get("brand") or product.get("brandName"), 100)
-    brand_match = re.search(
-        r"(?:thương hiệu|brand)\s*[:\-]\s*([^.;|\n]{1,100})",
-        " ".join([plain_text(product.get("description")), plain_text(product.get("detail"))]),
-        re.I,
+    # The listing's own brand field when it has one, else the brand its name
+    # carries ("Loa Bluetooth JBL Clip 5", "iPhone 17" -> Apple), else the
+    # one its description states. All canonical, like the query side.
+    brand = (
+        canonical_brand(explicit_brand(product))
+        or brand_in_text(plain_text(product.get("name"), 300))
+        or stated_brand(
+            " ".join([plain_text(product.get("description")), plain_text(product.get("detail"))])
+        )
     )
     return {
         "productId": str(product["_id"]),
@@ -152,7 +161,7 @@ def product_metadata(product: dict, category_name: str = "") -> dict:
         "categoryName": category_name,
         "productType": infer_product_type(product.get("name", "")),
         "audience": list(dict.fromkeys(audience)),
-        "brand": explicit_brand or (plain_text(brand_match.group(1), 100) if brand_match else ""),
+        "brand": brand,
         "colors": _tokens_in(normalized, COLORS),
         "sizes": list(dict.fromkeys(match.upper() for match in SIZE_PATTERN.findall(normalized))),
         "minPrice": min(prices, default=0.0),
@@ -261,7 +270,11 @@ def product_chunks(
                 part
                 for part in (
                     title,
-                    f"Thương hiệu: {base['brand']}" if base["brand"] else "",
+                    # Only a brand field of the listing goes into the text: a
+                    # brand read from the name is already there, and keeping
+                    # the text unchanged lets the payload update without
+                    # re-embedding the catalog.
+                    f"Thương hiệu: {base['brand']}" if explicit_brand(product) else "",
                     f"Danh mục: {category_name}" if category_name else "",
                     f"Mô tả: {description_parts[0]}" if description_parts else "",
                 )

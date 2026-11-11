@@ -141,3 +141,16 @@ class ReconcileTurnTests(unittest.TestCase):
 
         original = self.turn("loại nào rẻ hơn", C(key="price", operator="lte", value=100.0))
         self.assertIs(reconcile_turn(original, "loại nào rẻ hơn"), original)
+
+
+class CheckoutParseTests(unittest.TestCase):
+    def test_checkout_commands_are_not_policy_questions(self):
+        from app.search_parser import parse_checkout_turn
+
+        for message in ["thanh toán", "tôi muốn thanh toán giỏ hàng", "đặt hàng", "checkout", "chốt đơn nhé"]:
+            self.assertEqual(parse_checkout_turn(message).tasks[0].intent, "checkout", message)
+            self.assertIsNone(parse_policy_turn(message), message)
+        for message in ["thanh toán bằng gì", "phương thức thanh toán", "thanh toán như thế nào?"]:
+            self.assertIsNone(parse_checkout_turn(message), message)
+            self.assertEqual(parse_policy_turn(message).tasks[0].intent, "policy", message)
+        self.assertIsNone(parse_checkout_turn("đặt hàng tai nghe bluetooth"))

@@ -1,0 +1,226 @@
+{
+  "trials_per_noise_level": 2000,
+  "utterances": 46,
+  "policies": {
+    "V0 direct": {
+      "p=0.0": {
+        "confirm_recall": 1.0,
+        "false_confirm_rate": 1.0,
+        "cancel_recall": 0.0,
+        "model_calls_per_reply": 0.0
+      },
+      "p=0.1": {
+        "confirm_recall": 1.0,
+        "false_confirm_rate": 1.0,
+        "cancel_recall": 0.0,
+        "model_calls_per_reply": 0.0
+      },
+      "p=0.2": {
+        "confirm_recall": 1.0,
+        "false_confirm_rate": 1.0,
+        "cancel_recall": 0.0,
+        "model_calls_per_reply": 0.0
+      },
+      "p=0.3": {
+        "confirm_recall": 1.0,
+        "false_confirm_rate": 1.0,
+        "cancel_recall": 0.0,
+        "model_calls_per_reply": 0.0
+      },
+      "p=0.4": {
+        "confirm_recall": 1.0,
+        "false_confirm_rate": 1.0,
+        "cancel_recall": 0.0,
+        "model_calls_per_reply": 0.0
+      },
+      "p=0.5": {
+        "confirm_recall": 1.0,
+        "false_confirm_rate": 1.0,
+        "cancel_recall": 0.0,
+        "model_calls_per_reply": 0.0
+      },
+      "worst": {
+        "confirm_recall": 1.0,
+        "false_confirm_rate": 1.0,
+        "cancel_recall": 0.0,
+        "model_calls_per_reply": 0.0
+      }
+    },
+    "V1 model-only": {
+      "p=0.0": {
+        "confirm_recall": 1.0,
+        "false_confirm_rate": 0.0,
+        "cancel_recall": 1.0,
+        "model_calls_per_reply": 1.0
+      },
+      "p=0.1": {
+        "confirm_recall": 0.8980277777777778,
+        "false_confirm_rate": 0.048857142857142856,
+        "cancel_recall": 0.9014,
+        "model_calls_per_reply": 1.0
+      },
+      "p=0.2": {
+        "confirm_recall": 0.7999722222222222,
+        "false_confirm_rate": 0.09910714285714285,
+        "cancel_recall": 0.80275,
+        "model_calls_per_reply": 1.0
+      },
+      "p=0.3": {
+        "confirm_recall": 0.70175,
+        "false_confirm_rate": 0.15114285714285713,
+        "cancel_recall": 0.69715,
+        "model_calls_per_reply": 1.0
+      },
+      "p=0.4": {
+        "confirm_recall": 0.6010555555555556,
+        "false_confirm_rate": 0.19785714285714287,
+        "cancel_recall": 0.6026,
+        "model_calls_per_reply": 1.0
+      },
+      "p=0.5": {
+        "confirm_recall": 0.49525,
+        "false_confirm_rate": 0.25135714285714283,
+        "cancel_recall": 0.49585,
+        "model_calls_per_reply": 1.0
+      },
+      "worst": {
+        "confirm_recall": 1.0,
+        "false_confirm_rate": 1.0,
+        "cancel_recall": 0.0,
+        "model_calls_per_reply": 1.0
+      }
+    },
+    "V2 lexical": {
+      "p=0.0": {
+        "confirm_recall": 0.7222222222222222,
+        "false_confirm_rate": 0.0,
+        "cancel_recall": 0.7,
+        "model_calls_per_reply": 0.0
+      },
+      "p=0.1": {
+        "confirm_recall": 0.7222222222222222,
+        "false_confirm_rate": 0.0,
+        "cancel_recall": 0.7,
+        "model_calls_per_reply": 0.0
+      },
+      "p=0.2": {
+        "confirm_recall": 0.7222222222222222,
+        "false_confirm_rate": 0.0,
+        "cancel_recall": 0.7,
+        "model_calls_per_reply": 0.0
+      },
+      "p=0.3": {
+        "confirm_recall": 0.7222222222222222,
+        "false_confirm_rate": 0.0,
+        "cancel_recall": 0.7,
+        "model_calls_per_reply": 0.0
+      },
+      "p=0.4": {
+        "confirm_recall": 0.7222222222222222,
+        "false_confirm_rate": 0.0,
+        "cancel_recall": 0.7,
+        "model_calls_per_reply": 0.0
+      },
+      "p=0.5": {
+        "confirm_recall": 0.7222222222222222,
+        "false_confirm_rate": 0.0,
+        "cancel_recall": 0.7,
+        "model_calls_per_reply": 0.0
+      },
+      "worst": {
+        "confirm_recall": 0.7222222222222222,
+        "false_confirm_rate": 0.0,
+        "cancel_recall": 0.7,
+        "model_calls_per_reply": 0.0
+      }
+    },
+    "V3 proposed": {
+      "p=0.0": {
+        "confirm_recall": 1.0,
+        "false_confirm_rate": 0.0,
+        "cancel_recall": 1.0,
+        "model_calls_per_reply": 0.5652173913043478
+      },
+      "p=0.1": {
+        "confirm_recall": 0.9730833333333333,
+        "false_confirm_rate": 0.003160714285714286,
+        "cancel_recall": 0.96965,
+        "model_calls_per_reply": 0.5652173913043478
+      },
+      "p=0.2": {
+        "confirm_recall": 0.9448333333333333,
+        "false_confirm_rate": 0.006339285714285714,
+        "cancel_recall": 0.9397,
+        "model_calls_per_reply": 0.5652173913043478
+      },
+      "p=0.3": {
+        "confirm_recall": 0.91775,
+        "false_confirm_rate": 0.010482142857142857,
+        "cancel_recall": 0.91075,
+        "model_calls_per_reply": 0.5652173913043478
+      },
+      "p=0.4": {
+        "confirm_recall": 0.8896666666666667,
+        "false_confirm_rate": 0.014017857142857143,
+        "cancel_recall": 0.87755,
+        "model_calls_per_reply": 0.5652173913043478
+      },
+      "p=0.5": {
+        "confirm_recall": 0.8607777777777778,
+        "false_confirm_rate": 0.017535714285714286,
+        "cancel_recall": 0.85085,
+        "model_calls_per_reply": 0.5652173913043478
+      },
+      "worst": {
+        "confirm_recall": 1.0,
+        "false_confirm_rate": 0.07142857142857142,
+        "cancel_recall": 0.7,
+        "model_calls_per_reply": 0.5652173913043478
+      }
+    },
+    "V4 proposed+": {
+      "p=0.0": {
+        "confirm_recall": 1.0,
+        "false_confirm_rate": 0.0,
+        "cancel_recall": 1.0,
+        "model_calls_per_reply": 0.5652173913043478
+      },
+      "p=0.1": {
+        "confirm_recall": 0.9719444444444445,
+        "false_confirm_rate": 0.0,
+        "cancel_recall": 0.97075,
+        "model_calls_per_reply": 0.5652173913043478
+      },
+      "p=0.2": {
+        "confirm_recall": 0.9438333333333333,
+        "false_confirm_rate": 0.0,
+        "cancel_recall": 0.93835,
+        "model_calls_per_reply": 0.5652173913043478
+      },
+      "p=0.3": {
+        "confirm_recall": 0.9173055555555556,
+        "false_confirm_rate": 0.0,
+        "cancel_recall": 0.9096,
+        "model_calls_per_reply": 0.5652173913043478
+      },
+      "p=0.4": {
+        "confirm_recall": 0.8903888888888889,
+        "false_confirm_rate": 0.0,
+        "cancel_recall": 0.8826,
+        "model_calls_per_reply": 0.5652173913043478
+      },
+      "p=0.5": {
+        "confirm_recall": 0.8588888888888889,
+        "false_confirm_rate": 0.0,
+        "cancel_recall": 0.84875,
+        "model_calls_per_reply": 0.5652173913043478
+      },
+      "worst": {
+        "confirm_recall": 1.0,
+        "false_confirm_rate": 0.0,
+        "cancel_recall": 0.7,
+        "model_calls_per_reply": 0.5652173913043478
+      }
+    }
+  }
+}

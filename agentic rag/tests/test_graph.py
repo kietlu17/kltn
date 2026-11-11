@@ -242,7 +242,7 @@ class AgentGraphTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(planned["render_product_cards"])
         self.assertNotIn(GALAXY_ID, planned["plan"]["product_ids"])
 
-        retrieved = await self.agent.retrieve({**current, **planned})
+        retrieved = await self.agent.product_agent.retrieve({**current, **planned})
         self.assertEqual(self.retriever.calls, [])
         self.assertEqual(
             {hit["productId"] for hit in retrieved["retrieval_hits"]},
@@ -322,7 +322,7 @@ class AgentGraphTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(planned_purchase["plan"]["filters"]["colors"], ["den"])
         self.assertEqual(planned_purchase["shopping_phase"], "selling")
 
-        await self.agent.prepare_cart({**purchase, **planned_purchase})
+        await self.agent.order_agent.prepare_cart({**purchase, **planned_purchase})
         self.assertEqual(self.marketplace.product_filters[-1].colors, ["den"])
 
     async def test_listing_options_clears_previous_variant_selection(self):
@@ -357,7 +357,7 @@ class AgentGraphTests(unittest.IsolatedAsyncioTestCase):
         current["active_product_id"] = BASIC_ID
         current["selected_options"] = selected or {"colors": [], "sizes": []}
         planned = await agent.plan(current)
-        detailed = await agent.product_detail({**current, **planned})
+        detailed = await agent.product_agent.product_detail({**current, **planned})
         resolved = {**current, **planned, **detailed}
         return planned, resolved, agent._product_attribute_answer(resolved)
 
@@ -548,7 +548,7 @@ class AgentGraphTests(unittest.IsolatedAsyncioTestCase):
             "exclude_product_ids": [BASIC_ID],
         }
 
-        rewritten = await self.agent.relax_constraints(current)
+        rewritten = await self.agent.product_agent.relax_constraints(current)
         filters = rewritten["plan"]["filters"]
 
         self.assertEqual(filters["product_type"], "ao_thun")

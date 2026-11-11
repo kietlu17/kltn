@@ -107,8 +107,13 @@ export default function Home() {
     return Array.from(shopMap.values()).filter((shop) => shop?.name?.toLowerCase().includes(normalized));
   }, [query, shopMap]);
 
+  // With a category tree, the bar shows its roots (Thời trang, Điện tử, ...);
+  // opening one lists the products of all its sub-categories.
+  const hasTree = categories.some((category) => category.parentId);
   const categoryItems = categories.length
-    ? categories.map((category) => ({ id: category._id || category.id, name: category.name }))
+    ? categories
+      .filter((category) => !hasTree || !category.parentId)
+      .map((category) => ({ id: category._id || category.id, name: category.name }))
     : defaultCategories;
 
   function openCategory(category) {

@@ -19,21 +19,27 @@ from .graph import AgenticShoppingGraph
 from .marketplace import MarketplaceClient, MarketplaceError
 from .models import GeminiGateway
 from .policy import PolicyRetriever
+from .rerank import CrossEncoderReranker
 from .retrieval import StructuredProductRetriever
 from .schemas import ChatRequest, ChatResponse, PendingAction
+from .visual import VisualSearch
 
 log = logging.getLogger(__name__)
 
 _STREAM_STATUS = {
     "understand": "Đang hiểu yêu cầu…",
     "plan": "Đang lập kế hoạch…",
-    "retrieve": "Đang tìm sản phẩm…",
+    "retrieve": "Đang tìm và xếp hạng sản phẩm…",
+    "web_expand": "Catalog chưa có mẫu khớp, đang tra cứu web để mở rộng tìm kiếm…",
+    "research_side": "Đang tra cứu thông tin trên web…",
     "relax": "Không có mẫu khớp hoàn toàn, đang nới điều kiện…",
     "product_detail": "Đang đọc thông tin sản phẩm…",
     "policy": "Đang tra cứu chính sách…",
     "policy_side": "Đang tra cứu chính sách…",
+    "cart_view": "Đang đọc giỏ hàng…",
     "prepare_cart": "Đang chuẩn bị thao tác giỏ hàng…",
-    "prepare_checkout": "Đang tạo báo giá…",
+    "prepare_checkout": "Đang chuẩn bị thanh toán…",
+    "order_status": "Đang tra cứu đơn hàng…",
     "collect": "Đang soạn câu trả lời…",
 }
 
@@ -85,14 +91,18 @@ def create_agentic_app() -> FastAPI:
         marketplace = MarketplaceClient(settings)
         retriever = StructuredProductRetriever(settings, models)
         policy = PolicyRetriever(settings, models)
+        reranker = CrossEncoderReranker(settings)
+        visual = VisualSearch(settings)
         agent = AgenticShoppingGraph(
-            settings, models, retriever, marketplace, policy=policy, checkpointer=checkpointer
+            settings, models, retriever, marketplace, policy=policy, checkpointer=checkpointer,
+            reranker=reranker, visual=visual,
         )
         application.state.settings = settings
         application.state.models = models
         application.state.marketplace = marketplace
         application.state.retriever = retriever
         application.state.policy = policy
+        application.state.visual = visual
         application.state.agent = agent
         application.state.checkpointer = checkpointer
         application.state.busy_sessions = set()
@@ -101,6 +111,8 @@ def create_agentic_app() -> FastAPI:
         finally:
             await retriever.close()
             await policy.close()
+            await reranker.close()
+            await visual.close()
             await marketplace.close()
             await models.close()
             await checkpoint_context.__aexit__(None, None, None)
@@ -116,6 +128,11 @@ def create_agentic_app() -> FastAPI:
         try:
             vector = await application.state.retriever.health()
             policy = await application.state.policy.health()
+            try:
+                visual = await application.state.visual.health()
+            except Exception as error:
+                # Photo search is optional: text chat stays ready without it.
+                visual = {"exists": False, "error": type(error).__name__}
             policy_ready = bool(policy["exists"] and policy["points"] > 0)
             ready = bool(
                 vector["exists"]
@@ -130,6 +147,20 @@ def create_agentic_app() -> FastAPI:
                 "model": application.state.settings.chat_model,
                 "vector": vector,
                 "policy": policy,
+                "imageSearch": visual,
+                "agents": {
+                    "product": ["catalog_search", "product_detail", "policy", "web_research"],
+                    "order": ["cart", "checkout", "order_status"],
+                    "llmFirst": application.state.settings.llm_first,
+                    "webSearch": application.state.settings.web_search_enabled,
+                },
+                "rerank": {
+                    "mode": application.state.settings.rerank_mode,
+                    "crossEncoder": application.state.settings.rerank_enabled,
+                    "candidates": application.state.settings.rerank_candidates,
+                    "llmCandidates": application.state.settings.llm_rerank_candidates,
+                    "topK": application.state.settings.result_limit,
+                },
                 "semanticSchemaVersion": vector.get("semanticSchemaVersion"),
                 "specCoverage": vector.get("specCoverage", 0),
                 "policyReady": policy_ready,
@@ -180,6 +211,7 @@ def create_agentic_app() -> FastAPI:
             "understanding": {},
             "semantic_turn": {},
             "search_context": previous.get("search_context", {}),
+            "last_search": previous.get("last_search", {}),
             "plan": {},
             "query": "",
             "retrieval_rounds": 0,
@@ -202,6 +234,8 @@ def create_agentic_app() -> FastAPI:
             "skipped_tasks": [],
             "policy_appendix": "",
             "policy_sources": [],
+            "web_research": {},
+            "expanded_queries": [],
             "clarify_count": int(previous.get("clarify_count") or 0),
             "last_clarify_key": previous.get("last_clarify_key", ""),
             "route": "",

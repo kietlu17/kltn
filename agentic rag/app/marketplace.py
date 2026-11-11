@@ -218,7 +218,8 @@ class MarketplaceClient:
                 if filters.max_price is not None and price > filters.max_price:
                     continue
                 offer_text = _normalized(offer.get("name", ""))
-                if filters.colors and not all(
+                # Several colours are alternatives ("be, đen hoặc navy"): any one matches.
+                if filters.colors and not any(
                     _normalized(value) in offer_text for value in filters.colors
                 ):
                     continue
@@ -249,7 +250,9 @@ class MarketplaceClient:
                 url=f"/product/{product_id}",
                 description=_plain_text(product.get("description"), 800),
                 score=hit_scores.get(product_id),
-                variants=variants[:20],
+                # A single-product detail card keeps every variant so
+                # "có mấy màu" sees all colours, not the first twenty offers.
+                variants=variants[: 80 if limit == 1 else 20],
                 specifications=[
                     {
                         "name": _plain_text(item.get("name"), 200),

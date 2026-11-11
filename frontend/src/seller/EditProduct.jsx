@@ -157,7 +157,7 @@ export default function EditProduct() {
               <option value="">Chọn danh mục</option>
               {categories.map((category) => (
                 <option key={category._id || category.id} value={category._id || category.id}>
-                  {category.name}
+                  {category.path || category.name}
                 </option>
               ))}
             </select>

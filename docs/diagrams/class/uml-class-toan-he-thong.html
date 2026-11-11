@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Class diagram toàn hệ thống</title>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600&family=Geist+Mono:wght@400;500;600&family=Noto+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Be Vietnam Pro', 'Geist', system-ui, sans-serif; background: #f5f5f5; color: #2d3142; min-height: 100vh;
+           display: flex; align-items: flex-start; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 4132px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow { font-family: 'Geist Mono', ui-monospace, monospace; font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em;
+               text-transform: uppercase; color: #4f5d75; margin-bottom: 0.5rem; }
+    h1 { font-family: 'Noto Serif', 'Instrument Serif', serif; font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400;
+         letter-spacing: -0.02em; line-height: 1.2; color: #2d3142; margin-bottom: 1.5rem; }
+    .note { font-size: 0.8rem; line-height: 1.6; color: #4f5d75; margin-top: 1rem; max-width: 70ch; }
+    .nav { font-family: 'Geist Mono', ui-monospace, monospace; font-size: 0.7rem; margin-bottom: 1rem; }
+    .nav a { color: #2e5aa8; text-decoration: none; margin-right: 1rem; }
+    svg { width: 100%; min-width: 4092px; display: block; }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0; } .nav { display: none; } }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    
+    <p class="eyebrow">UML 2.5 · Class diagram · toàn hệ thống</p>
+    <h1>Class diagram toàn hệ thống</h1>
+    <div class="diagram-container">
+      <svg viewBox="0 0 4092 1509" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="uml-class-toan-he-thong-title uml-class-toan-he-thong-desc">
+        <title id="uml-class-toan-he-thong-title">Class diagram toàn hệ thống</title>
+        <desc id="uml-class-toan-he-thong-desc">39 class và enumeration trong 13 package theo service, với thuộc tính, thao tác và quan hệ hợp thành, kết tập, kết hợp.</desc>
+        <defs>
+  <marker id="m-fill" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><polygon points="0 0, 9 3.5, 0 7" fill="#4f5d75"/></marker>
+  <marker id="m-fill-ink" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><polygon points="0 0, 9 3.5, 0 7" fill="#2d3142"/></marker>
+  <marker id="m-fill-accent" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><polygon points="0 0, 9 3.5, 0 7" fill="#bf4520"/></marker>
+  <marker id="m-fill-link" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><polygon points="0 0, 9 3.5, 0 7" fill="#2e5aa8"/></marker>
+  <marker id="m-open" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><polyline points="0.5 0.5, 9 4, 0.5 7.5" fill="none" stroke="#4f5d75" stroke-width="1.2"/></marker>
+  <marker id="m-open-ink" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><polyline points="0.5 0.5, 9 4, 0.5 7.5" fill="none" stroke="#2d3142" stroke-width="1.2"/></marker>
+  <marker id="m-open-accent" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><polyline points="0.5 0.5, 9 4, 0.5 7.5" fill="none" stroke="#bf4520" stroke-width="1.2"/></marker>
+  <marker id="m-open-link" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><polyline points="0.5 0.5, 9 4, 0.5 7.5" fill="none" stroke="#2e5aa8" stroke-width="1.2"/></marker>
+  <marker id="m-hollow" markerWidth="11" markerHeight="9" refX="10" refY="4.5" orient="auto"><polygon points="0.8 0.8, 10 4.5, 0.8 8.2" fill="#ffffff" stroke="#4f5d75" stroke-width="1"/></marker>
+  <marker id="m-circ" markerWidth="9" markerHeight="9" refX="4.5" refY="4.5" orient="auto"><circle cx="4.5" cy="4.5" r="3.5" fill="#ffffff" stroke="#4f5d75" stroke-width="1"/></marker>
+</defs>
+        <rect width="100%" height="100%" fill="#f5f5f5"/>
+<defs>
+  <marker id="u-comp" markerWidth="18" markerHeight="10" refX="1" refY="5" orient="auto"><polygon points="1 5, 9 1, 17 5, 9 9" fill="#2d3142" stroke="#2d3142" stroke-width="1"/></marker>
+  <marker id="u-aggr" markerWidth="18" markerHeight="10" refX="1" refY="5" orient="auto"><polygon points="1 5, 9 1, 17 5, 9 9" fill="#ffffff" stroke="#2d3142" stroke-width="1"/></marker>
+  <marker id="u-open" markerWidth="11" markerHeight="10" refX="10" refY="5" orient="auto"><polyline points="1 1, 10 5, 1 9" fill="none" stroke="#2d3142" stroke-width="1.2"/></marker>
+  <marker id="u-tri" markerWidth="16" markerHeight="14" refX="15" refY="7" orient="auto"><polygon points="1 1, 15 7, 1 13" fill="#f5f5f5" stroke="#2d3142" stroke-width="1.1"/></marker>
+</defs>
+<path d="M40,64 V42 H138.68 V64" fill="#f5f5f5" stroke="#2d3142" stroke-width="0.9"/><rect x="40" y="64" width="636" height="279" fill="rgba(45,49,66,0.02)" stroke="#2d3142" stroke-width="0.9"/><text x="52.0" y="57.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="start">auth-service</text>
+<path d="M712,64 V42 H810.68 V64" fill="#f5f5f5" stroke="#2d3142" stroke-width="0.9"/><rect x="712" y="64" width="636" height="219" fill="rgba(45,49,66,0.02)" stroke="#2d3142" stroke-width="0.9"/><text x="724.0" y="57.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="start">user-service</text>
+<path d="M1384,64 V42 H1482.68 V64" fill="#f5f5f5" stroke="#2d3142" stroke-width="0.9"/><rect x="1384" y="64" width="636" height="234" fill="rgba(45,49,66,0.02)" stroke="#2d3142" stroke-width="0.9"/><text x="1396.0" y="57.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="start">shop-service</text>
+<path d="M2056,64 V42 H2154.68 V64" fill="#f5f5f5" stroke="#2d3142" stroke-width="0.9"/><rect x="2056" y="64" width="636" height="219" fill="rgba(45,49,66,0.02)" stroke="#2d3142" stroke-width="0.9"/><text x="2068.0" y="57.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="start">chat-service</text>
+<path d="M2728,64 V42 H2838.46 V64" fill="#f5f5f5" stroke="#2d3142" stroke-width="0.9"/><rect x="2728" y="64" width="292" height="219" fill="rgba(45,49,66,0.02)" stroke="#2d3142" stroke-width="0.9"/><text x="2740.0" y="57.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="start">review-service</text>
+<path d="M40,391 V369 H156.35 V391" fill="#f5f5f5" stroke="#2d3142" stroke-width="0.9"/><rect x="40" y="391" width="980" height="439" fill="rgba(45,49,66,0.02)" stroke="#2d3142" stroke-width="0.9"/><text x="52.0" y="384.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="start">product-service</text>
+<path d="M1056,391 V369 H1154.68 V391" fill="#f5f5f5" stroke="#2d3142" stroke-width="0.9"/><rect x="1056" y="391" width="636" height="204" fill="rgba(45,49,66,0.02)" stroke="#2d3142" stroke-width="0.9"/><text x="1068.0" y="384.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="start">cart-service</text>
+<path d="M1728,391 V369 H1856.13 V391" fill="#f5f5f5" stroke="#2d3142" stroke-width="0.9"/><rect x="1728" y="391" width="636" height="234" fill="rgba(45,49,66,0.02)" stroke="#2d3142" stroke-width="0.9"/><text x="1740.0" y="384.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="start">inventory-service</text>
+<path d="M2400,391 V369 H2516.35 V391" fill="#f5f5f5" stroke="#2d3142" stroke-width="0.9"/><rect x="2400" y="391" width="636" height="279" fill="rgba(45,49,66,0.02)" stroke="#2d3142" stroke-width="0.9"/><text x="2412.0" y="384.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="start">voucher-service</text>
+<path d="M40,878 V856 H144.57 V878" fill="#f5f5f5" stroke="#2d3142" stroke-width="0.9"/><rect x="40" y="878" width="980" height="529" fill="rgba(45,49,66,0.02)" stroke="#2d3142" stroke-width="0.9"/><text x="52.0" y="871.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="start">order-service</text>
+<path d="M1056,878 V856 H1172.35 V878" fill="#f5f5f5" stroke="#2d3142" stroke-width="0.9"/><rect x="1056" y="878" width="636" height="234" fill="rgba(45,49,66,0.02)" stroke="#2d3142" stroke-width="0.9"/><text x="1068.0" y="871.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="start">payment-gateway</text>
+<path d="M1728,878 V856 H1997.49 V878" fill="#f5f5f5" stroke="#2d3142" stroke-width="0.9"/><rect x="1728" y="878" width="636" height="189" fill="rgba(45,49,66,0.02)" stroke="#2d3142" stroke-width="0.9"/><text x="1740.0" y="871.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="start">saga · order / payment / wallet / gateway</text>
+<path d="M3072,391 V369 H3182.46 V391" fill="#f5f5f5" stroke="#2d3142" stroke-width="0.9"/><rect x="3072" y="391" width="980" height="750" fill="rgba(45,49,66,0.02)" stroke="#2d3142" stroke-width="0.9"/><text x="3084.0" y="384.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="start">wallet-service</text>
+<line x1="982" y1="150" x2="1078" y2="150" stroke="#2d3142" stroke-width="1.1" marker-start="url(#u-comp)"/>
+<rect x="1006.0" y="134.0" width="9.6" height="13.0" fill="#f5f5f5"/><text x="1008.0" y="143.0" fill="#2d3142" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="start">1</text>
+<rect x="1037.7" y="134.0" width="26.3" height="13.0" fill="#f5f5f5"/><text x="1062.0" y="143.0" fill="#2d3142" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="end">0..*</text>
+<line x1="1654" y1="150" x2="1750" y2="150" stroke="#2d3142" stroke-width="1.1" marker-start="url(#u-comp)"/>
+<rect x="1678.0" y="134.0" width="9.6" height="13.0" fill="#f5f5f5"/><text x="1680.0" y="143.0" fill="#2d3142" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="start">1</text>
+<rect x="1709.7" y="134.0" width="26.3" height="13.0" fill="#f5f5f5"/><text x="1734.0" y="143.0" fill="#2d3142" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="end">0..*</text>
+<line x1="2326" y1="150" x2="2422" y2="150" stroke="#2d3142" stroke-width="1.1" marker-end="url(#u-open)"/>
+<rect x="2336.0" y="134.0" width="9.6" height="13.0" fill="#f5f5f5"/><text x="2338.0" y="143.0" fill="#2d3142" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="start">1</text>
+<rect x="2381.7" y="134.0" width="26.3" height="13.0" fill="#f5f5f5"/><text x="2406.0" y="143.0" fill="#2d3142" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="end">0..*</text>
+<line x1="310" y1="477" x2="406" y2="477" stroke="#2d3142" stroke-width="1.1" marker-start="url(#u-aggr)"/>
+<rect x="334.0" y="461.0" width="26.3" height="13.0" fill="#f5f5f5"/><text x="336.0" y="470.0" fill="#2d3142" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="start">0..1</text>
+<rect x="365.7" y="461.0" width="26.3" height="13.0" fill="#f5f5f5"/><text x="390.0" y="470.0" fill="#2d3142" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="end">0..*</text>
+<line x1="654" y1="477" x2="750" y2="477" stroke="#2d3142" stroke-width="1.1" marker-start="url(#u-comp)"/>
+<rect x="678.0" y="461.0" width="9.6" height="13.0" fill="#f5f5f5"/><text x="680.0" y="470.0" fill="#2d3142" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="start">1</text>
+<rect x="709.7" y="461.0" width="26.3" height="13.0" fill="#f5f5f5"/><text x="734.0" y="470.0" fill="#2d3142" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="end">0..*</text>
+<line x1="530.0" y1="648" x2="530.0" y2="692" stroke="#2d3142" stroke-width="1.1" marker-start="url(#u-comp)"/>
+<rect x="512.4" y="665.0" width="9.6" height="13.0" fill="#f5f5f5"/><text x="520.0" y="674.0" fill="#2d3142" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="end">1</text>
+<rect x="538.0" y="673.0" width="26.3" height="13.0" fill="#f5f5f5"/><text x="540.0" y="682.0" fill="#2d3142" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="start">0..*</text>
+<line x1="1326" y1="477" x2="1422" y2="477" stroke="#2d3142" stroke-width="1.1" marker-start="url(#u-comp)"/>
+<rect x="1350.0" y="461.0" width="9.6" height="13.0" fill="#f5f5f5"/><text x="1352.0" y="470.0" fill="#2d3142" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="start">1</text>
+<rect x="1381.7" y="461.0" width="26.3" height="13.0" fill="#f5f5f5"/><text x="1406.0" y="470.0" fill="#2d3142" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="end">0..*</text>
+<line x1="1998" y1="477" x2="2094" y2="477" stroke="#2d3142" stroke-width="1.1" marker-end="url(#u-open)"/>
+<rect x="2008.0" y="461.0" width="9.6" height="13.0" fill="#f5f5f5"/><text x="2010.0" y="470.0" fill="#2d3142" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="start">1</text>
+<rect x="2053.7" y="461.0" width="26.3" height="13.0" fill="#f5f5f5"/><text x="2078.0" y="470.0" fill="#2d3142" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="end">0..*</text>
+<line x1="2670" y1="477" x2="2766" y2="477" stroke="#2d3142" stroke-width="1.1" marker-end="url(#u-open)"/>
+<rect x="2680.0" y="461.0" width="9.6" height="13.0" fill="#f5f5f5"/><text x="2682.0" y="470.0" fill="#2d3142" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="start">1</text>
+<rect x="2725.7" y="461.0" width="26.3" height="13.0" fill="#f5f5f5"/><text x="2750.0" y="470.0" fill="#2d3142" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="end">0..*</text>
+<line x1="310" y1="964" x2="406" y2="964" stroke="#2d3142" stroke-width="1.1" marker-end="url(#u-open)"/>
+<rect x="320.0" y="948.0" width="9.6" height="13.0" fill="#f5f5f5"/><text x="322.0" y="957.0" fill="#2d3142" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="start">1</text>
+<rect x="365.7" y="948.0" width="26.3" height="13.0" fill="#f5f5f5"/><text x="390.0" y="957.0" fill="#2d3142" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="end">1..*</text>
+<line x1="654" y1="964" x2="750" y2="964" stroke="#2d3142" stroke-width="1.1" marker-end="url(#u-open)"/>
+<rect x="664.0" y="948.0" width="9.6" height="13.0" fill="#f5f5f5"/><text x="666.0" y="957.0" fill="#2d3142" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="start">1</text>
+<rect x="709.7" y="948.0" width="26.3" height="13.0" fill="#f5f5f5"/><text x="734.0" y="957.0" fill="#2d3142" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="end">0..*</text>
+<line x1="530.0" y1="1135" x2="530.0" y2="1179" stroke="#2d3142" stroke-width="1.1" marker-end="url(#u-open)"/>
+<rect x="512.4" y="1142.0" width="9.6" height="13.0" fill="#f5f5f5"/><text x="520.0" y="1151.0" fill="#2d3142" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="end">1</text>
+<rect x="538.0" y="1160.0" width="26.3" height="13.0" fill="#f5f5f5"/><text x="540.0" y="1169.0" fill="#2d3142" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="start">0..*</text>
+<line x1="1326" y1="964" x2="1422" y2="964" stroke="#2d3142" stroke-width="1.1" marker-end="url(#u-open)"/>
+<rect x="1336.0" y="948.0" width="9.6" height="13.0" fill="#f5f5f5"/><text x="1338.0" y="957.0" fill="#2d3142" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="start">1</text>
+<rect x="1381.7" y="948.0" width="26.3" height="13.0" fill="#f5f5f5"/><text x="1406.0" y="957.0" fill="#2d3142" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="end">0..*</text>
+<line x1="3342" y1="477" x2="3438" y2="477" stroke="#2d3142" stroke-width="1.1" marker-start="url(#u-comp)"/>
+<rect x="3366.0" y="461.0" width="9.6" height="13.0" fill="#f5f5f5"/><text x="3368.0" y="470.0" fill="#2d3142" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="start">1</text>
+<rect x="3414.4" y="461.0" width="9.6" height="13.0" fill="#f5f5f5"/><text x="3422.0" y="470.0" fill="#2d3142" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="end">1</text>
+<line x1="3218.0" y1="573" x2="3218.0" y2="617" stroke="#2d3142" stroke-width="1.1" marker-end="url(#u-open)"/>
+<rect x="3200.4" y="580.0" width="9.6" height="13.0" fill="#f5f5f5"/><text x="3208.0" y="589.0" fill="#2d3142" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="end">1</text>
+<rect x="3226.0" y="598.0" width="26.3" height="13.0" fill="#f5f5f5"/><text x="3228.0" y="607.0" fill="#2d3142" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="start">0..*</text>
+<line x1="3438" y1="846" x2="3342" y2="846" stroke="#2d3142" stroke-width="1.1" marker-start="url(#u-comp)"/>
+<rect x="3404.4" y="830.0" width="9.6" height="13.0" fill="#f5f5f5"/><text x="3412.0" y="839.0" fill="#2d3142" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="end">1</text>
+<rect x="3356.0" y="830.0" width="9.6" height="13.0" fill="#f5f5f5"/><text x="3358.0" y="839.0" fill="#2d3142" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="start">1</text>
+<line x1="3562.0" y1="794" x2="3562.0" y2="750" stroke="#2d3142" stroke-width="1.1" marker-end="url(#u-open)"/>
+<rect x="3544.4" y="777.0" width="9.6" height="13.0" fill="#f5f5f5"/><text x="3552.0" y="786.0" fill="#2d3142" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="end">1</text>
+<rect x="3570.0" y="759.0" width="26.3" height="13.0" fill="#f5f5f5"/><text x="3572.0" y="768.0" fill="#2d3142" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="start">0..*</text>
+<line x1="3686" y1="846" x2="3782" y2="846" stroke="#2d3142" stroke-width="1.1" marker-end="url(#u-open)"/>
+<rect x="3696.0" y="830.0" width="9.6" height="13.0" fill="#f5f5f5"/><text x="3698.0" y="839.0" fill="#2d3142" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="start">1</text>
+<rect x="3741.7" y="830.0" width="26.3" height="13.0" fill="#f5f5f5"/><text x="3766.0" y="839.0" fill="#2d3142" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="end">0..*</text>
+<line x1="3562.0" y1="942" x2="3562.0" y2="986" stroke="#2d3142" stroke-width="1.1" marker-end="url(#u-open)"/>
+<rect x="3544.4" y="949.0" width="9.6" height="13.0" fill="#f5f5f5"/><text x="3552.0" y="958.0" fill="#2d3142" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="end">1</text>
+<rect x="3570.0" y="967.0" width="26.3" height="13.0" fill="#f5f5f5"/><text x="3572.0" y="976.0" fill="#2d3142" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="start">0..*</text>
+<line x1="3342" y1="1038" x2="3438" y2="1038" stroke="#2d3142" stroke-width="1.1" marker-start="url(#u-comp)"/>
+<rect x="3366.0" y="1022.0" width="9.6" height="13.0" fill="#f5f5f5"/><text x="3368.0" y="1031.0" fill="#2d3142" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="start">1</text>
+<rect x="3397.7" y="1022.0" width="26.3" height="13.0" fill="#f5f5f5"/><text x="3422.0" y="1031.0" fill="#2d3142" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="end">2..*</text>
+<rect x="62" y="98" width="248" height="223" rx="6" fill="#f5f5f5"/>
+<rect x="62" y="98" width="248" height="223" rx="6" fill="rgba(191,69,32,0.08)" stroke="#bf4520" stroke-width="1.1"/>
+<text x="186.0" y="118.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">User</text>
+<line x1="62" y1="128" x2="310" y2="128" stroke="#bf4520" stroke-width="0.8"/>
+<text x="74.0" y="147.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ email: String {unique}</text>
+<text x="74.0" y="162.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">- password: String</text>
+<text x="74.0" y="177.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ role: Role</text>
+<text x="74.0" y="192.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ shopId: String</text>
+<text x="74.0" y="207.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ isActive: Boolean</text>
+<text x="74.0" y="222.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ tokenVersion: Number</text>
+<line x1="62" y1="232" x2="310" y2="232" stroke="#bf4520" stroke-width="0.8"/>
+<text x="74.0" y="251.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ register(email, password, role)</text>
+<text x="74.0" y="266.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ login(email, password): JWT</text>
+<text x="74.0" y="281.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ validateSession(token)</text>
+<text x="74.0" y="296.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ lock(id)</text>
+<text x="74.0" y="311.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ unlock(id)</text>
+<rect x="406" y="98" width="248" height="101" rx="6" fill="#f5f5f5"/>
+<rect x="406" y="98" width="248" height="101" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<text x="530.0" y="114.0" fill="#4f5d75" font-size="8.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="500" text-anchor="middle">«enumeration»</text>
+<text x="530.0" y="131.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">Role</text>
+<line x1="406" y1="140" x2="654" y2="140" stroke="#2d3142" stroke-width="0.8"/>
+<text x="418.0" y="159.0" fill="#4f5d75" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">buyer</text>
+<text x="418.0" y="174.0" fill="#4f5d75" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">seller</text>
+<text x="418.0" y="189.0" fill="#4f5d75" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">admin</text>
+<rect x="734" y="98" width="248" height="163" rx="6" fill="#f5f5f5"/>
+<rect x="734" y="98" width="248" height="163" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<text x="858.0" y="118.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">UserProfile</text>
+<line x1="734" y1="128" x2="982" y2="128" stroke="#2d3142" stroke-width="0.8"/>
+<text x="746.0" y="147.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ userId: String {unique}</text>
+<text x="746.0" y="162.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ name: String</text>
+<text x="746.0" y="177.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ phone: String</text>
+<line x1="734" y1="187" x2="982" y2="187" stroke="#2d3142" stroke-width="0.8"/>
+<text x="746.0" y="206.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ addAddress(addr)</text>
+<text x="746.0" y="221.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ updateAddress(id, addr)</text>
+<text x="746.0" y="236.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ deleteAddress(id)</text>
+<text x="746.0" y="251.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ setDefaultAddress(id)</text>
+<rect x="1078" y="98" width="248" height="119" rx="6" fill="#f5f5f5"/>
+<rect x="1078" y="98" width="248" height="119" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<text x="1202.0" y="118.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">Address</text>
+<line x1="1078" y1="128" x2="1326" y2="128" stroke="#2d3142" stroke-width="0.8"/>
+<text x="1090.0" y="147.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ fullName: String</text>
+<text x="1090.0" y="162.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ phone: String</text>
+<text x="1090.0" y="177.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ line1: String</text>
+<text x="1090.0" y="192.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ city: String</text>
+<text x="1090.0" y="207.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ isDefault: Boolean</text>
+<rect x="1406" y="98" width="248" height="178" rx="6" fill="#f5f5f5"/>
+<rect x="1406" y="98" width="248" height="178" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<text x="1530.0" y="118.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">Shop</text>
+<line x1="1406" y1="128" x2="1654" y2="128" stroke="#2d3142" stroke-width="0.8"/>
+<text x="1418.0" y="147.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ name: String</text>
+<text x="1418.0" y="162.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ ownerId: String</text>
+<text x="1418.0" y="177.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ invoiceRequestMode: String</text>
+<text x="1418.0" y="192.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ invoiceFeatureStatus: String</text>
+<text x="1418.0" y="207.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ taxCode: String</text>
+<line x1="1406" y1="217" x2="1654" y2="217" stroke="#2d3142" stroke-width="0.8"/>
+<text x="1418.0" y="236.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ create(name, ownerId)</text>
+<text x="1418.0" y="251.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ getInvoiceFeature()</text>
+<text x="1418.0" y="266.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ requestInvoiceFeature(mode)</text>
+<rect x="1750" y="98" width="248" height="133" rx="6" fill="#f5f5f5"/>
+<rect x="1750" y="98" width="248" height="133" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<text x="1874.0" y="118.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">InvoiceFeatureRequest</text>
+<line x1="1750" y1="128" x2="1998" y2="128" stroke="#2d3142" stroke-width="0.8"/>
+<text x="1762.0" y="147.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ requestedMode: String</text>
+<text x="1762.0" y="162.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ status: String</text>
+<text x="1762.0" y="177.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ reason: String</text>
+<text x="1762.0" y="192.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ reviewedBy: String</text>
+<line x1="1750" y1="202" x2="1998" y2="202" stroke="#2d3142" stroke-width="0.8"/>
+<text x="1762.0" y="221.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ review(decision, note)</text>
+<rect x="2078" y="98" width="248" height="163" rx="6" fill="#f5f5f5"/>
+<rect x="2078" y="98" width="248" height="163" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<text x="2202.0" y="118.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">Conversation</text>
+<line x1="2078" y1="128" x2="2326" y2="128" stroke="#2d3142" stroke-width="0.8"/>
+<text x="2090.0" y="147.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ shopId: String</text>
+<text x="2090.0" y="162.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ buyerId: String</text>
+<text x="2090.0" y="177.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ product: Object</text>
+<text x="2090.0" y="192.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ lastMessage: String</text>
+<line x1="2078" y1="202" x2="2326" y2="202" stroke="#2d3142" stroke-width="0.8"/>
+<text x="2090.0" y="221.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ open(shopId, buyerId)</text>
+<text x="2090.0" y="236.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ listByShop(shopId)</text>
+<text x="2090.0" y="251.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ listByBuyer(buyerId)</text>
+<rect x="2422" y="98" width="248" height="133" rx="6" fill="#f5f5f5"/>
+<rect x="2422" y="98" width="248" height="133" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<text x="2546.0" y="118.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">Message</text>
+<line x1="2422" y1="128" x2="2670" y2="128" stroke="#2d3142" stroke-width="0.8"/>
+<text x="2434.0" y="147.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ senderRole: String</text>
+<text x="2434.0" y="162.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ senderId: String</text>
+<text x="2434.0" y="177.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ text: String</text>
+<text x="2434.0" y="192.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ createdAt: Date</text>
+<line x1="2422" y1="202" x2="2670" y2="202" stroke="#2d3142" stroke-width="0.8"/>
+<text x="2434.0" y="221.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ send(conversationId, text)</text>
+<rect x="2750" y="98" width="248" height="163" rx="6" fill="#f5f5f5"/>
+<rect x="2750" y="98" width="248" height="163" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<text x="2874.0" y="118.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">Review</text>
+<line x1="2750" y1="128" x2="2998" y2="128" stroke="#2d3142" stroke-width="0.8"/>
+<text x="2762.0" y="147.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ productId: String</text>
+<text x="2762.0" y="162.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ userId: String</text>
+<text x="2762.0" y="177.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ rating: Number [1..5]</text>
+<text x="2762.0" y="192.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ comment: String</text>
+<line x1="2750" y1="202" x2="2998" y2="202" stroke="#2d3142" stroke-width="0.8"/>
+<text x="2762.0" y="221.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ create(productId, rating)</text>
+<text x="2762.0" y="236.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ getByProduct(productId)</text>
+<text x="2762.0" y="251.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ getSummaries(ids)</text>
+<rect x="62" y="425" width="248" height="148" rx="6" fill="#f5f5f5"/>
+<rect x="62" y="425" width="248" height="148" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<text x="186.0" y="445.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">Category</text>
+<line x1="62" y1="455" x2="310" y2="455" stroke="#2d3142" stroke-width="0.8"/>
+<text x="74.0" y="474.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ name: String</text>
+<text x="74.0" y="489.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ description: String</text>
+<text x="74.0" y="504.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ shopId: String</text>
+<line x1="62" y1="514" x2="310" y2="514" stroke="#2d3142" stroke-width="0.8"/>
+<text x="74.0" y="533.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ create(name)</text>
+<text x="74.0" y="548.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ update(id, data)</text>
+<text x="74.0" y="563.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ delete(id)</text>
+<rect x="406" y="425" width="248" height="223" rx="6" fill="#f5f5f5"/>
+<rect x="406" y="425" width="248" height="223" rx="6" fill="rgba(191,69,32,0.08)" stroke="#bf4520" stroke-width="1.1"/>
+<text x="530.0" y="445.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">Product</text>
+<line x1="406" y1="455" x2="654" y2="455" stroke="#bf4520" stroke-width="0.8"/>
+<text x="418.0" y="474.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ name: String</text>
+<text x="418.0" y="489.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ price: Number</text>
+<text x="418.0" y="504.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ quantity: Number</text>
+<text x="418.0" y="519.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ sold: Number</text>
+<text x="418.0" y="534.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ shopId: String</text>
+<text x="418.0" y="549.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ moderationStatus: ModerationStatus</text>
+<line x1="406" y1="559" x2="654" y2="559" stroke="#bf4520" stroke-width="0.8"/>
+<text x="418.0" y="578.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ create(data, files)</text>
+<text x="418.0" y="593.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ update(id, data)</text>
+<text x="418.0" y="608.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ moderate(action, note)</text>
+<text x="418.0" y="623.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ getByIds(ids)</text>
+<text x="418.0" y="638.0" fill="#4f5d75" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">- buildModerationFields()</text>
+<rect x="750" y="425" width="248" height="104" rx="6" fill="#f5f5f5"/>
+<rect x="750" y="425" width="248" height="104" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<text x="874.0" y="445.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">Variant</text>
+<line x1="750" y1="455" x2="998" y2="455" stroke="#2d3142" stroke-width="0.8"/>
+<text x="762.0" y="474.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ name: String</text>
+<text x="762.0" y="489.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ sku: String</text>
+<text x="762.0" y="504.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ price: Number</text>
+<text x="762.0" y="519.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ quantity: Number</text>
+<rect x="62" y="692" width="248" height="116" rx="6" fill="#f5f5f5"/>
+<rect x="62" y="692" width="248" height="116" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<text x="186.0" y="708.0" fill="#4f5d75" font-size="8.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="500" text-anchor="middle">«enumeration»</text>
+<text x="186.0" y="725.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">ModerationStatus</text>
+<line x1="62" y1="734" x2="310" y2="734" stroke="#2d3142" stroke-width="0.8"/>
+<text x="74.0" y="753.0" fill="#4f5d75" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">pending</text>
+<text x="74.0" y="768.0" fill="#4f5d75" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">approved</text>
+<text x="74.0" y="783.0" fill="#4f5d75" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">rejected</text>
+<text x="74.0" y="798.0" fill="#4f5d75" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">removed</text>
+<rect x="406" y="692" width="248" height="74" rx="6" fill="#f5f5f5"/>
+<rect x="406" y="692" width="248" height="74" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<text x="530.0" y="712.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">Specification</text>
+<line x1="406" y1="722" x2="654" y2="722" stroke="#2d3142" stroke-width="0.8"/>
+<text x="418.0" y="741.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ name: String</text>
+<text x="418.0" y="756.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ value: String</text>
+<rect x="1078" y="425" width="248" height="148" rx="6" fill="#f5f5f5"/>
+<rect x="1078" y="425" width="248" height="148" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<text x="1202.0" y="445.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">Cart</text>
+<line x1="1078" y1="455" x2="1326" y2="455" stroke="#2d3142" stroke-width="0.8"/>
+<text x="1090.0" y="474.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ userId: String {unique}</text>
+<line x1="1078" y1="484" x2="1326" y2="484" stroke="#2d3142" stroke-width="0.8"/>
+<text x="1090.0" y="503.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ addToCart(productId, variantId, qty)</text>
+<text x="1090.0" y="518.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ upsertLine(line)</text>
+<text x="1090.0" y="533.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ updateQuantity(line, qty)</text>
+<text x="1090.0" y="548.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ removeFromCart(line)</text>
+<text x="1090.0" y="563.0" fill="#4f5d75" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">- validateCartLine(line)</text>
+<rect x="1422" y="425" width="248" height="89" rx="6" fill="#f5f5f5"/>
+<rect x="1422" y="425" width="248" height="89" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<text x="1546.0" y="445.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">CartLine</text>
+<line x1="1422" y1="455" x2="1670" y2="455" stroke="#2d3142" stroke-width="0.8"/>
+<text x="1434.0" y="474.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ productId: String</text>
+<text x="1434.0" y="489.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ variantId: String</text>
+<text x="1434.0" y="504.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ quantity: Number</text>
+<rect x="1750" y="425" width="248" height="178" rx="6" fill="#f5f5f5"/>
+<rect x="1750" y="425" width="248" height="178" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<text x="1874.0" y="445.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">InventoryItem</text>
+<line x1="1750" y1="455" x2="1998" y2="455" stroke="#2d3142" stroke-width="0.8"/>
+<text x="1762.0" y="474.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ productId: String</text>
+<text x="1762.0" y="489.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ variantId: String</text>
+<text x="1762.0" y="504.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ stockOnHand: Integer</text>
+<text x="1762.0" y="519.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ reservedStock: Integer</text>
+<line x1="1750" y1="529" x2="1998" y2="529" stroke="#2d3142" stroke-width="0.8"/>
+<text x="1762.0" y="548.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ reserve(orderId, items)</text>
+<text x="1762.0" y="563.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ release(orderId)</text>
+<text x="1762.0" y="578.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ commit(orderId)</text>
+<text x="1762.0" y="593.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ syncProduct(product)</text>
+<rect x="2094" y="425" width="248" height="89" rx="6" fill="#f5f5f5"/>
+<rect x="2094" y="425" width="248" height="89" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<text x="2218.0" y="445.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">InventoryReservation</text>
+<line x1="2094" y1="455" x2="2342" y2="455" stroke="#2d3142" stroke-width="0.8"/>
+<text x="2106.0" y="474.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ orderId: String</text>
+<text x="2106.0" y="489.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ quantity: Integer</text>
+<text x="2106.0" y="504.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ status: String</text>
+<rect x="2422" y="425" width="248" height="223" rx="6" fill="#f5f5f5"/>
+<rect x="2422" y="425" width="248" height="223" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<text x="2546.0" y="445.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">Voucher</text>
+<line x1="2422" y1="455" x2="2670" y2="455" stroke="#2d3142" stroke-width="0.8"/>
+<text x="2434.0" y="474.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ code: String {unique}</text>
+<text x="2434.0" y="489.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ type: String</text>
+<text x="2434.0" y="504.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ discountType: String</text>
+<text x="2434.0" y="519.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ discountValue: Decimal</text>
+<text x="2434.0" y="534.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ quantity: Integer</text>
+<text x="2434.0" y="549.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ usedCount: Integer</text>
+<line x1="2422" y1="559" x2="2670" y2="559" stroke="#2d3142" stroke-width="0.8"/>
+<text x="2434.0" y="578.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ listCheckout(items)</text>
+<text x="2434.0" y="593.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ reserve(orderId)</text>
+<text x="2434.0" y="608.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ release(orderId)</text>
+<text x="2434.0" y="623.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ commit(orderId)</text>
+<text x="2434.0" y="638.0" fill="#4f5d75" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">- calculateDiscount(items): Decimal</text>
+<rect x="2766" y="425" width="248" height="104" rx="6" fill="#f5f5f5"/>
+<rect x="2766" y="425" width="248" height="104" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<text x="2890.0" y="445.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">VoucherReservation</text>
+<line x1="2766" y1="455" x2="3014" y2="455" stroke="#2d3142" stroke-width="0.8"/>
+<text x="2778.0" y="474.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ orderId: Integer</text>
+<text x="2778.0" y="489.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ userId: String</text>
+<text x="2778.0" y="504.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ discountAmount: Decimal</text>
+<text x="2778.0" y="519.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ status: String</text>
+<rect x="62" y="912" width="248" height="163" rx="6" fill="#f5f5f5"/>
+<rect x="62" y="912" width="248" height="163" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<text x="186.0" y="932.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">CheckoutQuote</text>
+<line x1="62" y1="942" x2="310" y2="942" stroke="#2d3142" stroke-width="0.8"/>
+<text x="74.0" y="961.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ userId: String</text>
+<text x="74.0" y="976.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ paymentMethod: String</text>
+<text x="74.0" y="991.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ totalPrice: Decimal</text>
+<text x="74.0" y="1006.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ status: String</text>
+<text x="74.0" y="1021.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ expiresAt: Date</text>
+<line x1="62" y1="1031" x2="310" y2="1031" stroke="#2d3142" stroke-width="0.8"/>
+<text x="74.0" y="1050.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ create(cart, address, method)</text>
+<text x="74.0" y="1065.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ confirm(quoteId): Order[]</text>
+<rect x="406" y="912" width="248" height="223" rx="6" fill="#f5f5f5"/>
+<rect x="406" y="912" width="248" height="223" rx="6" fill="rgba(191,69,32,0.08)" stroke="#bf4520" stroke-width="1.1"/>
+<text x="530.0" y="932.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">Order</text>
+<line x1="406" y1="942" x2="654" y2="942" stroke="#bf4520" stroke-width="0.8"/>
+<text x="418.0" y="961.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ userId: String</text>
+<text x="418.0" y="976.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ products: JSON</text>
+<text x="418.0" y="991.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ totalPrice: Decimal</text>
+<text x="418.0" y="1006.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ status: OrderStatus</text>
+<text x="418.0" y="1021.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ voucherCode: String</text>
+<text x="418.0" y="1036.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ settlementStatus: String</text>
+<line x1="406" y1="1046" x2="654" y2="1046" stroke="#bf4520" stroke-width="0.8"/>
+<text x="418.0" y="1065.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ create(items, idempotencyKey)</text>
+<text x="418.0" y="1080.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ confirm(id)</text>
+<text x="418.0" y="1095.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ cancel(id)</text>
+<text x="418.0" y="1110.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ forceCancel(id)</text>
+<text x="418.0" y="1125.0" fill="#4f5d75" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">- cancelWithCompensation()</text>
+<rect x="750" y="912" width="248" height="163" rx="6" fill="#f5f5f5"/>
+<rect x="750" y="912" width="248" height="163" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<text x="874.0" y="932.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">Shipment</text>
+<line x1="750" y1="942" x2="998" y2="942" stroke="#2d3142" stroke-width="0.8"/>
+<text x="762.0" y="961.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ shopId: String</text>
+<text x="762.0" y="976.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ trackingCode: String {unique}</text>
+<text x="762.0" y="991.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ carrier: String</text>
+<text x="762.0" y="1006.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ status: String</text>
+<line x1="750" y1="1016" x2="998" y2="1016" stroke="#2d3142" stroke-width="0.8"/>
+<text x="762.0" y="1035.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ create(orderId)</text>
+<text x="762.0" y="1050.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ applyStatus(status)</text>
+<text x="762.0" y="1065.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ receiveCallback(payload)</text>
+<rect x="62" y="1179" width="248" height="206" rx="6" fill="#f5f5f5"/>
+<rect x="62" y="1179" width="248" height="206" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<text x="186.0" y="1195.0" fill="#4f5d75" font-size="8.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="500" text-anchor="middle">«enumeration»</text>
+<text x="186.0" y="1212.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">OrderStatus</text>
+<line x1="62" y1="1221" x2="310" y2="1221" stroke="#2d3142" stroke-width="0.8"/>
+<text x="74.0" y="1240.0" fill="#4f5d75" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">pending_payment</text>
+<text x="74.0" y="1255.0" fill="#4f5d75" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">payment_processing</text>
+<text x="74.0" y="1270.0" fill="#4f5d75" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">paid</text>
+<text x="74.0" y="1285.0" fill="#4f5d75" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">confirmed</text>
+<text x="74.0" y="1300.0" fill="#4f5d75" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">shipped</text>
+<text x="74.0" y="1315.0" fill="#4f5d75" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">delivered</text>
+<text x="74.0" y="1330.0" fill="#4f5d75" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">cancelled</text>
+<text x="74.0" y="1345.0" fill="#4f5d75" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">payment_failed</text>
+<text x="74.0" y="1360.0" fill="#4f5d75" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">refund_processing</text>
+<text x="74.0" y="1375.0" fill="#4f5d75" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">refunded</text>
+<rect x="406" y="1179" width="248" height="148" rx="6" fill="#f5f5f5"/>
+<rect x="406" y="1179" width="248" height="148" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<text x="530.0" y="1199.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">Dispute</text>
+<line x1="406" y1="1209" x2="654" y2="1209" stroke="#2d3142" stroke-width="0.8"/>
+<text x="418.0" y="1228.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ userId: String</text>
+<text x="418.0" y="1243.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ reason: String</text>
+<text x="418.0" y="1258.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ status: String</text>
+<text x="418.0" y="1273.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ handledBy: String</text>
+<line x1="406" y1="1283" x2="654" y2="1283" stroke="#2d3142" stroke-width="0.8"/>
+<text x="418.0" y="1302.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ create(orderId, reason)</text>
+<text x="418.0" y="1317.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ resolve(status, note)</text>
+<rect x="1078" y="912" width="248" height="178" rx="6" fill="#f5f5f5"/>
+<rect x="1078" y="912" width="248" height="178" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<text x="1202.0" y="932.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">SepayPaymentRequest</text>
+<line x1="1078" y1="942" x2="1326" y2="942" stroke="#2d3142" stroke-width="0.8"/>
+<text x="1090.0" y="961.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ requestCode: String {unique}</text>
+<text x="1090.0" y="976.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ purpose: String</text>
+<text x="1090.0" y="991.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ amount: Decimal</text>
+<text x="1090.0" y="1006.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ status: String</text>
+<text x="1090.0" y="1021.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ expiresAt: Date</text>
+<line x1="1078" y1="1031" x2="1326" y2="1031" stroke="#2d3142" stroke-width="0.8"/>
+<text x="1090.0" y="1050.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ createOrderQr(orderId)</text>
+<text x="1090.0" y="1065.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ createTopupQr(userId, amount)</text>
+<text x="1090.0" y="1080.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ getStatus(id)</text>
+<rect x="1422" y="912" width="248" height="118" rx="6" fill="#f5f5f5"/>
+<rect x="1422" y="912" width="248" height="118" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<text x="1546.0" y="932.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">SepayWebhookLog</text>
+<line x1="1422" y1="942" x2="1670" y2="942" stroke="#2d3142" stroke-width="0.8"/>
+<text x="1434.0" y="961.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ sepayTransactionId: String {unique}</text>
+<text x="1434.0" y="976.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ transferAmount: Decimal</text>
+<text x="1434.0" y="991.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ payload: JSON</text>
+<line x1="1422" y1="1001" x2="1670" y2="1001" stroke="#2d3142" stroke-width="0.8"/>
+<text x="1434.0" y="1020.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ receiveWebhook(payload)</text>
+<rect x="1750" y="912" width="248" height="133" rx="6" fill="#f5f5f5"/>
+<rect x="1750" y="912" width="248" height="133" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<text x="1874.0" y="932.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">InboxEvent</text>
+<line x1="1750" y1="942" x2="1998" y2="942" stroke="#2d3142" stroke-width="0.8"/>
+<text x="1762.0" y="961.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ messageId: String {unique}</text>
+<text x="1762.0" y="976.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ topic: String</text>
+<text x="1762.0" y="991.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ status: String</text>
+<text x="1762.0" y="1006.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ attempts: Integer</text>
+<line x1="1750" y1="1016" x2="1998" y2="1016" stroke="#2d3142" stroke-width="0.8"/>
+<text x="1762.0" y="1035.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ process(handler)</text>
+<rect x="2094" y="912" width="248" height="133" rx="6" fill="#f5f5f5"/>
+<rect x="2094" y="912" width="248" height="133" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<text x="2218.0" y="932.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">OutboxEvent</text>
+<line x1="2094" y1="942" x2="2342" y2="942" stroke="#2d3142" stroke-width="0.8"/>
+<text x="2106.0" y="961.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ topic: String</text>
+<text x="2106.0" y="976.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ eventKey: String</text>
+<text x="2106.0" y="991.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ status: String</text>
+<text x="2106.0" y="1006.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ nextAttemptAt: Date</text>
+<line x1="2094" y1="1016" x2="2342" y2="1016" stroke="#2d3142" stroke-width="0.8"/>
+<text x="2106.0" y="1035.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ publish()</text>
+<rect x="3094" y="425" width="248" height="148" rx="6" fill="#f5f5f5"/>
+<rect x="3094" y="425" width="248" height="148" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<text x="3218.0" y="445.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">Wallet</text>
+<line x1="3094" y1="455" x2="3342" y2="455" stroke="#2d3142" stroke-width="0.8"/>
+<text x="3106.0" y="474.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ userId: String</text>
+<text x="3106.0" y="489.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ currency: String</text>
+<text x="3106.0" y="504.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ status: String</text>
+<line x1="3094" y1="514" x2="3342" y2="514" stroke="#2d3142" stroke-width="0.8"/>
+<text x="3106.0" y="533.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ topup(amount)</text>
+<text x="3106.0" y="548.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ withdraw(amount)</text>
+<text x="3106.0" y="563.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ getTransactions()</text>
+<rect x="3438" y="425" width="248" height="89" rx="6" fill="#f5f5f5"/>
+<rect x="3438" y="425" width="248" height="89" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<text x="3562.0" y="445.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">WalletBalance</text>
+<line x1="3438" y1="455" x2="3686" y2="455" stroke="#2d3142" stroke-width="0.8"/>
+<text x="3450.0" y="474.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ available: Decimal</text>
+<text x="3450.0" y="489.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ locked: Decimal</text>
+<text x="3450.0" y="504.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ version: Integer</text>
+<rect x="3094" y="617" width="248" height="104" rx="6" fill="#f5f5f5"/>
+<rect x="3094" y="617" width="248" height="104" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<text x="3218.0" y="637.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">WalletLedgerEntry</text>
+<line x1="3094" y1="647" x2="3342" y2="647" stroke="#2d3142" stroke-width="0.8"/>
+<text x="3106.0" y="666.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ type: String</text>
+<text x="3106.0" y="681.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ direction: String</text>
+<text x="3106.0" y="696.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ amount: Decimal</text>
+<text x="3106.0" y="711.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ referenceId: String {unique}</text>
+<rect x="3438" y="617" width="248" height="133" rx="6" fill="#f5f5f5"/>
+<rect x="3438" y="617" width="248" height="133" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<text x="3562.0" y="637.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">UserWithdrawalRequest</text>
+<line x1="3438" y1="647" x2="3686" y2="647" stroke="#2d3142" stroke-width="0.8"/>
+<text x="3450.0" y="666.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ userId: String</text>
+<text x="3450.0" y="681.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ amount: Decimal</text>
+<text x="3450.0" y="696.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ status: String</text>
+<line x1="3438" y1="706" x2="3686" y2="706" stroke="#2d3142" stroke-width="0.8"/>
+<text x="3450.0" y="725.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ complete()</text>
+<text x="3450.0" y="740.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ fail(reason)</text>
+<rect x="3782" y="617" width="248" height="133" rx="6" fill="#f5f5f5"/>
+<rect x="3782" y="617" width="248" height="133" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<text x="3906.0" y="637.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">SettlementJob</text>
+<line x1="3782" y1="647" x2="4030" y2="647" stroke="#2d3142" stroke-width="0.8"/>
+<text x="3794.0" y="666.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ orderId: Integer</text>
+<text x="3794.0" y="681.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ shopId: String</text>
+<text x="3794.0" y="696.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ amount: Decimal</text>
+<text x="3794.0" y="711.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ eligibleAt: Date</text>
+<line x1="3782" y1="721" x2="4030" y2="721" stroke="#2d3142" stroke-width="0.8"/>
+<text x="3794.0" y="740.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ run()</text>
+<rect x="3094" y="794" width="248" height="89" rx="6" fill="#f5f5f5"/>
+<rect x="3094" y="794" width="248" height="89" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<text x="3218.0" y="814.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">AccountBalance</text>
+<line x1="3094" y1="824" x2="3342" y2="824" stroke="#2d3142" stroke-width="0.8"/>
+<text x="3106.0" y="843.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ available: Decimal</text>
+<text x="3106.0" y="858.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ locked: Decimal</text>
+<text x="3106.0" y="873.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ version: Integer</text>
+<rect x="3438" y="794" width="248" height="148" rx="6" fill="#f5f5f5"/>
+<rect x="3438" y="794" width="248" height="148" rx="6" fill="rgba(191,69,32,0.08)" stroke="#bf4520" stroke-width="1.1"/>
+<text x="3562.0" y="814.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">Account</text>
+<line x1="3438" y1="824" x2="3686" y2="824" stroke="#bf4520" stroke-width="0.8"/>
+<text x="3450.0" y="843.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ ownerType: String</text>
+<text x="3450.0" y="858.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ ownerId: String</text>
+<text x="3450.0" y="873.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ accountType: String</text>
+<text x="3450.0" y="888.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ allowNegative: Boolean</text>
+<line x1="3438" y1="898" x2="3686" y2="898" stroke="#bf4520" stroke-width="0.8"/>
+<text x="3450.0" y="917.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ getBalance()</text>
+<text x="3450.0" y="932.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ getLedger()</text>
+<rect x="3782" y="794" width="248" height="133" rx="6" fill="#f5f5f5"/>
+<rect x="3782" y="794" width="248" height="133" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<text x="3906.0" y="814.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">PayoutRequest</text>
+<line x1="3782" y1="824" x2="4030" y2="824" stroke="#2d3142" stroke-width="0.8"/>
+<text x="3794.0" y="843.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ shopId: String</text>
+<text x="3794.0" y="858.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ amount: Decimal</text>
+<text x="3794.0" y="873.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ status: String</text>
+<line x1="3782" y1="883" x2="4030" y2="883" stroke="#2d3142" stroke-width="0.8"/>
+<text x="3794.0" y="902.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ complete()</text>
+<text x="3794.0" y="917.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ fail(reason)</text>
+<rect x="3094" y="986" width="248" height="133" rx="6" fill="#f5f5f5"/>
+<rect x="3094" y="986" width="248" height="133" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<text x="3218.0" y="1006.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">LedgerTransaction</text>
+<line x1="3094" y1="1016" x2="3342" y2="1016" stroke="#2d3142" stroke-width="0.8"/>
+<text x="3106.0" y="1035.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ referenceId: String {unique}</text>
+<text x="3106.0" y="1050.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ type: String</text>
+<text x="3106.0" y="1065.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ amount: Decimal</text>
+<text x="3106.0" y="1080.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ status: String</text>
+<line x1="3094" y1="1090" x2="3342" y2="1090" stroke="#2d3142" stroke-width="0.8"/>
+<text x="3106.0" y="1109.0" fill="#2e5aa8" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ post(entries)</text>
+<rect x="3438" y="986" width="248" height="89" rx="6" fill="#f5f5f5"/>
+<rect x="3438" y="986" width="248" height="89" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<text x="3562.0" y="1006.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">LedgerEntry</text>
+<line x1="3438" y1="1016" x2="3686" y2="1016" stroke="#2d3142" stroke-width="0.8"/>
+<text x="3450.0" y="1035.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ direction: String</text>
+<text x="3450.0" y="1050.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ amount: Decimal</text>
+<text x="3450.0" y="1065.0" fill="#2d3142" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">+ availableAfter: Decimal</text>
+<line x1="32" y1="1431" x2="4060" y2="1431" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+<text x="32.0" y="1453.0" fill="#5a6580" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" font-weight="500" text-anchor="start" letter-spacing="0.18em">CHÚ GIẢI</text>
+<line x1="108" y1="1449" x2="142" y2="1449" stroke="#2d3142" stroke-width="1.1" marker-end="url(#u-tri)"/>
+<text x="148.0" y="1453.0" fill="#4f5d75" font-size="10" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">Kế thừa</text>
+<line x1="209.1" y1="1449" x2="243.1" y2="1449" stroke="#2d3142" stroke-width="1.1" stroke-dasharray="5,4" marker-end="url(#u-tri)"/>
+<text x="249.1" y="1453.0" fill="#4f5d75" font-size="10" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">Hiện thực</text>
+<line x1="320.8" y1="1449" x2="354.8" y2="1449" stroke="#2d3142" stroke-width="1.1" marker-start="url(#u-comp)"/>
+<text x="360.8" y="1453.0" fill="#4f5d75" font-size="10" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">Hợp thành (composition)</text>
+<line x1="506.70000000000005" y1="1449" x2="540.7" y2="1449" stroke="#2d3142" stroke-width="1.1" marker-start="url(#u-aggr)"/>
+<text x="546.7" y="1453.0" fill="#4f5d75" font-size="10" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">Kết tập (aggregation)</text>
+<line x1="682.0" y1="1449" x2="716.0" y2="1449" stroke="#2d3142" stroke-width="1.1" marker-end="url(#u-open)"/>
+<text x="722.0" y="1453.0" fill="#4f5d75" font-size="10" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">Kết hợp (association)</text>
+<line x1="857.3" y1="1449" x2="891.3" y2="1449" stroke="#2d3142" stroke-width="1.1" stroke-dasharray="4,3" marker-end="url(#u-open)"/>
+<text x="897.3" y="1453.0" fill="#4f5d75" font-size="10" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">Phụ thuộc</text>
+<rect x="969.0" y="1441" width="34" height="16" rx="3" fill="rgba(191,69,32,0.08)" stroke="#bf4520"/>
+<text x="1009.0" y="1453.0" fill="#4f5d75" font-size="10" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">Class trung tâm</text>
+<text x="1116.5" y="1453.0" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="start">+ / -</text>
+<text x="1152.5" y="1453.0" fill="#4f5d75" font-size="10" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">public / private</text>
+<text x="32.0" y="1495.0" fill="#4f5d75" font-size="11" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">Giữa các package không vẽ quan hệ: mỗi service có database riêng và chỉ lưu ID của service khác (userId, shopId, productId, orderId). Không có quan hệ kế thừa nào trong mã nguồn.</text>
+      </svg>
+    </div>
+    <p class="note">Thuộc tính lấy từ model Mongoose/Sequelize; thao tác là các hàm controller thao tác trên class đó (đổi tên ngắn gọn, ví dụ moderateProduct → Product.moderate). Hợp thành dùng cho tài liệu nhúng của Mongo và quan hệ có ON DELETE CASCADE; còn lại là kết hợp.</p>
+  </div>
+</body>
+</html>

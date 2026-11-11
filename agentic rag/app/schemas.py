@@ -54,6 +54,10 @@ SemanticIntent = Literal[
     "cart_remove",
     "checkout",
     "order_status",
+    # Order changes the assistant cannot make (support ticket, cancel or
+    # edit an order, change address, chase the courier): explained honestly
+    # with a handoff to shop staff.
+    "support_request",
     "general",
     "clarify",
     "out_of_scope",
@@ -93,6 +97,12 @@ class SemanticTask(BaseModel):
     sort_by: SortBy = "relevance"
     result_limit: int | None = Field(default=None, ge=1, le=20)
     quantity: int = Field(default=1, ge=1, le=100)
+    order_id: int | None = Field(default=None, ge=1)
+    # Set by the semantic model when the catalog alone cannot answer: general
+    # product knowledge, a spec listings rarely carry, or a broad need the
+    # catalog vocabulary does not name ("quà cho bố thích câu cá").
+    web_research: bool = False
+    research_query: str = Field(default="", max_length=300)
 
     @model_validator(mode="after")
     def normalize_task(self):
@@ -109,6 +119,9 @@ class SemanticTurn(BaseModel):
     confidence: float = Field(default=0, ge=0, le=1)
     needs_clarification: bool = False
     clarification_question: str = Field(default="", max_length=500)
+    # The user's answer to the action waiting for confirmation (cart change,
+    # checkout): typed "xác nhận" works like the confirm button.
+    pending_decision: Literal["none", "confirm", "cancel"] = "none"
 
     @model_validator(mode="after")
     def validate_clarification(self):
@@ -207,6 +220,7 @@ class AgentPlan(BaseModel):
     clarification: str = Field(default="", max_length=500)
     sort_by: SortBy = "relevance"
     result_limit: int | None = Field(default=None, ge=1, le=20)
+    payment_method: Literal["cod", "bank_transfer"] | None = None
 
 
 class TurnUnderstanding(BaseModel):
@@ -279,6 +293,67 @@ class VerificationBatch(BaseModel):
     results: list[CandidateVerification] = Field(default_factory=list, max_length=30)
 
 
+class CandidateJudgement(BaseModel):
+    """One listwise judgement of the LLM re-ranker. Candidates are addressed by
+    their 1-based position in the prompt, never by product ID."""
+
+    index: int = Field(ge=1, le=30)
+    # 0 another product kind or irrelevant, 1 related but misses the need,
+    # 2 fits the need, 3 fits it very well.
+    relevance: int = Field(ge=0, le=3)
+    verdict: Literal["match", "no_match", "unknown"] = "unknown"
+    evidence: list[str] = Field(default_factory=list, max_length=6)
+    reason: str = Field(default="", max_length=300)
+
+    @model_validator(mode="before")
+    @classmethod
+    def trim_overlong(cls, data):
+        # A judge that quotes a 7th piece of evidence or writes a long reason
+        # is still a valid judgement; failing it dropped the whole ranking.
+        if isinstance(data, dict):
+            data = dict(data)
+            if isinstance(data.get("evidence"), list):
+                data["evidence"] = data["evidence"][:6]
+            if isinstance(data.get("reason"), str):
+                data["reason"] = data["reason"][:300]
+        return data
+
+
+class CandidateRanking(BaseModel):
+    results: list[CandidateJudgement] = Field(default_factory=list, max_length=30)
+
+    @model_validator(mode="before")
+    @classmethod
+    def trim_results(cls, data):
+        if isinstance(data, dict) and isinstance(data.get("results"), list):
+            data = {**data, "results": data["results"][:30]}
+        return data
+
+
+class WebSource(BaseModel):
+    title: str = Field(default="", max_length=300)
+    url: str = Field(default="", max_length=2000)
+
+
+class WebResearch(BaseModel):
+    summary: str = Field(default="", max_length=3000)
+    # Product kinds or search phrases worth looking up in the catalog.
+    catalog_queries: list[str] = Field(default_factory=list, max_length=4)
+    sources: list[WebSource] = Field(default_factory=list, max_length=6)
+
+
+class OrderDecision(BaseModel):
+    """How the order agent's model resolves an ambiguous cart/checkout turn
+    against the real cart lines and product variants it was shown."""
+
+    action: Literal["add", "update", "remove", "clarify"] = "clarify"
+    line_index: int | None = Field(default=None, ge=1, le=50)
+    variant_index: int | None = Field(default=None, ge=1, le=50)
+    quantity: int | None = Field(default=None, ge=1, le=100)
+    clarification: str = Field(default="", max_length=500)
+    confidence: float = Field(default=0, ge=0, le=1)
+
+
 class PendingAction(BaseModel):
     id: str
     kind: Literal["cart_add", "cart_update", "cart_remove", "checkout_confirm"]
@@ -311,12 +386,15 @@ class ChatRequest(BaseModel):
     voucherCode: str | None = Field(default=None, max_length=40)
     confirmActionId: str | None = Field(default=None, min_length=8, max_length=128)
     cancelActionId: str | None = Field(default=None, min_length=8, max_length=128)
+    # Photo search: a data URL or bare base64 JPEG/PNG/WebP (5 MB decoded).
+    image: str | None = Field(default=None, max_length=7_200_000)
 
     @model_validator(mode="after")
     def require_input(self):
         if not any(
             [
                 self.message.strip(),
+                self.image,
                 self.referenceProductId,
                 self.confirmActionId,
                 self.cancelActionId,
@@ -350,6 +428,9 @@ class AgentState(TypedDict, total=False):
     understanding: dict
     semantic_turn: dict
     search_context: dict
+    # Criteria of the latest catalog search, kept across turns so a short
+    # follow-up ("máy đừng quá nặng") keeps the budget and product kind.
+    last_search: dict
     plan: dict
     query: str
     retrieval_rounds: int
@@ -371,6 +452,10 @@ class AgentState(TypedDict, total=False):
     skipped_tasks: Annotated[list[str], UntrackedValue(list)]
     policy_appendix: Annotated[str, UntrackedValue(str)]
     policy_sources: Annotated[list[dict], UntrackedValue(list)]
+    # Product agent: web research of this turn and the catalog queries it
+    # suggested after the catalog alone found nothing.
+    web_research: Annotated[dict, UntrackedValue(dict)]
+    expanded_queries: Annotated[list[str], UntrackedValue(list)]
     clarify_count: int
     last_clarify_key: str
     session_expires_at: float

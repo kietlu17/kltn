@@ -333,3 +333,44 @@ class ApiKeySourceTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class KeyRotationTests(unittest.IsolatedAsyncioTestCase):
+    async def test_keys_rotate_at_the_limit_and_on_quota_errors(self):
+        import tempfile
+        from pathlib import Path
+        from app.indexer.runner import ApiKeySource, GeminiDocumentEmbedder, QuotaSpent, classify_error
+
+        with tempfile.TemporaryDirectory() as folder:
+            key_file = Path(folder) / "keys"
+            key_file.write_text("GEMINI_API_KEY=key-one\n\nGEMINI_API_KEY=key-two\nkey-three\n", encoding="utf-8")
+            usage = Path(folder) / "usage.json"
+            source = ApiKeySource(str(key_file), "env", request_limit=40, usage_file=usage)
+            self.assertEqual(source.keys(), ["key-one", "key-two", "key-three"])
+            source.record("key-one", 20)
+            self.assertEqual(source.current(20), "key-one")
+            source.record("key-one", 20)
+            self.assertEqual(source.current(20), "key-two")
+            source.mark_exhausted("key-two")
+            self.assertEqual(source.current(20), "key-three")
+            # Usage survives a restart and stores no key.
+            again = ApiKeySource(str(key_file), "env", request_limit=40, usage_file=usage)
+            self.assertEqual(again.current(20), "key-three")
+            self.assertNotIn("key-one", usage.read_text(encoding="utf-8"))
+            again.record("key-three", 40)
+            self.assertEqual(again.current(20), "")
+
+            class Settings:
+                embedding_model = "gemini-embedding-001"
+                embedding_dimensions = 3
+                model_timeout = 5
+
+            embedder = GeminiDocumentEmbedder(Settings(), again)
+            with self.assertRaises(QuotaSpent) as raised:
+                await embedder.embed(["a"])
+            self.assertEqual(classify_error(raised.exception), "quota")
+
+    def test_quota_message_mentioning_api_key_is_quota(self):
+        from app.indexer.runner import classify_error
+        error = RuntimeError("429 RESOURCE_EXHAUSTED quota exceeded for consumer api_key:xyz")
+        self.assertEqual(classify_error(error), "quota")

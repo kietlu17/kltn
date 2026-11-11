@@ -1,5 +1,6 @@
 const Product = require('../models/Product');
 const Category = require('../models/Category');
+const { descendantIds } = require('../utils/categoryTaxonomy');
 const mongoose = require('mongoose');
 const {
   publishProductCreated,
@@ -324,7 +325,8 @@ async function getProducts(req, res) {
     const requesterShopId = req.headers['x-user-shop-id'] || req.headers['x-user-id'] || '';
     const filter = {};
     if (shopId) filter.shopId = shopId;
-    if (categoryId) filter.categoryId = categoryId;
+    // A category includes its sub-categories (Thời trang -> Nữ -> Áo thun nữ).
+    if (categoryId) filter.categoryId = { $in: await descendantIds(Category, categoryId) };
     if (q) filter.name = { $regex: q, $options: 'i' };
     if (moderationStatus) filter.moderationStatus = moderationStatus;
     const minPriceValue = parsePriceValue(minPrice, NaN);

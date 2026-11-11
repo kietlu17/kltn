@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>wallet-service · Ví, sổ cái kép, quyết toán</title>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600&family=Geist+Mono:wght@400;500;600&family=Noto+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Be Vietnam Pro', 'Geist', system-ui, sans-serif; background: #f5f5f5; color: #2d3142; min-height: 100vh;
+           display: flex; align-items: flex-start; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 2240px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow { font-family: 'Geist Mono', ui-monospace, monospace; font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em;
+               text-transform: uppercase; color: #4f5d75; margin-bottom: 0.5rem; }
+    h1 { font-family: 'Noto Serif', 'Instrument Serif', serif; font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400;
+         letter-spacing: -0.02em; line-height: 1.2; color: #2d3142; margin-bottom: 1.5rem; }
+    .note { font-size: 0.8rem; line-height: 1.6; color: #4f5d75; margin-top: 1rem; max-width: 70ch; }
+    .nav { font-family: 'Geist Mono', ui-monospace, monospace; font-size: 0.7rem; margin-bottom: 1rem; }
+    .nav a { color: #2e5aa8; text-decoration: none; margin-right: 1rem; }
+    svg { width: 100%; min-width: 2200px; display: block; }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0; } .nav { display: none; } }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="nav"><a href="index.html">← Mục lục</a></p>
+    <p class="eyebrow">Database schema · PostgreSQL · wallet_service</p>
+    <h1>wallet-service · Ví, sổ cái kép, quyết toán</h1>
+    <div class="diagram-container">
+      <svg viewBox="0 0 2200 1334" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="db-wallet-service-title db-wallet-service-desc">
+        <title id="db-wallet-service-title">wallet-service · Ví, sổ cái kép, quyết toán</title>
+        <desc id="db-wallet-service-desc">Lược đồ vật lý của database wallet_service (PostgreSQL) với 12 bảng, đủ cột, kiểu dữ liệu, ràng buộc và chỉ mục.</desc>
+        <defs>
+  <marker id="m-fill" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><polygon points="0 0, 9 3.5, 0 7" fill="#4f5d75"/></marker>
+  <marker id="m-fill-ink" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><polygon points="0 0, 9 3.5, 0 7" fill="#2d3142"/></marker>
+  <marker id="m-fill-accent" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><polygon points="0 0, 9 3.5, 0 7" fill="#bf4520"/></marker>
+  <marker id="m-fill-link" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><polygon points="0 0, 9 3.5, 0 7" fill="#2e5aa8"/></marker>
+  <marker id="m-open" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><polyline points="0.5 0.5, 9 4, 0.5 7.5" fill="none" stroke="#4f5d75" stroke-width="1.2"/></marker>
+  <marker id="m-open-ink" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><polyline points="0.5 0.5, 9 4, 0.5 7.5" fill="none" stroke="#2d3142" stroke-width="1.2"/></marker>
+  <marker id="m-open-accent" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><polyline points="0.5 0.5, 9 4, 0.5 7.5" fill="none" stroke="#bf4520" stroke-width="1.2"/></marker>
+  <marker id="m-open-link" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><polyline points="0.5 0.5, 9 4, 0.5 7.5" fill="none" stroke="#2e5aa8" stroke-width="1.2"/></marker>
+  <marker id="m-hollow" markerWidth="11" markerHeight="9" refX="10" refY="4.5" orient="auto"><polygon points="0.8 0.8, 10 4.5, 0.8 8.2" fill="#ffffff" stroke="#4f5d75" stroke-width="1"/></marker>
+  <marker id="m-circ" markerWidth="9" markerHeight="9" refX="4.5" refY="4.5" orient="auto"><circle cx="4.5" cy="4.5" r="3.5" fill="#ffffff" stroke="#4f5d75" stroke-width="1"/></marker>
+</defs>
+        <rect width="100%" height="100%" fill="#f5f5f5"/>
+<text x="40.0" y="36.0" fill="#5a6580" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="start" letter-spacing="0.14em">PostgreSQL · wallet_service</text>
+<path d="M96.0,354.0 L78.0,354.0 Q72.0,354.0 72.0,348.0 L72.0,119.0 Q72.0,113.0 78.0,113.0 L94.0,113.0" fill="none" stroke="#2d3142" stroke-width="1.2" marker-end="url(#m-fill-ink)"/>
+<rect x="30.5" y="229.0" width="38.5" height="11.5" fill="#f5f5f5"/><text x="66.0" y="236.5" fill="#2d3142" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="end">CASCADE</text>
+<path d="M96.0,564.0 L64.0,564.0 Q58.0,564.0 58.0,558.0 L58.0,107.0 Q58.0,101.0 64.0,101.0 L94.0,101.0" fill="none" stroke="#2d3142" stroke-width="1.2" marker-end="url(#m-fill-ink)"/>
+<path d="M1200.0,107.0 L1127.0,107.0 Q1124.0,107.0 1124.0,104.0 L1124.0,104.0 Q1124.0,101.0 1121.0,101.0 L1034.0,101.0" fill="none" stroke="#2d3142" stroke-width="1.2" marker-end="url(#m-fill-ink)"/>
+<rect x="1127.0" y="99.5" width="38.5" height="11.5" fill="#f5f5f5"/><text x="1130.0" y="107.0" fill="#2d3142" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="start">CASCADE</text>
+<path d="M1200.0,769.0 L1182.0,769.0 Q1176.0,769.0 1176.0,763.0 L1176.0,301.0 Q1176.0,295.0 1182.0,295.0 L1198.0,295.0" fill="none" stroke="#2d3142" stroke-width="1.2" marker-end="url(#m-fill-ink)"/>
+<rect x="1134.5" y="527.5" width="38.5" height="11.5" fill="#f5f5f5"/><text x="1170.0" y="535.0" fill="#2d3142" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="end">CASCADE</text>
+<path d="M1200.0,791.0 L1114.0,791.0 Q1108.0,791.0 1108.0,785.0 L1108.0,119.0 Q1108.0,113.0 1102.0,113.0 L1034.0,113.0" fill="none" stroke="#2d3142" stroke-width="1.2" marker-end="url(#m-fill-ink)"/>
+<path d="M648.0,486.0 L630.0,486.0 Q624.0,486.0 624.0,480.0 L624.0,119.0 Q624.0,113.0 630.0,113.0 L646.0,113.0" fill="none" stroke="#2d3142" stroke-width="1.2" marker-end="url(#m-fill-ink)"/>
+<path d="M648.0,894.0 L616.0,894.0 Q610.0,894.0 610.0,888.0 L610.0,107.0 Q610.0,101.0 616.0,101.0 L646.0,101.0" fill="none" stroke="#2d3142" stroke-width="1.2" marker-end="url(#m-fill-ink)"/>
+<rect x="96" y="64" width="384" height="207" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<path d="M96,96 V70 Q96,64 102,64 H474 Q480,64 480,70 V96 Z" fill="rgba(46,90,168,0.08)"/>
+<line x1="96" y1="96" x2="480" y2="96" stroke="#2d3142" stroke-width="0.8"/>
+<rect x="106.0" y="76" width="31.2" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="121.6" y="84.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">TABLE</text>
+<text x="145.2" y="85.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="start">wallets</text>
+<text x="108.0" y="111.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="start">id</text>
+<text x="468.0" y="111.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">uuid</text>
+<rect x="418.4" y="103.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#2d3142" stroke-width="0.7"/><text x="427.0" y="111.5" fill="#2d3142" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">PK</text>
+<rect x="97" y="118" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="108.0" y="133.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">user_id</text>
+<text x="468.0" y="133.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(64)</text>
+<rect x="374.7" y="125.0" width="21.9" height="11" rx="2" fill="#f5f5f5" stroke="#5a6580" stroke-width="0.7" stroke-dasharray="2,2"/><text x="385.6" y="133.5" fill="#5a6580" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">REF</text>
+<rect x="353.4" y="125.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="362.0" y="133.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<text x="108.0" y="155.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">currency</text>
+<text x="468.0" y="155.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(8)</text>
+<rect x="384.9" y="147.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="393.5" y="155.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<rect x="97" y="162" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="108.0" y="177.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">status</text>
+<text x="468.0" y="177.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(24)</text>
+<rect x="379.3" y="169.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="388.0" y="177.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<text x="108.0" y="199.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">created_at</text>
+<text x="468.0" y="199.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">timestamptz</text>
+<rect x="97" y="206" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="108.0" y="221.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">updated_at</text>
+<text x="468.0" y="221.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">timestamptz</text>
+<line x1="106" y1="234" x2="470" y2="234" stroke="rgba(45,49,66,0.22)" stroke-width="0.8"/>
+<text x="108.0" y="249.0" fill="#5a6580" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="start" letter-spacing="0.16em">INDEXES</text>
+<text x="176.0" y="249.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">unique(user_id, currency)</text>
+<rect x="96" y="311" width="384" height="148" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<path d="M96,343 V317 Q96,311 102,311 H474 Q480,311 480,317 V343 Z" fill="rgba(46,90,168,0.08)"/>
+<line x1="96" y1="343" x2="480" y2="343" stroke="#2d3142" stroke-width="0.8"/>
+<rect x="106.0" y="323" width="31.2" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="121.6" y="331.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">TABLE</text>
+<text x="145.2" y="332.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="start">wallet_balances</text>
+<text x="108.0" y="358.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="start">wallet_id</text>
+<text x="468.0" y="358.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">uuid</text>
+<rect x="418.4" y="350.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#2d3142" stroke-width="0.7"/><text x="427.0" y="358.5" fill="#2d3142" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">FK</text>
+<rect x="397.1" y="350.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#2d3142" stroke-width="0.7"/><text x="405.7" y="358.5" fill="#2d3142" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">PK</text>
+<rect x="97" y="365" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="108.0" y="380.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">available_balance</text>
+<text x="468.0" y="380.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">numeric(14,2)</text>
+<rect x="368.2" y="372.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="376.8" y="380.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<text x="108.0" y="402.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">locked_balance</text>
+<text x="468.0" y="402.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">numeric(14,2)</text>
+<rect x="368.2" y="394.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="376.8" y="402.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<rect x="97" y="409" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="108.0" y="424.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">version</text>
+<text x="468.0" y="424.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">integer</text>
+<rect x="401.6" y="416.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="410.3" y="424.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<text x="108.0" y="446.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">updated_at</text>
+<text x="468.0" y="446.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">timestamptz</text>
+<rect x="96" y="499" width="384" height="434" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<path d="M96,531 V505 Q96,499 102,499 H474 Q480,499 480,505 V531 Z" fill="rgba(46,90,168,0.08)"/>
+<line x1="96" y1="531" x2="480" y2="531" stroke="#2d3142" stroke-width="0.8"/>
+<rect x="106.0" y="511" width="31.2" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="121.6" y="519.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">TABLE</text>
+<text x="145.2" y="520.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="start">wallet_ledger_entries</text>
+<text x="108.0" y="546.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="start">id</text>
+<text x="468.0" y="546.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">uuid</text>
+<rect x="418.4" y="538.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#2d3142" stroke-width="0.7"/><text x="427.0" y="546.5" fill="#2d3142" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">PK</text>
+<rect x="97" y="553" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="108.0" y="568.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">wallet_id</text>
+<text x="468.0" y="568.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">uuid</text>
+<rect x="418.4" y="560.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="427.0" y="568.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<rect x="397.1" y="560.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#2d3142" stroke-width="0.7"/><text x="405.7" y="568.5" fill="#2d3142" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">FK</text>
+<text x="108.0" y="590.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">user_id</text>
+<text x="468.0" y="590.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(64)</text>
+<rect x="379.3" y="582.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="388.0" y="590.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<rect x="97" y="597" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="108.0" y="612.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">order_id</text>
+<text x="468.0" y="612.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">integer</text>
+<rect x="397.0" y="604.0" width="21.9" height="11" rx="2" fill="#f5f5f5" stroke="#5a6580" stroke-width="0.7" stroke-dasharray="2,2"/><text x="408.0" y="612.5" fill="#5a6580" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">REF</text>
+<text x="108.0" y="634.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">type</text>
+<text x="468.0" y="634.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(40)</text>
+<rect x="379.3" y="626.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="388.0" y="634.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<rect x="97" y="641" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="108.0" y="656.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">direction</text>
+<text x="468.0" y="656.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(12)</text>
+<rect x="379.3" y="648.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="388.0" y="656.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<text x="108.0" y="678.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">amount</text>
+<text x="468.0" y="678.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">numeric(14,2)</text>
+<rect x="368.2" y="670.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="376.8" y="678.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<rect x="97" y="685" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="108.0" y="700.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">status</text>
+<text x="468.0" y="700.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(24)</text>
+<rect x="379.3" y="692.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="388.0" y="700.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<text x="108.0" y="722.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">reason</text>
+<text x="468.0" y="722.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(128)</text>
+<rect x="97" y="729" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="108.0" y="744.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">reference_id</text>
+<text x="468.0" y="744.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(160)</text>
+<rect x="373.7" y="736.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="382.4" y="744.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<rect x="352.4" y="736.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#2e5aa8" stroke-width="0.7"/><text x="361.1" y="744.5" fill="#2e5aa8" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">UQ</text>
+<text x="108.0" y="766.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">available_before</text>
+<text x="468.0" y="766.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">numeric(14,2)</text>
+<rect x="368.2" y="758.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="376.8" y="766.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<rect x="97" y="773" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="108.0" y="788.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">available_after</text>
+<text x="468.0" y="788.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">numeric(14,2)</text>
+<rect x="368.2" y="780.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="376.8" y="788.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<text x="108.0" y="810.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">locked_before</text>
+<text x="468.0" y="810.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">numeric(14,2)</text>
+<rect x="368.2" y="802.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="376.8" y="810.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<rect x="97" y="817" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="108.0" y="832.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">locked_after</text>
+<text x="468.0" y="832.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">numeric(14,2)</text>
+<rect x="368.2" y="824.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="376.8" y="832.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<text x="108.0" y="854.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">metadata</text>
+<text x="468.0" y="854.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">jsonb</text>
+<rect x="412.8" y="846.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="421.4" y="854.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<rect x="97" y="861" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="108.0" y="876.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">saga_id</text>
+<text x="468.0" y="876.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(128)</text>
+<text x="108.0" y="898.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">correlation_id</text>
+<text x="468.0" y="898.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(128)</text>
+<rect x="97" y="905" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="108.0" y="920.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">created_at</text>
+<text x="468.0" y="920.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">timestamptz</text>
+<rect x="648" y="64" width="384" height="295" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<path d="M648,96 V70 Q648,64 654,64 H1026 Q1032,64 1032,70 V96 Z" fill="rgba(46,90,168,0.08)"/>
+<line x1="648" y1="96" x2="1032" y2="96" stroke="#2d3142" stroke-width="0.8"/>
+<rect x="658.0" y="76" width="31.2" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="673.6" y="84.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">TABLE</text>
+<text x="697.2" y="85.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="start">accounts</text>
+<text x="660.0" y="111.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="start">id</text>
+<text x="1020.0" y="111.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">uuid</text>
+<rect x="970.4" y="103.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#2d3142" stroke-width="0.7"/><text x="979.0" y="111.5" fill="#2d3142" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">PK</text>
+<rect x="649" y="118" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="660.0" y="133.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">owner_type</text>
+<text x="1020.0" y="133.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(24)</text>
+<rect x="931.3" y="125.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="940.0" y="133.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<text x="660.0" y="155.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">owner_id</text>
+<text x="1020.0" y="155.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(96)</text>
+<rect x="931.3" y="147.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="940.0" y="155.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<rect x="649" y="162" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="660.0" y="177.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">account_type</text>
+<text x="1020.0" y="177.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(40)</text>
+<rect x="931.3" y="169.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="940.0" y="177.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<text x="660.0" y="199.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">currency</text>
+<text x="1020.0" y="199.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(8)</text>
+<rect x="936.9" y="191.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="945.6" y="199.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<rect x="649" y="206" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="660.0" y="221.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">status</text>
+<text x="1020.0" y="221.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(24)</text>
+<rect x="931.3" y="213.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="940.0" y="221.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<text x="660.0" y="243.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">allow_negative</text>
+<text x="1020.0" y="243.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">boolean</text>
+<rect x="953.6" y="235.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="962.3" y="243.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<rect x="649" y="250" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="660.0" y="265.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">metadata</text>
+<text x="1020.0" y="265.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">jsonb</text>
+<rect x="964.8" y="257.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="973.5" y="265.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<text x="660.0" y="287.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">created_at</text>
+<text x="1020.0" y="287.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">timestamptz</text>
+<rect x="649" y="294" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="660.0" y="309.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">updated_at</text>
+<text x="1020.0" y="309.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">timestamptz</text>
+<line x1="658" y1="322" x2="1022" y2="322" stroke="rgba(45,49,66,0.22)" stroke-width="0.8"/>
+<text x="660.0" y="337.0" fill="#5a6580" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="start" letter-spacing="0.16em">INDEXES</text>
+<text x="728.0" y="337.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">unique(owner_type, owner_id, account_type, currency)</text>
+<rect x="648" y="399" width="384" height="368" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<path d="M648,431 V405 Q648,399 654,399 H1026 Q1032,399 1032,405 V431 Z" fill="rgba(46,90,168,0.08)"/>
+<line x1="648" y1="431" x2="1032" y2="431" stroke="#2d3142" stroke-width="0.8"/>
+<rect x="658.0" y="411" width="31.2" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="673.6" y="419.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">TABLE</text>
+<text x="697.2" y="420.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="start">payout_requests</text>
+<text x="660.0" y="446.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="start">id</text>
+<text x="1020.0" y="446.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">uuid</text>
+<rect x="970.4" y="438.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#2d3142" stroke-width="0.7"/><text x="979.0" y="446.5" fill="#2d3142" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">PK</text>
+<rect x="649" y="453" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="660.0" y="468.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">shop_id</text>
+<text x="1020.0" y="468.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(96)</text>
+<rect x="926.7" y="460.0" width="21.9" height="11" rx="2" fill="#f5f5f5" stroke="#5a6580" stroke-width="0.7" stroke-dasharray="2,2"/><text x="937.6" y="468.5" fill="#5a6580" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">REF</text>
+<rect x="905.4" y="460.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="914.0" y="468.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<text x="660.0" y="490.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">account_id</text>
+<text x="1020.0" y="490.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">uuid</text>
+<rect x="970.4" y="482.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="979.0" y="490.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<rect x="949.1" y="482.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#2d3142" stroke-width="0.7"/><text x="957.7" y="490.5" fill="#2d3142" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">FK</text>
+<rect x="649" y="497" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="660.0" y="512.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">amount</text>
+<text x="1020.0" y="512.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">numeric(18,2)</text>
+<rect x="920.2" y="504.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="928.8" y="512.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<text x="660.0" y="534.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">currency</text>
+<text x="1020.0" y="534.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(8)</text>
+<rect x="936.9" y="526.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="945.6" y="534.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<rect x="649" y="541" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="660.0" y="556.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">status</text>
+<text x="1020.0" y="556.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(24)</text>
+<rect x="931.3" y="548.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="940.0" y="556.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<text x="660.0" y="578.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">reference_id</text>
+<text x="1020.0" y="578.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(180)</text>
+<rect x="925.7" y="570.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="934.4" y="578.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<rect x="904.4" y="570.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#2e5aa8" stroke-width="0.7"/><text x="913.1" y="578.5" fill="#2e5aa8" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">UQ</text>
+<rect x="649" y="585" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="660.0" y="600.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">bank_account_snapshot</text>
+<text x="1020.0" y="600.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">jsonb</text>
+<rect x="964.8" y="592.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="973.5" y="600.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<text x="660.0" y="622.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">failure_reason</text>
+<text x="1020.0" y="622.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(180)</text>
+<rect x="649" y="629" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="660.0" y="644.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">completed_at</text>
+<text x="1020.0" y="644.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">timestamptz</text>
+<text x="660.0" y="666.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">metadata</text>
+<text x="1020.0" y="666.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">jsonb</text>
+<rect x="964.8" y="658.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="973.5" y="666.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<rect x="649" y="673" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="660.0" y="688.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">saga_id</text>
+<text x="1020.0" y="688.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(128)</text>
+<text x="660.0" y="710.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">correlation_id</text>
+<text x="1020.0" y="710.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(128)</text>
+<rect x="649" y="717" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="660.0" y="732.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">created_at</text>
+<text x="1020.0" y="732.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">timestamptz</text>
+<text x="660.0" y="754.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">updated_at</text>
+<text x="1020.0" y="754.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">timestamptz</text>
+<rect x="648" y="807" width="384" height="324" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<path d="M648,839 V813 Q648,807 654,807 H1026 Q1032,807 1032,813 V839 Z" fill="rgba(46,90,168,0.08)"/>
+<line x1="648" y1="839" x2="1032" y2="839" stroke="#2d3142" stroke-width="0.8"/>
+<rect x="658.0" y="819" width="31.2" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="673.6" y="827.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">TABLE</text>
+<text x="697.2" y="828.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="start">user_withdrawal_requests</text>
+<text x="660.0" y="854.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="start">id</text>
+<text x="1020.0" y="854.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">uuid</text>
+<rect x="970.4" y="846.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#2d3142" stroke-width="0.7"/><text x="979.0" y="854.5" fill="#2d3142" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">PK</text>
+<rect x="649" y="861" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="660.0" y="876.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">user_id</text>
+<text x="1020.0" y="876.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(96)</text>
+<rect x="926.7" y="868.0" width="21.9" height="11" rx="2" fill="#f5f5f5" stroke="#5a6580" stroke-width="0.7" stroke-dasharray="2,2"/><text x="937.6" y="876.5" fill="#5a6580" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">REF</text>
+<rect x="905.4" y="868.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="914.0" y="876.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<text x="660.0" y="898.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">account_id</text>
+<text x="1020.0" y="898.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">uuid</text>
+<rect x="970.4" y="890.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="979.0" y="898.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<rect x="949.1" y="890.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#2d3142" stroke-width="0.7"/><text x="957.7" y="898.5" fill="#2d3142" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">FK</text>
+<rect x="649" y="905" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="660.0" y="920.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">amount</text>
+<text x="1020.0" y="920.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">numeric(18,2)</text>
+<rect x="920.2" y="912.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="928.8" y="920.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<text x="660.0" y="942.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">currency</text>
+<text x="1020.0" y="942.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(8)</text>
+<rect x="936.9" y="934.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="945.6" y="942.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<rect x="649" y="949" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="660.0" y="964.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">status</text>
+<text x="1020.0" y="964.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(24)</text>
+<rect x="931.3" y="956.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="940.0" y="964.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<text x="660.0" y="986.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">reference_id</text>
+<text x="1020.0" y="986.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(180)</text>
+<rect x="925.7" y="978.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="934.4" y="986.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<rect x="904.4" y="978.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#2e5aa8" stroke-width="0.7"/><text x="913.1" y="986.5" fill="#2e5aa8" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">UQ</text>
+<rect x="649" y="993" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="660.0" y="1008.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">bank_account_snapshot</text>
+<text x="1020.0" y="1008.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">jsonb</text>
+<rect x="964.8" y="1000.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="973.5" y="1008.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<text x="660.0" y="1030.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">failure_reason</text>
+<text x="1020.0" y="1030.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(180)</text>
+<rect x="649" y="1037" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="660.0" y="1052.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">completed_at</text>
+<text x="1020.0" y="1052.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">timestamptz</text>
+<text x="660.0" y="1074.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">metadata</text>
+<text x="1020.0" y="1074.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">jsonb</text>
+<rect x="964.8" y="1066.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="973.5" y="1074.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<rect x="649" y="1081" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="660.0" y="1096.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">saga_id</text>
+<text x="1020.0" y="1096.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(128)</text>
+<text x="660.0" y="1118.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">correlation_id</text>
+<text x="1020.0" y="1118.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(128)</text>
+<rect x="1200" y="64" width="384" height="148" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<path d="M1200,96 V70 Q1200,64 1206,64 H1578 Q1584,64 1584,70 V96 Z" fill="rgba(46,90,168,0.08)"/>
+<line x1="1200" y1="96" x2="1584" y2="96" stroke="#2d3142" stroke-width="0.8"/>
+<rect x="1210.0" y="76" width="31.2" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="1225.6" y="84.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">TABLE</text>
+<text x="1249.2" y="85.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="start">account_balances</text>
+<text x="1212.0" y="111.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="start">account_id</text>
+<text x="1572.0" y="111.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">uuid</text>
+<rect x="1522.4" y="103.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#2d3142" stroke-width="0.7"/><text x="1531.0" y="111.5" fill="#2d3142" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">FK</text>
+<rect x="1501.1" y="103.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#2d3142" stroke-width="0.7"/><text x="1509.7" y="111.5" fill="#2d3142" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">PK</text>
+<rect x="1201" y="118" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="1212.0" y="133.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">available_balance</text>
+<text x="1572.0" y="133.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">numeric(18,2)</text>
+<rect x="1472.2" y="125.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="1480.8" y="133.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<text x="1212.0" y="155.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">locked_balance</text>
+<text x="1572.0" y="155.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">numeric(18,2)</text>
+<rect x="1472.2" y="147.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="1480.8" y="155.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<rect x="1201" y="162" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="1212.0" y="177.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">version</text>
+<text x="1572.0" y="177.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">integer</text>
+<rect x="1505.6" y="169.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="1514.3" y="177.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<text x="1212.0" y="199.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">updated_at</text>
+<text x="1572.0" y="199.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">timestamptz</text>
+<rect x="1200" y="252" width="384" height="412" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<path d="M1200,284 V258 Q1200,252 1206,252 H1578 Q1584,252 1584,258 V284 Z" fill="rgba(46,90,168,0.08)"/>
+<line x1="1200" y1="284" x2="1584" y2="284" stroke="#2d3142" stroke-width="0.8"/>
+<rect x="1210.0" y="264" width="31.2" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="1225.6" y="272.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">TABLE</text>
+<text x="1249.2" y="273.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="start">ledger_transactions</text>
+<text x="1212.0" y="299.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="start">id</text>
+<text x="1572.0" y="299.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">uuid</text>
+<rect x="1522.4" y="291.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#2d3142" stroke-width="0.7"/><text x="1531.0" y="299.5" fill="#2d3142" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">PK</text>
+<rect x="1201" y="306" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="1212.0" y="321.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">reference_id</text>
+<text x="1572.0" y="321.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(180)</text>
+<rect x="1477.7" y="313.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="1486.4" y="321.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<rect x="1456.4" y="313.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#2e5aa8" stroke-width="0.7"/><text x="1465.1" y="321.5" fill="#2e5aa8" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">UQ</text>
+<text x="1212.0" y="343.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">idempotency_key</text>
+<text x="1572.0" y="343.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(180)</text>
+<rect x="1477.7" y="335.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#2e5aa8" stroke-width="0.7"/><text x="1486.4" y="343.5" fill="#2e5aa8" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">UQ</text>
+<rect x="1201" y="350" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="1212.0" y="365.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">type</text>
+<text x="1572.0" y="365.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(48)</text>
+<rect x="1483.3" y="357.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="1492.0" y="365.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<text x="1212.0" y="387.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">status</text>
+<text x="1572.0" y="387.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(24)</text>
+<rect x="1483.3" y="379.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="1492.0" y="387.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<rect x="1201" y="394" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="1212.0" y="409.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">amount</text>
+<text x="1572.0" y="409.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">numeric(18,2)</text>
+<rect x="1472.2" y="401.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="1480.8" y="409.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<text x="1212.0" y="431.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">debit_amount</text>
+<text x="1572.0" y="431.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">numeric(18,2)</text>
+<rect x="1472.2" y="423.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="1480.8" y="431.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<rect x="1201" y="438" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="1212.0" y="453.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">credit_amount</text>
+<text x="1572.0" y="453.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">numeric(18,2)</text>
+<rect x="1472.2" y="445.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="1480.8" y="453.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<text x="1212.0" y="475.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">entry_count</text>
+<text x="1572.0" y="475.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">integer</text>
+<rect x="1505.6" y="467.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="1514.3" y="475.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<rect x="1201" y="482" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="1212.0" y="497.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">currency</text>
+<text x="1572.0" y="497.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(8)</text>
+<rect x="1488.9" y="489.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="1497.6" y="497.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<text x="1212.0" y="519.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">metadata</text>
+<text x="1572.0" y="519.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">jsonb</text>
+<rect x="1516.8" y="511.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="1525.5" y="519.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<rect x="1201" y="526" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="1212.0" y="541.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">saga_id</text>
+<text x="1572.0" y="541.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(128)</text>
+<text x="1212.0" y="563.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">correlation_id</text>
+<text x="1572.0" y="563.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(128)</text>
+<rect x="1201" y="570" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="1212.0" y="585.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">completed_at</text>
+<text x="1572.0" y="585.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">timestamptz</text>
+<text x="1212.0" y="607.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">failed_reason</text>
+<text x="1572.0" y="607.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(180)</text>
+<rect x="1201" y="614" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="1212.0" y="629.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">created_at</text>
+<text x="1572.0" y="629.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">timestamptz</text>
+<text x="1212.0" y="651.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">updated_at</text>
+<text x="1572.0" y="651.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">timestamptz</text>
+<rect x="1200" y="704" width="384" height="302" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<path d="M1200,736 V710 Q1200,704 1206,704 H1578 Q1584,704 1584,710 V736 Z" fill="rgba(46,90,168,0.08)"/>
+<line x1="1200" y1="736" x2="1584" y2="736" stroke="#2d3142" stroke-width="0.8"/>
+<rect x="1210.0" y="716" width="31.2" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="1225.6" y="724.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">TABLE</text>
+<text x="1249.2" y="725.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="start">ledger_entries</text>
+<text x="1212.0" y="751.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="start">id</text>
+<text x="1572.0" y="751.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">uuid</text>
+<rect x="1522.4" y="743.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#2d3142" stroke-width="0.7"/><text x="1531.0" y="751.5" fill="#2d3142" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">PK</text>
+<rect x="1201" y="758" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="1212.0" y="773.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">transaction_id</text>
+<text x="1572.0" y="773.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">uuid</text>
+<rect x="1522.4" y="765.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="1531.0" y="773.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<rect x="1501.1" y="765.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#2d3142" stroke-width="0.7"/><text x="1509.7" y="773.5" fill="#2d3142" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">FK</text>
+<text x="1212.0" y="795.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">account_id</text>
+<text x="1572.0" y="795.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">uuid</text>
+<rect x="1522.4" y="787.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="1531.0" y="795.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<rect x="1501.1" y="787.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#2d3142" stroke-width="0.7"/><text x="1509.7" y="795.5" fill="#2d3142" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">FK</text>
+<rect x="1201" y="802" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="1212.0" y="817.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">direction</text>
+<text x="1572.0" y="817.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(12)</text>
+<rect x="1483.3" y="809.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="1492.0" y="817.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<text x="1212.0" y="839.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">amount</text>
+<text x="1572.0" y="839.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">numeric(18,2)</text>
+<rect x="1472.2" y="831.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="1480.8" y="839.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<rect x="1201" y="846" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="1212.0" y="861.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">currency</text>
+<text x="1572.0" y="861.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(8)</text>
+<rect x="1488.9" y="853.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="1497.6" y="861.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<text x="1212.0" y="883.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">available_before</text>
+<text x="1572.0" y="883.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">numeric(18,2)</text>
+<rect x="1472.2" y="875.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="1480.8" y="883.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<rect x="1201" y="890" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="1212.0" y="905.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">available_after</text>
+<text x="1572.0" y="905.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">numeric(18,2)</text>
+<rect x="1472.2" y="897.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="1480.8" y="905.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<text x="1212.0" y="927.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">locked_before</text>
+<text x="1572.0" y="927.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">numeric(18,2)</text>
+<rect x="1472.2" y="919.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="1480.8" y="927.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<rect x="1201" y="934" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="1212.0" y="949.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">locked_after</text>
+<text x="1572.0" y="949.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">numeric(18,2)</text>
+<rect x="1472.2" y="941.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="1480.8" y="949.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<text x="1212.0" y="971.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">metadata</text>
+<text x="1572.0" y="971.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">jsonb</text>
+<rect x="1516.8" y="963.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="1525.5" y="971.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<rect x="1201" y="978" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="1212.0" y="993.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">created_at</text>
+<text x="1572.0" y="993.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">timestamptz</text>
+<rect x="1752" y="64" width="384" height="339" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<path d="M1752,96 V70 Q1752,64 1758,64 H2130 Q2136,64 2136,70 V96 Z" fill="rgba(46,90,168,0.08)"/>
+<line x1="1752" y1="96" x2="2136" y2="96" stroke="#2d3142" stroke-width="0.8"/>
+<rect x="1762.0" y="76" width="31.2" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="1777.6" y="84.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">TABLE</text>
+<text x="1801.2" y="85.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="start">settlement_jobs</text>
+<text x="1764.0" y="111.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="start">id</text>
+<text x="2124.0" y="111.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">uuid</text>
+<rect x="2074.4" y="103.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#2d3142" stroke-width="0.7"/><text x="2083.0" y="111.5" fill="#2d3142" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">PK</text>
+<rect x="1753" y="118" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="1764.0" y="133.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">order_id</text>
+<text x="2124.0" y="133.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">integer</text>
+<rect x="2053.0" y="125.0" width="21.9" height="11" rx="2" fill="#f5f5f5" stroke="#5a6580" stroke-width="0.7" stroke-dasharray="2,2"/><text x="2064.0" y="133.5" fill="#5a6580" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">REF</text>
+<rect x="2027.0" y="125.0" width="21.9" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="2038.0" y="133.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">IDX</text>
+<rect x="2005.7" y="125.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="2014.4" y="133.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<text x="1764.0" y="155.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">shop_id</text>
+<text x="2124.0" y="155.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(96)</text>
+<rect x="2030.7" y="147.0" width="21.9" height="11" rx="2" fill="#f5f5f5" stroke="#5a6580" stroke-width="0.7" stroke-dasharray="2,2"/><text x="2041.6" y="155.5" fill="#5a6580" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">REF</text>
+<rect x="2004.7" y="147.0" width="21.9" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="2015.7" y="155.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">IDX</text>
+<rect x="1983.4" y="147.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="1992.1" y="155.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<rect x="1753" y="162" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="1764.0" y="177.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">amount</text>
+<text x="2124.0" y="177.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">numeric(18,2)</text>
+<rect x="2024.2" y="169.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="2032.8" y="177.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<text x="1764.0" y="199.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">currency</text>
+<text x="2124.0" y="199.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(8)</text>
+<rect x="2040.9" y="191.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="2049.5" y="199.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<rect x="1753" y="206" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="1764.0" y="221.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">status</text>
+<text x="2124.0" y="221.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(24)</text>
+<rect x="2035.3" y="213.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="2044.0" y="221.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<text x="1764.0" y="243.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">eligible_at</text>
+<text x="2124.0" y="243.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">timestamptz</text>
+<rect x="2035.3" y="235.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="2044.0" y="243.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<rect x="1753" y="250" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="1764.0" y="265.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">settled_at</text>
+<text x="2124.0" y="265.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">timestamptz</text>
+<text x="1764.0" y="287.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">reference_id</text>
+<text x="2124.0" y="287.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(180)</text>
+<rect x="2029.7" y="279.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="2038.4" y="287.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<rect x="2008.4" y="279.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#2e5aa8" stroke-width="0.7"/><text x="2017.1" y="287.5" fill="#2e5aa8" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">UQ</text>
+<rect x="1753" y="294" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="1764.0" y="309.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">metadata</text>
+<text x="2124.0" y="309.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">jsonb</text>
+<rect x="2068.8" y="301.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="2077.4" y="309.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<text x="1764.0" y="331.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">saga_id</text>
+<text x="2124.0" y="331.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(128)</text>
+<rect x="1753" y="338" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="1764.0" y="353.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">correlation_id</text>
+<text x="2124.0" y="353.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(128)</text>
+<line x1="1762" y1="366" x2="2126" y2="366" stroke="rgba(45,49,66,0.22)" stroke-width="0.8"/>
+<text x="1764.0" y="381.0" fill="#5a6580" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="start" letter-spacing="0.16em">INDEXES</text>
+<text x="1832.0" y="381.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">(status, eligible_at)</text>
+<rect x="1752" y="443" width="384" height="214" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<path d="M1752,475 V449 Q1752,443 1758,443 H2130 Q2136,443 2136,449 V475 Z" fill="rgba(46,90,168,0.08)"/>
+<line x1="1752" y1="475" x2="2136" y2="475" stroke="#2d3142" stroke-width="0.8"/>
+<rect x="1762.0" y="455" width="31.2" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="1777.6" y="463.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">TABLE</text>
+<text x="1801.2" y="464.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="start">inbox_events</text>
+<text x="1764.0" y="490.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="start">id</text>
+<text x="2124.0" y="490.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">serial</text>
+<rect x="2063.2" y="482.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#2d3142" stroke-width="0.7"/><text x="2071.9" y="490.5" fill="#2d3142" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">PK</text>
+<rect x="1753" y="497" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="1764.0" y="512.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">message_id</text>
+<text x="2124.0" y="512.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(160)</text>
+<rect x="2029.7" y="504.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="2038.4" y="512.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<rect x="2008.4" y="504.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#2e5aa8" stroke-width="0.7"/><text x="2017.1" y="512.5" fill="#2e5aa8" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">UQ</text>
+<text x="1764.0" y="534.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">topic</text>
+<text x="2124.0" y="534.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(120)</text>
+<rect x="2029.7" y="526.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="2038.4" y="534.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<rect x="1753" y="541" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="1764.0" y="556.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">payload</text>
+<text x="2124.0" y="556.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">jsonb</text>
+<rect x="2068.8" y="548.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="2077.4" y="556.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<text x="1764.0" y="578.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">status</text>
+<text x="2124.0" y="578.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(24)</text>
+<rect x="2035.3" y="570.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="2044.0" y="578.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<rect x="1753" y="585" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="1764.0" y="600.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">attempts</text>
+<text x="2124.0" y="600.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">integer</text>
+<rect x="2057.6" y="592.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="2066.3" y="600.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<text x="1764.0" y="622.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">error</text>
+<text x="2124.0" y="622.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">text</text>
+<rect x="1753" y="629" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="1764.0" y="644.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">processed_at</text>
+<text x="2124.0" y="644.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">timestamptz</text>
+<rect x="1752" y="697" width="384" height="405" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<path d="M1752,729 V703 Q1752,697 1758,697 H2130 Q2136,697 2136,703 V729 Z" fill="rgba(46,90,168,0.08)"/>
+<line x1="1752" y1="729" x2="2136" y2="729" stroke="#2d3142" stroke-width="0.8"/>
+<rect x="1762.0" y="709" width="31.2" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="1777.6" y="717.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">TABLE</text>
+<text x="1801.2" y="718.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="start">outbox_events</text>
+<text x="1764.0" y="744.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="start">id</text>
+<text x="2124.0" y="744.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">uuid</text>
+<rect x="2074.4" y="736.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#2d3142" stroke-width="0.7"/><text x="2083.0" y="744.5" fill="#2d3142" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">PK</text>
+<rect x="1753" y="751" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="1764.0" y="766.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">aggregate_type</text>
+<text x="2124.0" y="766.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(80)</text>
+<rect x="2035.3" y="758.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="2044.0" y="766.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<text x="1764.0" y="788.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">aggregate_id</text>
+<text x="2124.0" y="788.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(128)</text>
+<rect x="2029.7" y="780.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="2038.4" y="788.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<rect x="1753" y="795" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="1764.0" y="810.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">event_type</text>
+<text x="2124.0" y="810.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(120)</text>
+<rect x="2029.7" y="802.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="2038.4" y="810.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<text x="1764.0" y="832.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">topic</text>
+<text x="2124.0" y="832.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(120)</text>
+<rect x="2029.7" y="824.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="2038.4" y="832.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<rect x="1753" y="839" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="1764.0" y="854.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">event_key</text>
+<text x="2124.0" y="854.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(128)</text>
+<rect x="2029.7" y="846.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="2038.4" y="854.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<text x="1764.0" y="876.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">payload</text>
+<text x="2124.0" y="876.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">jsonb</text>
+<rect x="2068.8" y="868.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="2077.4" y="876.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<rect x="1753" y="883" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="1764.0" y="898.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">headers</text>
+<text x="2124.0" y="898.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">jsonb</text>
+<rect x="2068.8" y="890.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="2077.4" y="898.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<text x="1764.0" y="920.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">status</text>
+<text x="2124.0" y="920.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(24)</text>
+<rect x="2035.3" y="912.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="2044.0" y="920.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<rect x="1753" y="927" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="1764.0" y="942.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">attempts</text>
+<text x="2124.0" y="942.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">integer</text>
+<rect x="2057.6" y="934.0" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="2066.3" y="942.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<text x="1764.0" y="964.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">next_attempt_at</text>
+<text x="2124.0" y="964.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">timestamptz</text>
+<rect x="1753" y="971" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="1764.0" y="986.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">published_at</text>
+<text x="2124.0" y="986.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">timestamptz</text>
+<text x="1764.0" y="1008.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">error</text>
+<text x="2124.0" y="1008.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">text</text>
+<rect x="1753" y="1015" width="382" height="22" fill="rgba(45,49,66,0.025)"/>
+<text x="1764.0" y="1030.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">saga_id</text>
+<text x="2124.0" y="1030.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(128)</text>
+<text x="1764.0" y="1052.0" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">correlation_id</text>
+<text x="2124.0" y="1052.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="end">varchar(128)</text>
+<line x1="1762" y1="1065" x2="2126" y2="1065" stroke="rgba(45,49,66,0.22)" stroke-width="0.8"/>
+<text x="1764.0" y="1080.0" fill="#5a6580" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="start" letter-spacing="0.16em">INDEXES</text>
+<text x="1832.0" y="1080.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">(status, next_attempt_at)</text>
+<line x1="40" y1="1171" x2="2160" y2="1171" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+<text x="40.0" y="1193.0" fill="#5a6580" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="start" letter-spacing="0.14em">THAM CHIẾU LOGIC SANG SERVICE KHÁC (không có khóa ngoại)</text>
+<text x="40.0" y="1215.0" fill="#4f5d75" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">wallets.user_id  →  auth-service.authusers._id</text>
+<text x="40.0" y="1232.0" fill="#4f5d75" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">wallet_ledger_entries.order_id  →  order-service.orders.id</text>
+<text x="40.0" y="1249.0" fill="#4f5d75" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">payout_requests.shop_id  →  shop-service.shops._id</text>
+<text x="1100.0" y="1215.0" fill="#4f5d75" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">user_withdrawal_requests.user_id  →  auth-service.authusers._id</text>
+<text x="1100.0" y="1232.0" fill="#4f5d75" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">settlement_jobs.order_id  →  order-service.orders.id</text>
+<text x="1100.0" y="1249.0" fill="#4f5d75" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="start">settlement_jobs.shop_id  →  shop-service.shops._id</text>
+<line x1="32" y1="1282" x2="2168" y2="1282" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+<text x="32.0" y="1304.0" fill="#5a6580" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" font-weight="500" text-anchor="start" letter-spacing="0.18em">CHÚ GIẢI</text>
+<rect x="108.0" y="1296" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#2d3142" stroke-width="0.7"/><text x="116.7" y="1304.5" fill="#2d3142" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">PK</text>
+<text x="148.0" y="1304.0" fill="#4f5d75" font-size="10" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">Khóa chính</text>
+<rect x="225.0" y="1296" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#2d3142" stroke-width="0.7"/><text x="233.7" y="1304.5" fill="#2d3142" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">FK</text>
+<text x="265.0" y="1304.0" fill="#4f5d75" font-size="10" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">Khóa ngoại (ràng buộc thật)</text>
+<rect x="432.1" y="1296" width="21.9" height="11" rx="2" fill="#f5f5f5" stroke="#5a6580" stroke-width="0.7" stroke-dasharray="2,2"/><text x="443.1" y="1304.5" fill="#5a6580" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">REF</text>
+<text x="472.1" y="1304.0" fill="#4f5d75" font-size="10" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">Tham chiếu logic qua ID</text>
+<rect x="618.0" y="1296" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#2e5aa8" stroke-width="0.7"/><text x="626.6" y="1304.5" fill="#2e5aa8" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">UQ</text>
+<text x="658.0" y="1304.0" fill="#4f5d75" font-size="10" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">Duy nhất</text>
+<rect x="724.4" y="1296" width="17.3" height="11" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/><text x="733.0" y="1304.5" fill="#4f5d75" font-size="7.5" font-family="'Geist Mono', ui-monospace, monospace" font-weight="600" text-anchor="middle" letter-spacing="0.04em">NN</text>
+<text x="764.4" y="1304.0" fill="#4f5d75" font-size="10" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">Not null</text>
+<line x1="830.8" y1="1300" x2="860.8" y2="1300" stroke="#2d3142" stroke-width="1.2" marker-end="url(#m-fill-ink)"/>
+<text x="870.8" y="1304.0" fill="#4f5d75" font-size="10" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">FK → cột được tham chiếu</text>
+<line x1="1022.0" y1="1300" x2="1052.0" y2="1300" stroke="#4f5d75" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#m-fill)"/>
+<text x="1062.0" y="1304.0" fill="#4f5d75" font-size="10" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">Liên kết logic trong cùng DB</text>
+      </svg>
+    </div>
+    
+  </div>
+</body>
+</html>

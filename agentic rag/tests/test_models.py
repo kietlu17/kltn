@@ -5,6 +5,7 @@ from app.models import GeminiGateway, gemini_response_schema, openai_response_sc
 from app.schemas import (
     AgentPlan,
     CandidateVerification,
+    SemanticTask,
     SemanticTurn,
     TurnUnderstanding,
     VerificationBatch,
@@ -88,6 +89,36 @@ class OpenAISchemaTests(unittest.TestCase):
         self.assertEqual(GeminiGateway(settings).llm.model_name, "some-model")
         self.assertEqual(settings.chat_model, "some-model")
 
+
+
+class DecideModelTests(unittest.IsolatedAsyncioTestCase):
+    def settings(self, **extra):
+        return AgenticSettings(
+            gemini_api_key="test", llm_provider="openai", llm_base_url="http://gateway/v1",
+            llm_api_key="key", llm_model="cheap-model", **extra,
+        )
+
+    async def test_plan_runs_on_the_decide_model_and_answers_keep_the_default(self):
+        gateway = GeminiGateway(self.settings(decide_model="gpt-5.4", decide_reasoning_effort="low"))
+        self.assertEqual(gateway.decide_llm.model_name, "gpt-5.4")
+        self.assertEqual(gateway.decide_llm.reasoning_effort, "low")
+        self.assertEqual(gateway.llm.model_name, "cheap-model")
+        seen = []
+
+        class Recording(FakeRunnable):
+            async def ainvoke(self, messages):
+                seen.append("decide")
+                return await super().ainvoke(messages)
+
+        gateway._structured_runnables[(SemanticTurn, id(gateway.decide_llm))] = Recording(
+            [SemanticTurn(tasks=[SemanticTask(intent="general")], confidence=0.9)]
+        )
+        await gateway.decide("xin chào", [], [], None, {}, "exploring")
+        self.assertEqual(seen, ["decide"])
+
+    def test_without_a_decide_model_the_default_model_plans(self):
+        gateway = GeminiGateway(self.settings(decide_model=""))
+        self.assertIs(gateway.decide_llm, gateway.llm)
 
 if __name__ == "__main__":
     unittest.main()

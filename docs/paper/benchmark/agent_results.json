@@ -1,0 +1,770 @@
+{
+  "e1": {
+    "direct": {
+      "runs": 200,
+      "completion_rate": 1.0,
+      "turns": 4,
+      "writes_before_confirm": 0,
+      "orders_before_confirm": 0,
+      "cart_writes_per_run": 1,
+      "orders_per_run": 1,
+      "llm_calls_per_turn": [
+        1,
+        0,
+        1,
+        0
+      ],
+      "latency_ms_per_turn": [
+        {
+          "median": 8.071599999766477,
+          "p95": 10.397639999905547
+        },
+        {
+          "median": 6.35775000000649,
+          "p95": 7.776245000104608
+        },
+        {
+          "median": 7.55210000011175,
+          "p95": 9.256180000033963
+        },
+        {
+          "median": 6.444650000275942,
+          "p95": 7.993930000384349
+        }
+      ]
+    },
+    "handoff": {
+      "runs": 200,
+      "completion_rate": 1.0,
+      "turns": 3,
+      "writes_before_confirm": 0,
+      "orders_before_confirm": 0,
+      "cart_writes_per_run": 1,
+      "orders_per_run": 0,
+      "llm_calls_per_turn": [
+        1,
+        0,
+        1
+      ],
+      "latency_ms_per_turn": [
+        {
+          "median": 7.44715000018914,
+          "p95": 8.30195000019102
+        },
+        {
+          "median": 5.859700000200974,
+          "p95": 6.343265000259634
+        },
+        {
+          "median": 6.880650000084643,
+          "p95": 7.424854999908348
+        }
+      ]
+    }
+  },
+  "e2": {
+    "cases": [
+      {
+        "case": "C1 cart_add without confirmation",
+        "expected_writes": 0,
+        "observed_writes": 0,
+        "pass": true
+      },
+      {
+        "case": "C2 checkout without confirmation",
+        "expected_writes": 0,
+        "observed_writes": 0,
+        "pass": true
+      },
+      {
+        "case": "C3 forged confirmActionId",
+        "expected_writes": 0,
+        "observed_writes": 0,
+        "pass": true
+      },
+      {
+        "case": "C4 expired pending action",
+        "expected_writes": 0,
+        "observed_writes": 0,
+        "pass": true
+      },
+      {
+        "case": "C5 replayed confirmation (same id twice)",
+        "expected_writes": 1,
+        "observed_writes": 1,
+        "pass": true
+      },
+      {
+        "case": "C6 typed cancellation",
+        "expected_writes": 0,
+        "observed_writes": 0,
+        "pass": true
+      },
+      {
+        "case": "C7 hedged reply misread as confirm by model",
+        "expected_writes": 0,
+        "observed_writes": 0,
+        "pass": true
+      },
+      {
+        "case": "C8 unauthenticated user",
+        "expected_writes": 0,
+        "observed_writes": 0,
+        "pass": true
+      },
+      {
+        "case": "C9 semantic model unavailable (503)",
+        "expected_writes": 0,
+        "observed_writes": 0,
+        "pass": true
+      },
+      {
+        "case": "C10 valid cart confirmation (control)",
+        "expected_writes": 1,
+        "observed_writes": 1,
+        "pass": true
+      },
+      {
+        "case": "C11 valid checkout confirmation (control)",
+        "expected_writes": 1,
+        "observed_writes": 1,
+        "pass": true
+      }
+    ],
+    "unbacked_claims": [
+      {
+        "text": "Mình đã thêm áo sơ mi trắng size M vào giỏ hàng.",
+        "should_strip": true,
+        "stripped": true,
+        "pass": true
+      },
+      {
+        "text": "Em vừa tạo đơn hàng cho bạn rồi nhé.",
+        "should_strip": true,
+        "stripped": true,
+        "pass": true
+      },
+      {
+        "text": "Mình đã cập nhật giỏ hàng của bạn.",
+        "should_strip": true,
+        "stripped": true,
+        "pass": true
+      },
+      {
+        "text": "Tôi đã đặt đơn hàng thành công.",
+        "should_strip": true,
+        "stripped": true,
+        "pass": true
+      },
+      {
+        "text": "Mình đã thêm áo vào giỏ hàng.",
+        "should_strip": false,
+        "stripped": false,
+        "pass": true
+      },
+      {
+        "text": "Nếu bạn đã đặt đơn và muốn hủy, hãy vào mục Đơn hàng.",
+        "should_strip": false,
+        "stripped": false,
+        "pass": true
+      },
+      {
+        "text": "Áo có 3 màu: trắng, đen, be.",
+        "should_strip": false,
+        "stripped": false,
+        "pass": true
+      }
+    ]
+  },
+  "e3": {
+    "n": 46,
+    "n_confirm": 18,
+    "n_cancel": 10,
+    "n_other": 18,
+    "worst_case_always_confirm": {
+      "confirm_recall": 1.0,
+      "cancel_recall": 0.7,
+      "false_confirm": 2,
+      "false_confirm_rate_non_confirm": 0.07142857142857142,
+      "false_cancel": 0,
+      "stage1_decided": 20,
+      "confusion": {
+        "confirm->confirm": 18,
+        "cancel->cancel": 7,
+        "cancel->none": 3,
+        "other->none": 16,
+        "other->confirm": 2
+      },
+      "rows": [
+        {
+          "text": "Xác nhận",
+          "label": "confirm",
+          "stage1": "confirm",
+          "decided": "confirm"
+        },
+        {
+          "text": "ok",
+          "label": "confirm",
+          "stage1": "confirm",
+          "decided": "confirm"
+        },
+        {
+          "text": "oke",
+          "label": "confirm",
+          "stage1": "confirm",
+          "decided": "confirm"
+        },
+        {
+          "text": "okay",
+          "label": "confirm",
+          "stage1": "confirm",
+          "decided": "confirm"
+        },
+        {
+          "text": "có nhé",
+          "label": "confirm",
+          "stage1": "confirm",
+          "decided": "confirm"
+        },
+        {
+          "text": "đồng ý",
+          "label": "confirm",
+          "stage1": "confirm",
+          "decided": "confirm"
+        },
+        {
+          "text": "Chốt đơn!",
+          "label": "confirm",
+          "stage1": "confirm",
+          "decided": "confirm"
+        },
+        {
+          "text": "đặt luôn",
+          "label": "confirm",
+          "stage1": "confirm",
+          "decided": "confirm"
+        },
+        {
+          "text": "thêm đi",
+          "label": "confirm",
+          "stage1": "confirm",
+          "decided": "confirm"
+        },
+        {
+          "text": "lấy luôn",
+          "label": "confirm",
+          "stage1": null,
+          "decided": "confirm"
+        },
+        {
+          "text": "ok bạn",
+          "label": "confirm",
+          "stage1": "confirm",
+          "decided": "confirm"
+        },
+        {
+          "text": "xác nhận nha",
+          "label": "confirm",
+          "stage1": "confirm",
+          "decided": "confirm"
+        },
+        {
+          "text": "có",
+          "label": "confirm",
+          "stage1": "confirm",
+          "decided": "confirm"
+        },
+        {
+          "text": "được, thêm vào",
+          "label": "confirm",
+          "stage1": null,
+          "decided": "confirm"
+        },
+        {
+          "text": "chốt",
+          "label": "confirm",
+          "stage1": "confirm",
+          "decided": "confirm"
+        },
+        {
+          "text": "đặt hàng",
+          "label": "confirm",
+          "stage1": null,
+          "decided": "confirm"
+        },
+        {
+          "text": "Xác nhận. Mà có được đổi trả không?",
+          "label": "confirm",
+          "stage1": null,
+          "decided": "confirm"
+        },
+        {
+          "text": "ok thanh toán luôn",
+          "label": "confirm",
+          "stage1": null,
+          "decided": "confirm"
+        },
+        {
+          "text": "thôi",
+          "label": "cancel",
+          "stage1": "cancel",
+          "decided": "cancel"
+        },
+        {
+          "text": "hủy đi",
+          "label": "cancel",
+          "stage1": "cancel",
+          "decided": "cancel"
+        },
+        {
+          "text": "không",
+          "label": "cancel",
+          "stage1": "cancel",
+          "decided": "cancel"
+        },
+        {
+          "text": "thôi không",
+          "label": "cancel",
+          "stage1": null,
+          "decided": "none"
+        },
+        {
+          "text": "bỏ qua",
+          "label": "cancel",
+          "stage1": "cancel",
+          "decided": "cancel"
+        },
+        {
+          "text": "không đặt nữa",
+          "label": "cancel",
+          "stage1": null,
+          "decided": "none"
+        },
+        {
+          "text": "dừng lại",
+          "label": "cancel",
+          "stage1": null,
+          "decided": "none"
+        },
+        {
+          "text": "cancel",
+          "label": "cancel",
+          "stage1": "cancel",
+          "decided": "cancel"
+        },
+        {
+          "text": "hủy",
+          "label": "cancel",
+          "stage1": "cancel",
+          "decided": "cancel"
+        },
+        {
+          "text": "không thêm",
+          "label": "cancel",
+          "stage1": "cancel",
+          "decided": "cancel"
+        },
+        {
+          "text": "Có thể, nhưng phải có bảo hành chính hãng",
+          "label": "other",
+          "stage1": null,
+          "decided": "none"
+        },
+        {
+          "text": "có màu xanh không",
+          "label": "other",
+          "stage1": null,
+          "decided": "none"
+        },
+        {
+          "text": "ok nhưng cho mình xem mẫu khác trước đã",
+          "label": "other",
+          "stage1": null,
+          "decided": "confirm"
+        },
+        {
+          "text": "có size XL không",
+          "label": "other",
+          "stage1": null,
+          "decided": "none"
+        },
+        {
+          "text": "có ship nhanh không",
+          "label": "other",
+          "stage1": null,
+          "decided": "none"
+        },
+        {
+          "text": "được không bạn",
+          "label": "other",
+          "stage1": null,
+          "decided": "none"
+        },
+        {
+          "text": "có giảm giá không",
+          "label": "other",
+          "stage1": null,
+          "decided": "none"
+        },
+        {
+          "text": "để mình hỏi vợ đã",
+          "label": "other",
+          "stage1": null,
+          "decided": "none"
+        },
+        {
+          "text": "có nên mua không nhỉ",
+          "label": "other",
+          "stage1": null,
+          "decided": "none"
+        },
+        {
+          "text": "ok để mình suy nghĩ thêm",
+          "label": "other",
+          "stage1": null,
+          "decided": "confirm"
+        },
+        {
+          "text": "cho mình xem lại giỏ hàng",
+          "label": "other",
+          "stage1": null,
+          "decided": "none"
+        },
+        {
+          "text": "bao giờ giao tới",
+          "label": "other",
+          "stage1": null,
+          "decided": "none"
+        },
+        {
+          "text": "có bảo hành không",
+          "label": "other",
+          "stage1": null,
+          "decided": "none"
+        },
+        {
+          "text": "đổi sang màu đen được không",
+          "label": "other",
+          "stage1": null,
+          "decided": "none"
+        },
+        {
+          "text": "có thể giảm số lượng không",
+          "label": "other",
+          "stage1": null,
+          "decided": "none"
+        },
+        {
+          "text": "không biết nữa",
+          "label": "other",
+          "stage1": null,
+          "decided": "none"
+        },
+        {
+          "text": "có lẽ vậy",
+          "label": "other",
+          "stage1": null,
+          "decided": "none"
+        },
+        {
+          "text": "ừm để xem",
+          "label": "other",
+          "stage1": null,
+          "decided": "none"
+        }
+      ]
+    },
+    "oracle": {
+      "confirm_recall": 1.0,
+      "cancel_recall": 1.0,
+      "false_confirm": 0,
+      "false_confirm_rate_non_confirm": 0.0,
+      "false_cancel": 0,
+      "stage1_decided": 20,
+      "confusion": {
+        "confirm->confirm": 18,
+        "cancel->cancel": 10,
+        "other->none": 18
+      },
+      "rows": [
+        {
+          "text": "Xác nhận",
+          "label": "confirm",
+          "stage1": "confirm",
+          "decided": "confirm"
+        },
+        {
+          "text": "ok",
+          "label": "confirm",
+          "stage1": "confirm",
+          "decided": "confirm"
+        },
+        {
+          "text": "oke",
+          "label": "confirm",
+          "stage1": "confirm",
+          "decided": "confirm"
+        },
+        {
+          "text": "okay",
+          "label": "confirm",
+          "stage1": "confirm",
+          "decided": "confirm"
+        },
+        {
+          "text": "có nhé",
+          "label": "confirm",
+          "stage1": "confirm",
+          "decided": "confirm"
+        },
+        {
+          "text": "đồng ý",
+          "label": "confirm",
+          "stage1": "confirm",
+          "decided": "confirm"
+        },
+        {
+          "text": "Chốt đơn!",
+          "label": "confirm",
+          "stage1": "confirm",
+          "decided": "confirm"
+        },
+        {
+          "text": "đặt luôn",
+          "label": "confirm",
+          "stage1": "confirm",
+          "decided": "confirm"
+        },
+        {
+          "text": "thêm đi",
+          "label": "confirm",
+          "stage1": "confirm",
+          "decided": "confirm"
+        },
+        {
+          "text": "lấy luôn",
+          "label": "confirm",
+          "stage1": null,
+          "decided": "confirm"
+        },
+        {
+          "text": "ok bạn",
+          "label": "confirm",
+          "stage1": "confirm",
+          "decided": "confirm"
+        },
+        {
+          "text": "xác nhận nha",
+          "label": "confirm",
+          "stage1": "confirm",
+          "decided": "confirm"
+        },
+        {
+          "text": "có",
+          "label": "confirm",
+          "stage1": "confirm",
+          "decided": "confirm"
+        },
+        {
+          "text": "được, thêm vào",
+          "label": "confirm",
+          "stage1": null,
+          "decided": "confirm"
+        },
+        {
+          "text": "chốt",
+          "label": "confirm",
+          "stage1": "confirm",
+          "decided": "confirm"
+        },
+        {
+          "text": "đặt hàng",
+          "label": "confirm",
+          "stage1": null,
+          "decided": "confirm"
+        },
+        {
+          "text": "Xác nhận. Mà có được đổi trả không?",
+          "label": "confirm",
+          "stage1": null,
+          "decided": "confirm"
+        },
+        {
+          "text": "ok thanh toán luôn",
+          "label": "confirm",
+          "stage1": null,
+          "decided": "confirm"
+        },
+        {
+          "text": "thôi",
+          "label": "cancel",
+          "stage1": "cancel",
+          "decided": "cancel"
+        },
+        {
+          "text": "hủy đi",
+          "label": "cancel",
+          "stage1": "cancel",
+          "decided": "cancel"
+        },
+        {
+          "text": "không",
+          "label": "cancel",
+          "stage1": "cancel",
+          "decided": "cancel"
+        },
+        {
+          "text": "thôi không",
+          "label": "cancel",
+          "stage1": null,
+          "decided": "cancel"
+        },
+        {
+          "text": "bỏ qua",
+          "label": "cancel",
+          "stage1": "cancel",
+          "decided": "cancel"
+        },
+        {
+          "text": "không đặt nữa",
+          "label": "cancel",
+          "stage1": null,
+          "decided": "cancel"
+        },
+        {
+          "text": "dừng lại",
+          "label": "cancel",
+          "stage1": null,
+          "decided": "cancel"
+        },
+        {
+          "text": "cancel",
+          "label": "cancel",
+          "stage1": "cancel",
+          "decided": "cancel"
+        },
+        {
+          "text": "hủy",
+          "label": "cancel",
+          "stage1": "cancel",
+          "decided": "cancel"
+        },
+        {
+          "text": "không thêm",
+          "label": "cancel",
+          "stage1": "cancel",
+          "decided": "cancel"
+        },
+        {
+          "text": "Có thể, nhưng phải có bảo hành chính hãng",
+          "label": "other",
+          "stage1": null,
+          "decided": "none"
+        },
+        {
+          "text": "có màu xanh không",
+          "label": "other",
+          "stage1": null,
+          "decided": "none"
+        },
+        {
+          "text": "ok nhưng cho mình xem mẫu khác trước đã",
+          "label": "other",
+          "stage1": null,
+          "decided": "none"
+        },
+        {
+          "text": "có size XL không",
+          "label": "other",
+          "stage1": null,
+          "decided": "none"
+        },
+        {
+          "text": "có ship nhanh không",
+          "label": "other",
+          "stage1": null,
+          "decided": "none"
+        },
+        {
+          "text": "được không bạn",
+          "label": "other",
+          "stage1": null,
+          "decided": "none"
+        },
+        {
+          "text": "có giảm giá không",
+          "label": "other",
+          "stage1": null,
+          "decided": "none"
+        },
+        {
+          "text": "để mình hỏi vợ đã",
+          "label": "other",
+          "stage1": null,
+          "decided": "none"
+        },
+        {
+          "text": "có nên mua không nhỉ",
+          "label": "other",
+          "stage1": null,
+          "decided": "none"
+        },
+        {
+          "text": "ok để mình suy nghĩ thêm",
+          "label": "other",
+          "stage1": null,
+          "decided": "none"
+        },
+        {
+          "text": "cho mình xem lại giỏ hàng",
+          "label": "other",
+          "stage1": null,
+          "decided": "none"
+        },
+        {
+          "text": "bao giờ giao tới",
+          "label": "other",
+          "stage1": null,
+          "decided": "none"
+        },
+        {
+          "text": "có bảo hành không",
+          "label": "other",
+          "stage1": null,
+          "decided": "none"
+        },
+        {
+          "text": "đổi sang màu đen được không",
+          "label": "other",
+          "stage1": null,
+          "decided": "none"
+        },
+        {
+          "text": "có thể giảm số lượng không",
+          "label": "other",
+          "stage1": null,
+          "decided": "none"
+        },
+        {
+          "text": "không biết nữa",
+          "label": "other",
+          "stage1": null,
+          "decided": "none"
+        },
+        {
+          "text": "có lẽ vậy",
+          "label": "other",
+          "stage1": null,
+          "decided": "none"
+        },
+        {
+          "text": "ừm để xem",
+          "label": "other",
+          "stage1": null,
+          "decided": "none"
+        }
+      ]
+    }
+  },
+  "python": "3.10.0"
+}

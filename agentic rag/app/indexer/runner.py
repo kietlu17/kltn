@@ -9,6 +9,7 @@ stopping the container loses at most the batch in flight.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import math
@@ -25,6 +26,7 @@ from ..config import AgenticSettings, _bounded_float, _bounded_int
 from ..sparse import SPARSE_VECTOR_NAME, document_sparse_vector
 from .cache import EmbeddingCache
 from .documents import Chunk, product_chunks
+from ..taxonomy import category_paths
 
 log = logging.getLogger("agentic.indexer")
 
@@ -54,25 +56,125 @@ class IndexerSettings:
     key_file: str = field(
         default_factory=lambda: os.getenv("GEMINI_API_KEY_FILE", "/secrets/gemini_api_key").strip()
     )
+    # 0 = unlimited; otherwise texts each key may embed per quota day before
+    # the next key in the key file takes over.
+    key_request_limit: int = field(
+        default_factory=lambda: _bounded_int("INDEXER_KEY_REQUEST_LIMIT", 0, 0, 10_000_000)
+    )
+
+
+class QuotaSpent(RuntimeError):
+    """Every configured key used its INDEXER_KEY_REQUEST_LIMIT for today."""
+
+
+def _quota_day() -> str:
+    # Gemini daily quotas reset at midnight Pacific time (UTC-8 in winter).
+    return time.strftime("%Y-%m-%d", time.gmtime(time.time() - 8 * 3600))
 
 
 class ApiKeySource:
-    """Reads the key on every batch so it can be swapped without a restart.
+    """Reads the keys on every batch so they can be swapped without a restart.
 
-    A non-empty key file wins over the GEMINI_API_KEY environment variable.
+    The key file holds one key per line ("GEMINI_API_KEY=" prefixes and blank
+    lines are ignored) and wins over the GEMINI_API_KEY environment variable.
+    With several keys and INDEXER_KEY_REQUEST_LIMIT, each key embeds at most
+    that many texts per quota day; the next key takes over when it is used up
+    or the provider rejects it with a quota error. Usage is persisted by key
+    fingerprint (never the key itself) so a restart does not reset it.
     """
 
-    def __init__(self, key_file: str, env_key: str):
+    def __init__(
+        self,
+        key_file: str,
+        env_key: str,
+        *,
+        request_limit: int = 0,
+        usage_file: str | Path | None = None,
+    ):
         self.key_file = Path(key_file) if key_file else None
         self.env_key = env_key.strip()
+        self.request_limit = max(0, int(request_limit))
+        self.usage_file = Path(usage_file) if usage_file else None
+        self._usage = self._load_usage()
 
-    def current(self) -> str:
+    @staticmethod
+    def fingerprint(key: str) -> str:
+        return hashlib.sha256(key.encode()).hexdigest()[:12]
+
+    def keys(self) -> list[str]:
         if self.key_file and self.key_file.is_file():
             # utf-8-sig: Windows PowerShell writes a BOM that would corrupt the key.
-            value = self.key_file.read_text(encoding="utf-8-sig").strip()
-            if value:
-                return value
-        return self.env_key
+            lines = self.key_file.read_text(encoding="utf-8-sig").splitlines()
+            keys = [
+                re.sub(r"^\s*(?:export\s+)?GEMINI_API_KEY\s*=\s*", "", line).strip().strip("\"'")
+                for line in lines
+                if line.strip() and not line.lstrip().startswith("#")
+            ]
+            keys = list(dict.fromkeys(key for key in keys if key))
+            if keys:
+                return keys
+        return [self.env_key] if self.env_key else []
+
+    def _load_usage(self) -> dict:
+        if self.usage_file and self.usage_file.is_file():
+            try:
+                return json.loads(self.usage_file.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                return {}
+        return {}
+
+    def _entry(self, key: str) -> dict:
+        entry = self._usage.get(self.fingerprint(key)) or {}
+        if entry.get("day") != _quota_day():
+            entry = {"day": _quota_day(), "requests": 0, "exhausted": False}
+            self._usage[self.fingerprint(key)] = entry
+        return entry
+
+    def _save(self):
+        if not self.usage_file:
+            return
+        self.usage_file.parent.mkdir(parents=True, exist_ok=True)
+        temp = self.usage_file.with_suffix(".tmp")
+        temp.write_text(json.dumps(self._usage, indent=2), encoding="utf-8")
+        temp.replace(self.usage_file)
+
+    def remaining(self, key: str) -> int | None:
+        """Texts the key may still embed today; None when unlimited."""
+        entry = self._entry(key)
+        if entry.get("exhausted"):
+            return 0
+        if not self.request_limit:
+            return None
+        return max(self.request_limit - int(entry.get("requests") or 0), 0)
+
+    def current(self, needed: int = 1) -> str:
+        """The first key that can still take `needed` texts today ("" if none)."""
+        keys = self.keys()
+        for key in keys:
+            left = self.remaining(key)
+            if left is None or left >= needed:
+                return key
+        return "" if len(keys) > 1 or self.request_limit else (keys[0] if keys else "")
+
+    def record(self, key: str, count: int):
+        entry = self._entry(key)
+        entry["requests"] = int(entry.get("requests") or 0) + count
+        self._save()
+
+    def mark_exhausted(self, key: str):
+        self._entry(key)["exhausted"] = True
+        self._save()
+
+    def summary(self) -> list[dict]:
+        return [
+            {
+                "key": f"…{key[-4:]}",
+                "requestsToday": int(self._entry(key).get("requests") or 0),
+                "limit": self.request_limit or None,
+                "exhausted": bool(self._entry(key).get("exhausted")),
+            }
+            for key in self.keys()
+        ]
 
 
 class MissingApiKey(RuntimeError):
@@ -90,8 +192,12 @@ class GeminiDocumentEmbedder:
     def key_suffix(self) -> str:
         return f"…{self._key[-4:]}" if self._key else ""
 
-    def _client_for_current_key(self) -> GoogleGenerativeAIEmbeddings:
-        key = self.keys.current()
+    def _client_for_current_key(self, needed: int = 1) -> GoogleGenerativeAIEmbeddings:
+        key = self.keys.current(needed)
+        if not key and self.keys.keys():
+            raise QuotaSpent(
+                "RESOURCE_EXHAUSTED: every Gemini key reached INDEXER_KEY_REQUEST_LIMIT for today"
+            )
         if not key:
             raise MissingApiKey("No Gemini API key in the key file or GEMINI_API_KEY")
         if key != self._key or self._client is None:
@@ -106,8 +212,18 @@ class GeminiDocumentEmbedder:
         return self._client
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
-        client = self._client_for_current_key()
-        vectors = await client.aembed_documents(texts, batch_size=len(texts))
+        client = self._client_for_current_key(len(texts))
+        key = self._key
+        try:
+            vectors = await client.aembed_documents(texts, batch_size=len(texts))
+        except Exception as error:
+            if classify_error(error) == "quota" and len(self.keys.keys()) > 1:
+                # This key is spent for today; the next batch uses the next one.
+                self.keys.mark_exhausted(key)
+                log.warning("Gemini key %s hit its quota; switching key", self.key_suffix)
+            raise
+        # Every text of a batch counts against the key's quota.
+        self.keys.record(key, len(texts))
         if len(vectors) != len(texts):
             raise RuntimeError("Embedding batch returned an unexpected vector count")
         normalized = []
@@ -123,12 +239,13 @@ class GeminiDocumentEmbedder:
 
 def classify_error(error: Exception) -> str:
     message = str(error)
+    # Quota first: a 429 message may mention "api_key" in its quota details.
+    if isinstance(error, QuotaSpent) or re.search(r"\b429\b|RESOURCE_EXHAUSTED|quota", message, re.I):
+        return "quota"
     if isinstance(error, MissingApiKey) or re.search(
         r"API[_ ]?key|PERMISSION_DENIED|UNAUTHENTICATED|\b40[13]\b", message, re.I
     ):
         return "auth"
-    if re.search(r"\b429\b|RESOURCE_EXHAUSTED|quota", message, re.I):
-        return "quota"
     if isinstance(error, (asyncio.TimeoutError, TimeoutError)) or re.search(
         r"\b50[034]\b|UNAVAILABLE|DEADLINE|timed? ?out|Connect", message, re.I
     ):
@@ -313,9 +430,9 @@ class CatalogIndexer:
     async def _desired_chunks(self) -> tuple[list[dict], dict[str, Chunk]]:
         products = await self.marketplace.all_products()
         try:
-            categories = {
-                item["id"]: item["name"] for item in await self.marketplace.categories()
-            }
+            # Full path ("Thời trang › Nữ › Áo thun nữ"): the base chunk and the
+            # payload name the whole branch, not an ambiguous leaf ("Áo Thun").
+            categories = category_paths(await self.marketplace.categories())
         except Exception:
             categories = {}
         desired: dict[str, Chunk] = {}

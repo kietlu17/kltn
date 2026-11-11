@@ -6,6 +6,7 @@ from langgraph.checkpoint.memory import MemorySaver
 
 from app.budget import BudgetExceeded, bounded, start_turn
 from app.config import AgenticSettings
+from app.agents import OrderAgent, ProductAgent
 from app.graph import (
     AgenticShoppingGraph,
     _apply_relaxation,
@@ -57,9 +58,9 @@ class FakePolicy:
         )
 
 
-def build(models, marketplace=None, policy=None):
+def build(models, marketplace=None, policy=None, **settings):
     return AgenticShoppingGraph(
-        AgenticSettings(gemini_api_key="test"),
+        AgenticSettings(gemini_api_key="test", **settings),
         models,
         FakeRetriever(),
         marketplace or FakeMarketplace(),
@@ -112,7 +113,7 @@ class FastPathTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_variant_pick_skips_decide_and_answers_from_catalog(self):
         models = SemanticModels()
-        agent = build(models, VariantMarketplace())
+        agent = build(models, VariantMarketplace(), llm_first=False)
         current = state("xl")
         current["focused_products"] = [{"id": BASIC_ID, "name": "Áo Thun Nam Dream Team"}]
         current["active_product_id"] = BASIC_ID
@@ -126,7 +127,7 @@ class FastPathTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_yes_after_cart_offer_prepares_cart_without_model(self):
         models = SemanticModels()
-        agent = build(models)
+        agent = build(models, llm_first=False)
         current = state("có")
         current["history"] = [
             {"role": "assistant", "content": "Bạn có muốn thêm lựa chọn này vào giỏ không?"}
@@ -160,7 +161,7 @@ class RelaxationTests(unittest.TestCase):
         self.assertEqual(filters.colors, [])
 
     def test_nothing_to_relax_stops_the_retrieval_loop(self):
-        agent = object.__new__(AgenticShoppingGraph)
+        agent = object.__new__(ProductAgent)
         agent.settings = SimpleNamespace(max_retrieval_rounds=3)
         route = agent.route_after_retrieval(
             {
@@ -183,13 +184,31 @@ class VagueCustomerTests(unittest.IsolatedAsyncioTestCase):
         first = await agent.graph.ainvoke(state("cái đó đó"), config=config)
         second = await agent.graph.ainvoke(state("ừ thì cái kia"), config=config)
         third = await agent.graph.ainvoke(state("nói chung là vậy"), config=config)
+        fourth = await agent.graph.ainvoke(state("thì cái đó á"), config=config)
 
         self.assertEqual(first["route"], "clarify")
         self.assertEqual(first["suggestions"], ["Thời trang"])
         self.assertFalse(first["handoff"])
-        self.assertIn("gợi ý nhanh", second["answer"])
-        self.assertTrue(third["handoff"])
-        self.assertEqual(third["clarify_count"], 3)
+        # A second, different attempt is just asked again, without a template.
+        self.assertFalse(second["handoff"])
+        self.assertNotIn("chọn nhanh", second["answer"])
+        self.assertIn("chọn nhanh", third["answer"])
+        self.assertFalse(third["handoff"])
+        self.assertTrue(fourth["handoff"])
+        self.assertEqual(fourth["clarify_count"], 4)
+
+    async def test_model_outage_is_not_counted_as_an_unclear_customer(self):
+        class Down(SemanticModels):
+            async def decide(self, *_args, **_kwargs):
+                raise TimeoutError()
+
+        agent = build(Down(SemanticTurn(tasks=[SemanticTask(intent="general")], confidence=0.9)))
+        config = {"configurable": {"thread_id": "outage"}}
+        for message in ("mình cần một món quà cho mẹ khoảng 500k", "loại nào dùng bền ấy", "giao nhanh nhé"):
+            result = await agent.graph.ainvoke(state(message), config=config)
+        self.assertFalse(result["handoff"])
+        self.assertEqual(result["clarify_count"], 0)
+        self.assertIn("gửi lại", result["answer"])
 
     async def test_successful_turn_resets_clarification_count(self):
         models = SemanticModels(
@@ -272,7 +291,7 @@ class VerifierFallbackTests(unittest.IsolatedAsyncioTestCase):
             async def verify_candidates(self, *_args, **_kwargs):
                 raise BudgetExceeded("no calls left")
 
-        agent = object.__new__(AgenticShoppingGraph)
+        agent = object.__new__(ProductAgent)
         agent.settings = SimpleNamespace(retrieval_limit=30, result_limit=6, max_retrieval_rounds=2)
         agent.retriever = Retriever()
         agent.marketplace = Marketplace()
@@ -307,7 +326,7 @@ class ProductHeadTests(unittest.IsolatedAsyncioTestCase):
                     {"id": "2" * 24, "name": "Nồi chiên không dầu 5L", "specifications": []},
                 ]
 
-        agent = object.__new__(AgenticShoppingGraph)
+        agent = object.__new__(ProductAgent)
         agent.settings = SimpleNamespace(retrieval_limit=30, result_limit=6, max_retrieval_rounds=2)
         agent.retriever = Retriever()
         agent.marketplace = Marketplace()
@@ -338,7 +357,7 @@ class SlowModels(SemanticModels):
 
 def hedged(models):
     return AgenticShoppingGraph(
-        AgenticSettings(gemini_api_key="test", decide_hedge=0.05),
+        AgenticSettings(gemini_api_key="test", decide_hedge=0.05, llm_first=False),
         models,
         FakeRetriever(),
         FakeMarketplace(),
@@ -404,7 +423,7 @@ class BenchmarkRegressionTests(unittest.IsolatedAsyncioTestCase):
             async def hydrate_products(self, *_args, **_kwargs):
                 return list(products)
 
-        agent = object.__new__(AgenticShoppingGraph)
+        agent = object.__new__(ProductAgent)
         agent.settings = SimpleNamespace(retrieval_limit=30, result_limit=6, max_retrieval_rounds=2)
         agent.retriever = Retriever()
         agent.marketplace = Marketplace()
@@ -472,3 +491,44 @@ class FollowUpGuardTests(unittest.TestCase):
         self.assertEqual(_next_relaxation(filters, []), "brand")
         self.assertEqual(_next_relaxation(filters, ["brand"]), "spec.hard")
         self.assertEqual(_apply_relaxation(filters, "spec.hard").spec_constraints, [])
+
+
+class CheckoutHandoffTests(unittest.IsolatedAsyncioTestCase):
+    def agent(self, cart, addresses):
+        class Marketplace:
+            async def cart(self, _user):
+                return cart
+
+            async def addresses(self, _user):
+                return addresses
+
+            async def product(self, product_id):
+                return {"name": "Tai nghe A", "price": 100000, "variants": []}
+
+        agent = object.__new__(OrderAgent)
+        agent.settings = SimpleNamespace(action_ttl=600)
+        agent.marketplace = Marketplace()
+        return agent
+
+    def state(self, message="thanh toán"):
+        return {"user_id": "u" * 24, "role": "buyer", "message": message, "request": {}, "session_id": "s"}
+
+    async def test_checkout_opens_the_checkout_page_with_cart_lines(self):
+        cart = {"products": [{"productId": "p1", "variantId": "v1", "quantity": 2}]}
+        addresses = [{"_id": "a1"}, {"_id": "a2", "isDefault": True}]
+        result = await self.agent(cart, addresses).prepare_checkout(self.state("thanh toán khi nhận hàng"))
+        tool = result["tool_result"]
+        self.assertEqual((tool["status"], tool["tool"]), ("handoff_required", "open_checkout"))
+        self.assertEqual(tool["selectedProductIds"], ["p1::v1"])
+        self.assertEqual(tool["addressId"], "a2")
+        self.assertEqual(tool["paymentMethod"], "cod")
+        self.assertIn("Tạm tính", tool["handoffMessage"])
+
+    async def test_missing_address_opens_the_address_page(self):
+        cart = {"products": [{"productId": "p1", "quantity": 1}]}
+        tool = (await self.agent(cart, []).prepare_checkout(self.state()))["tool_result"]
+        self.assertEqual(tool["tool"], "open_addresses")
+
+    async def test_empty_cart_is_reported(self):
+        tool = (await self.agent({"products": []}, [{"_id": "a"}]).prepare_checkout(self.state()))["tool_result"]
+        self.assertIn("trống", tool["error"])

@@ -3,28 +3,56 @@
 Service dùng LangChain, LangGraph, Gemini và Qdrant, thay thế `chatbot-service`. API chỉ đọc vector;
 collection catalog do worker `agentic-indexer` (`python -m app.indexer`) xây và cập nhật.
 
-## Luồng chính
+## Luồng chính: supervisor + 2 agent
 
 ```text
 request
-  -> understand: fast-path tất định cho câu ngắn chắc chắn, còn lại 1 semantic decision
-  -> planner có schema
-  -> route theo intent  ─────────────────────────────┐ (song song)
-     -> browse categories                            policy_side: trả lời task chính sách phụ
-     -> hybrid search Qdrant (dense + BM25, RRF, group theo sản phẩm)
-        -> 0 kết quả: nới ràng buộc tất định (tối đa 2 vòng, không gọi LLM)
-     -> product/order/cart tools
-     -> clarify_guard: hỏi lại có gợi ý -> đổi chiến lược -> đề nghị chuyển người thật
-     -> chuẩn bị cart mutation (chưa ghi) -> confirmActionId -> ghi idempotent
-     -> checkout quote -> confirmActionId -> tạo order
-  -> collect ─┴─> finalize: template cho tìm kiếm thường, LLM cho so sánh/tư vấn
+  -> understand (supervisor): 1 semantic decision bằng LLM cho mọi lượt văn bản
+  -> plan: map task -> agent  ───────────────────────┬──────────────────────┐ (song song)
+     ProductAgent (app/agents/product.py)            policy_side            research_side
+       hỏi đáp & tra cứu cho khách:                  (task chính sách phụ)  (web search khi LLM
+       browse categories, product_detail, so sánh,                          đặt web_research=true)
+       policy, hybrid search Qdrant
+         -> cross-encoder pre-sort -> LLM judge chấm relevance -> top-k thích ứng
+         -> 0 kết quả: nới ràng buộc (≤2 vòng) -> vẫn 0: web_expand (web gợi ý loại hàng
+            catalog có) -> tìm lại, LLM judge vẫn chấm theo nhu cầu gốc
+     OrderAgent (app/agents/order.py)
+       giỏ hàng, thanh toán, đơn hàng, xác nhận:
+       cart_view, prepare_cart (LLM đối chiếu variant/dòng giỏ thật), prepare_checkout,
+       order_status, resolve_pending (confirmActionId -> ghi idempotent / tạo order)
+     clarify_guard / general (supervisor)
+  -> collect ─┴─> finalize: LLM viết câu trả lời từ dữ kiện đã kiểm tra (verifiedFacts,
+                  ranking, webResearch); template/tất định chỉ là fallback
 ```
+
+### Ưu tiên LLM, rule chỉ là fallback (`AGENTIC_LLM_FIRST=true`)
+
+| Bước | LLM (mặc định) | Fallback khi model lỗi/hết budget |
+|------|----------------|-----------------------------------|
+| Hiểu lượt nói | `decide` cho mọi câu, kể cả "có", "xl", câu tìm kiếm thường | fast-path tất định, `search_parser` |
+| Xếp hạng | `rank_candidates`: chấm 0–3 + kiểm chứng thông số mơ hồ trong cùng 1 call | lọc tên theo loại hàng, verifier riêng, cross-encoder |
+| Top-k | chỉ giữ relevance ≥2; nếu chỉ có mức 1 thì trả kèm `partialMatch` | cắt theo điểm cross-encoder tương đối |
+| Chọn variant / dòng giỏ | `resolve_order` trên danh sách variant và giỏ hàng thật | khớp màu/size tất định |
+| Phương thức thanh toán, mã đơn | trích từ `decide` (`payment_method`, `order_id`) | regex |
+| Câu trả lời | LLM từ dữ kiện đã kiểm tra | template / câu trả lời thuộc tính tất định |
+
+`AGENTIC_LLM_FIRST=false` trả về chế độ ưu tiên độ trễ cũ (fast-path, hedge parse, template).
+
+### Web search (product agent)
+
+Gemini grounded Google Search (`AGENTIC_WEB_SEARCH`, luôn dùng Gemini key kể cả khi chat qua gateway
+OpenAI-compatible). Chỉ chạy cho ca khó: LLM đánh dấu `web_research` (so sánh công nghệ, thông số chính
+hãng tin đăng thường thiếu, cách chọn, nhu cầu rộng như quà tặng) hoặc catalog trả 0 kết quả sau khi nới.
+Kết quả web chỉ là thông tin tham khảo kèm nguồn trong `sources`; không dùng để khẳng định giá, tồn kho
+hay việc shop có bán. Câu trả lời ghi rõ "theo thông tin tham khảo trên web".
 
 ## Giới hạn LLM và độ trễ
 
 Mỗi lượt có một `TurnBudget` (`app/budget.py`): tối đa `AGENTIC_MAX_LLM_CALLS` lần gọi sinh văn bản
-(mặc định 4) và hạn chót `AGENTIC_TURN_DEADLINE_SECONDS` (mặc định 8s). Mỗi loại gọi có timeout riêng
-(`decide` 4s, `verify` 3s, `answer`/`policy` 4s, embedding 3s). Embedding chỉ tính thời gian, không tính lượt.
+(mặc định 6) và hạn chót `AGENTIC_TURN_DEADLINE_SECONDS` (mặc định 15s). Mỗi loại gọi có timeout riêng
+(`decide`/`order` 4s, `rank` 4s, `verify` 3s, `answer`/`policy` 4s, `web` 7s, embedding 3s). Embedding chỉ
+tính thời gian, không tính lượt. Một lượt tìm kiếm thường dùng 3 call (decide, rank, answer).
+Phần dưới mô tả chế độ `AGENTIC_LLM_FIRST=false`.
 Hết budget thì node dùng đường tất định: `_fallback_understanding`, câu trả lời template, verifier
 tất định theo tên/thông số (kèm warning `UNVERIFIED`). Chỉ `decide` được retry 1 lần khi lỗi tạm thời.
 
@@ -56,11 +84,24 @@ Các ràng buộc giá, category, audience, màu, size và product type được
 khi tính vector similarity. Kết quả được deduplicate theo `productId`, sau đó đọc lại giá và tồn kho
 từ Product/Inventory Service trước khi trả về.
 
-Catalog được trình bày cho agent dưới dạng cây `category → product → variant`. Cây ưu tiên quan hệ
-`parentId` thật; với dữ liệu cũ đang lưu path trong tên như `Quần áo › Nam › Áo thun`, service tạo node
-ảo theo từng đoạn path và giữ danh sách category ID nguồn ở mỗi nhánh. Khi planner trả `category_path`,
-service tự ánh xạ node cha thành toàn bộ category ID con rồi dùng `MatchAny` để pre-filter Qdrant.
-Không có mapping thì hệ thống bỏ filter taxonomy và tiếp tục semantic search thay vì trả về rỗng giả.
+Catalog được trình bày cho agent dưới dạng cây `Chủng loại → Chủng loại con → … → Sản phẩm → variant`.
+`Category` có `parentId`, `path`, `level` (product-service). Các node gốc dùng chung (Thời trang, Điện tử,
+Nhà cửa & Đời sống, Làm đẹp, Thực phẩm, Khác) thuộc `shopId: "platform"`; category của từng shop là node con,
+nên sản phẩm giữ nguyên `categoryId`. Dữ liệu cũ dạng tên phẳng (`YODY · Áo thun nữ`,
+`MUJI · Quần áo › Trang Phục Nữ › Áo Thun › 053:...`) được chuyển bằng
+`node src/scripts/buildCategoryTree.js` (mặc định dry-run; `--apply` ghi kèm file backup; `--restore <file>` hoàn tác).
+
+- `decide` nhận danh sách đường dẫn danh mục thật (`catalog_category_paths`, tối đa 3 cấp) và chọn
+  `category_path`. Supervisor resolve đúng đường dẫn đó, cộng các nhánh cùng loại của shop khác
+  (`Nữ › Áo Thun` của MUJI và `Nữ › Áo thun nữ` của YODY).
+- Không có `category_path` thì resolve từ `product_type`: ưu tiên node bao trọn mọi từ ("áo thun" lấy mọi
+  nhánh áo thun nam/nữ/trẻ em của mọi shop), cụm ngành hàng được quy về nhánh gốc ("quần áo nữ" →
+  Thời trang › Nữ, "đồ điện tử" → Điện tử), cuối cùng mới là node có tên nằm trong câu.
+- Filter category được nới đầu tiên (sau thuộc tính phụ) khi không có kết quả, vì nhánh có thể bị chọn sai.
+- Indexer ghi đường dẫn đầy đủ vào chunk `base` (`Danh mục: Thời trang › Nữ › Áo thun nữ`) và `categoryName`.
+
+Triển khai: chạy `buildCategoryTree.js --apply` trên MongoDB → khởi động lại product-service →
+chạy lại `python -m app.indexer` (chỉ chunk `base` của mỗi sản phẩm cần embed lại, khoảng 2.500 lượt).
 
 Conversation state theo bốn phase của shopping journey: `exploring`, `detailing`, `narrowing`, `selling`.
 `active_product_id` cùng màu/size đã chọn được giữ qua các câu hỏi nối tiếp. Vì vậy câu như “màu đen
@@ -211,4 +252,28 @@ python -m unittest discover -s tests -v
 ```
 
 Test dùng fake model/vector/backend, không gọi Gemini hay ghi vào giỏ hàng thật.
+
+## Re-rank và top-k
+
+Tìm kiếm chạy hai tầng. Tầng 1 là hybrid (dense + BM25, RRF) lấy `AGENTIC_RERANK_CANDIDATES` ứng viên
+(mặc định 20). Tầng 2 là cross-encoder đa ngôn ngữ `cross-encoder/mmarco-mMiniLMv2-L12-H384-v1` (huấn luyện
+trên mMARCO, có tiếng Việt), đọc câu hỏi cùng tên/danh mục/mô tả của từng ứng viên rồi xếp lại; hiển thị
+top-k = `AGENTIC_RESULT_LIMIT` (mặc định 5). Model chạy trên model server `image-embedding` (`POST /rerank`,
+CPU, ~0,3–0,5 s cho 20 ứng viên). Model server lỗi hoặc quá `AGENTIC_RERANK_TIMEOUT_SECONDS` thì giữ thứ tự
+hybrid. Không re-rank khi sắp xếp theo giá hoặc khi tìm bằng ảnh.
+
+## Tìm bằng hình ảnh
+
+`POST /assistant/chat` nhận thêm `image` (data URL hoặc base64 JPEG/PNG/WebP, tối đa 5 MB). Ảnh được
+embed bằng CLIP ViT-B/32 trên model server (`POST /embed`) và tìm trong collection `catalog_images_*` do
+`chatbot-image-indexer` xây; mỗi sản phẩm lấy ảnh giống nhất, ngưỡng `AGENTIC_IMAGE_MIN_SCORE`. Chữ kèm ảnh
+chỉ dùng để lọc giá/màu/size/thương hiệu ("giống ảnh này nhưng dưới 500k"); lượt có ảnh không gọi LLM để
+quyết định. Cần chạy `image-embedding` trong stack chính:
+
+    docker compose up -d image-embedding
+    # index ảnh cho toàn catalog (CLIP local, không tốn quota Gemini)
+    docker compose run --rm --no-deps -e CHATBOT_INDEX_ONCE=true chatbot-image-indexer
+
+Frontend bật/tắt riêng từng tính năng: `VITE_ASSISTANT_IMAGE`, `VITE_ASSISTANT_VOICE` (agentic-rag chưa có
+`/assistant/transcribe`, nên tắt giọng nói).
 

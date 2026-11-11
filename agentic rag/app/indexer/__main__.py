@@ -41,7 +41,12 @@ def _build(settings: AgenticSettings, options: IndexerSettings) -> CatalogIndexe
             settings.collection,
         ),
         EmbeddingCache(data_dir / "embedding_cache.sqlite"),
-        GeminiDocumentEmbedder(settings, ApiKeySource(options.key_file, settings.gemini_api_key)),
+        GeminiDocumentEmbedder(settings, ApiKeySource(
+            options.key_file,
+            settings.gemini_api_key,
+            request_limit=options.key_request_limit,
+            usage_file=data_dir / "key_usage.json",
+        )),
         data_dir / "indexer_status.json",
     )
 

@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Luồng xử lý một lượt chat trong LangGraph</title>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600&family=Geist+Mono:wght@400;500;600&family=Noto+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Be Vietnam Pro', 'Geist', system-ui, sans-serif; background: #f5f5f5; color: #2d3142; min-height: 100vh;
+           display: flex; align-items: flex-start; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1320px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow { font-family: 'Geist Mono', ui-monospace, monospace; font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em;
+               text-transform: uppercase; color: #4f5d75; margin-bottom: 0.5rem; }
+    h1 { font-family: 'Noto Serif', 'Instrument Serif', serif; font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400;
+         letter-spacing: -0.02em; line-height: 1.2; color: #2d3142; margin-bottom: 1.5rem; }
+    .note { font-size: 0.8rem; line-height: 1.6; color: #4f5d75; margin-top: 1rem; max-width: 70ch; }
+    .nav { font-family: 'Geist Mono', ui-monospace, monospace; font-size: 0.7rem; margin-bottom: 1rem; }
+    .nav a { color: #2e5aa8; text-decoration: none; margin-right: 1rem; }
+    svg { width: 100%; min-width: 1280px; display: block; }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0; } .nav { display: none; } }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    
+    <p class="eyebrow">Flow · LangGraph StateGraph</p>
+    <h1>Luồng xử lý một lượt chat trong LangGraph</h1>
+    <div class="diagram-container">
+      <svg viewBox="0 0 1280 712" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="agentic-rag-langgraph-title agentic-rag-langgraph-desc">
+        <title id="agentic-rag-langgraph-title">Luồng xử lý một lượt chat trong LangGraph</title>
+        <desc id="agentic-rag-langgraph-desc">Các node của StateGraph: understand, resolve_context, plan, sáu nhánh định tuyến, vòng relax, collect và finalize.</desc>
+        <defs>
+  <marker id="m-fill" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><polygon points="0 0, 9 3.5, 0 7" fill="#4f5d75"/></marker>
+  <marker id="m-fill-ink" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><polygon points="0 0, 9 3.5, 0 7" fill="#2d3142"/></marker>
+  <marker id="m-fill-accent" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><polygon points="0 0, 9 3.5, 0 7" fill="#bf4520"/></marker>
+  <marker id="m-fill-link" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><polygon points="0 0, 9 3.5, 0 7" fill="#2e5aa8"/></marker>
+  <marker id="m-open" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><polyline points="0.5 0.5, 9 4, 0.5 7.5" fill="none" stroke="#4f5d75" stroke-width="1.2"/></marker>
+  <marker id="m-open-ink" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><polyline points="0.5 0.5, 9 4, 0.5 7.5" fill="none" stroke="#2d3142" stroke-width="1.2"/></marker>
+  <marker id="m-open-accent" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><polyline points="0.5 0.5, 9 4, 0.5 7.5" fill="none" stroke="#bf4520" stroke-width="1.2"/></marker>
+  <marker id="m-open-link" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><polyline points="0.5 0.5, 9 4, 0.5 7.5" fill="none" stroke="#2e5aa8" stroke-width="1.2"/></marker>
+  <marker id="m-hollow" markerWidth="11" markerHeight="9" refX="10" refY="4.5" orient="auto"><polygon points="0.8 0.8, 10 4.5, 0.8 8.2" fill="#ffffff" stroke="#4f5d75" stroke-width="1"/></marker>
+  <marker id="m-circ" markerWidth="9" markerHeight="9" refX="4.5" refY="4.5" orient="auto"><circle cx="4.5" cy="4.5" r="3.5" fill="#ffffff" stroke="#4f5d75" stroke-width="1"/></marker>
+</defs>
+        <rect width="100%" height="100%" fill="#f5f5f5"/>
+<circle cx="48" cy="100.0" r="9" fill="#2d3142"/>
+<path d="M57.0,100.0 L88.0,100.0" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#m-fill)"/>
+<path d="M252.0,100.0 L292.0,100.0" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#m-fill)"/>
+<path d="M468.0,100.0 L520.0,100.0" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#m-fill)"/>
+<path d="M554.3,128.0 L554.3,144.0 Q554.3,152.0 546.3,152.0 L168.0,152.0 Q160.0,152.0 160.0,160.0 L160.0,268.0" fill="none" stroke="#bf4520" stroke-width="1.2" marker-end="url(#m-fill-accent)"/>
+<path d="M588.6,128.0 L588.6,156.0 Q588.6,164.0 580.6,164.0 L360.0,164.0 Q352.0,164.0 352.0,172.0 L352.0,268.0" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#m-fill)"/>
+<path d="M622.9,128.0 L622.9,168.0 Q622.9,176.0 614.9,176.0 L552.0,176.0 Q544.0,176.0 544.0,184.0 L544.0,268.0" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#m-fill)"/>
+<path d="M657.1,128.0 L657.1,168.0 Q657.1,176.0 665.1,176.0 L728.0,176.0 Q736.0,176.0 736.0,184.0 L736.0,268.0" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#m-fill)"/>
+<path d="M691.4,128.0 L691.4,156.0 Q691.4,164.0 699.4,164.0 L920.0,164.0 Q928.0,164.0 928.0,172.0 L928.0,268.0" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#m-fill)"/>
+<path d="M725.7,128.0 L725.7,144.0 Q725.7,152.0 733.7,152.0 L1112.0,152.0 Q1120.0,152.0 1120.0,160.0 L1120.0,268.0" fill="none" stroke="#2e5aa8" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#m-fill-link)"/>
+<rect x="1127.0" y="206.0" width="50.6" height="12.0" fill="#f5f5f5"/><text x="1130.0" y="214.0" fill="#2e5aa8" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" font-weight="500" text-anchor="start">SONG SONG</text>
+<rect x="419.3" y="136.0" width="85.4" height="12.0" fill="#f5f5f5"/><text x="422.3" y="144.0" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" font-weight="500" text-anchor="start">ROUTE_AFTER_PLAN</text>
+<path d="M116.0,336.0 L116.0,384.0" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#m-fill)"/>
+<path d="M140.0,384.0 L140.0,336.0" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#m-fill)"/>
+<rect x="225.0" y="360.0" width="80.4" height="12.0" fill="#f5f5f5"/><text x="228.0" y="368.0" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" font-weight="500" text-anchor="start">0 KQ · ≤ 2 VÒNG</text>
+<path d="M216.0,336.0 L216.0,448.0 Q216.0,456.0 224.0,456.0 L565.3,456.0 Q573.3,456.0 573.3,464.0 L573.3,488.0" fill="none" stroke="#bf4520" stroke-width="1.2" marker-end="url(#m-fill-accent)"/>
+<path d="M352.0,336.0 L352.0,436.0 Q352.0,444.0 360.0,444.0 L598.7,444.0 Q606.7,444.0 606.7,452.0 L606.7,488.0" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#m-fill)"/>
+<path d="M544.0,336.0 L544.0,424.0 Q544.0,432.0 552.0,432.0 L632.0,432.0 Q640.0,432.0 640.0,440.0 L640.0,488.0" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#m-fill)"/>
+<path d="M736.0,336.0 L736.0,424.0 Q736.0,432.0 728.0,432.0 L681.3,432.0 Q673.3,432.0 673.3,440.0 L673.3,488.0" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#m-fill)"/>
+<path d="M928.0,336.0 L928.0,436.0 Q928.0,444.0 920.0,444.0 L714.7,444.0 Q706.7,444.0 706.7,452.0 L706.7,488.0" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#m-fill)"/>
+<path d="M740.0,516.0 L880.0,516.0" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#m-fill)"/>
+<path d="M1120.0,336.0 L1120.0,508.0 Q1120.0,516.0 1112.0,516.0 L1060.0,516.0" fill="none" stroke="#2e5aa8" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#m-fill-link)"/>
+<rect x="789.6" y="498.0" width="40.7" height="12.0" fill="#f5f5f5"/><text x="810.0" y="506.0" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" font-weight="500" text-anchor="middle">BARRIER</text>
+<path d="M970.0,544.0 L970.0,599.0" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#m-fill)"/>
+<circle cx="970.0" cy="612" r="11" fill="#f5f5f5" stroke="#2d3142" stroke-width="1.4"/><circle cx="970.0" cy="612" r="6.5" fill="#2d3142"/>
+<text x="990.0" y="616.0" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" font-weight="500" text-anchor="start" letter-spacing="0.14em">END</text>
+<text x="40.0" y="126.0" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" font-weight="500" text-anchor="start" letter-spacing="0.14em">START</text>
+<rect x="88" y="72" width="164" height="56" rx="6" fill="#f5f5f5"/>
+<rect x="88" y="72" width="164" height="56" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<text x="170.0" y="97.5" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">understand</text>
+<text x="170.0" y="113.5" fill="#5a6580" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="middle">dialogue_act · slots</text>
+<rect x="222.98" y="78" width="23.0" height="12" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/>
+<text x="234.5" y="87.0" fill="#4f5d75" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" font-weight="500" text-anchor="middle" letter-spacing="0.08em">LLM</text>
+<rect x="292" y="72" width="176" height="56" rx="6" fill="#f5f5f5"/>
+<rect x="292" y="72" width="176" height="56" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<text x="380.0" y="97.5" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">resolve_context</text>
+<text x="380.0" y="113.5" fill="#5a6580" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="middle">focus · variant</text>
+<rect x="430.3" y="78" width="31.7" height="12" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/>
+<text x="446.1" y="87.0" fill="#4f5d75" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" font-weight="500" text-anchor="middle" letter-spacing="0.08em">STATE</text>
+<rect x="520" y="72" width="240" height="56" rx="6" fill="#f5f5f5"/>
+<rect x="520" y="72" width="240" height="56" rx="6" fill="rgba(191,69,32,0.08)" stroke="#bf4520" stroke-width="1.1"/>
+<text x="640.0" y="97.5" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">plan</text>
+<text x="640.0" y="113.5" fill="#5a6580" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="middle">planner có schema</text>
+<rect x="730.98" y="78" width="23.0" height="12" rx="2" fill="#f5f5f5" stroke="#bf4520" stroke-width="0.7"/>
+<text x="742.5" y="87.0" fill="#bf4520" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" font-weight="500" text-anchor="middle" letter-spacing="0.08em">LLM</text>
+<rect x="76" y="268" width="168" height="68" rx="6" fill="#f5f5f5"/>
+<rect x="76" y="268" width="168" height="68" rx="6" fill="rgba(191,69,32,0.08)" stroke="#bf4520" stroke-width="1.1"/>
+<text x="160.0" y="293.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">retrieve</text>
+<text x="160.0" y="309.0" fill="#5a6580" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="middle">hybrid search</text>
+<text x="160.0" y="322.0" fill="#5a6580" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="middle">rerank · ảnh</text>
+<rect x="201.96" y="274" width="36.0" height="12" rx="2" fill="#f5f5f5" stroke="#bf4520" stroke-width="0.7"/>
+<text x="220.0" y="283.0" fill="#bf4520" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" font-weight="500" text-anchor="middle" letter-spacing="0.08em">QDRANT</text>
+<rect x="268" y="268" width="168" height="68" rx="6" fill="#f5f5f5"/>
+<rect x="268" y="268" width="168" height="68" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<text x="352.0" y="293.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">Tools tra cứu</text>
+<text x="352.0" y="309.0" fill="#5a6580" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="middle">product_detail · cart_view</text>
+<text x="352.0" y="322.0" fill="#5a6580" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="middle">order_status · browse</text>
+<rect x="402.64" y="274" width="27.4" height="12" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/>
+<text x="416.3" y="283.0" fill="#4f5d75" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" font-weight="500" text-anchor="middle" letter-spacing="0.08em">HTTP</text>
+<rect x="460" y="268" width="168" height="68" rx="6" fill="#f5f5f5"/>
+<rect x="460" y="268" width="168" height="68" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<text x="544.0" y="293.0" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">Giao dịch</text>
+<text x="544.0" y="309.0" fill="#5a6580" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="middle">prepare_cart · checkout</text>
+<text x="544.0" y="322.0" fill="#5a6580" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="middle">resolve_pending</text>
+<rect x="581.62" y="274" width="40.4" height="12" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/>
+<text x="601.8" y="283.0" fill="#4f5d75" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" font-weight="500" text-anchor="middle" letter-spacing="0.08em">CONFIRM</text>
+<rect x="652" y="268" width="168" height="68" rx="6" fill="#f5f5f5"/>
+<rect x="652" y="268" width="168" height="68" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<text x="736.0" y="299.5" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">policy</text>
+<text x="736.0" y="315.5" fill="#5a6580" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="middle">RAG chính sách</text>
+<rect x="790.98" y="274" width="23.0" height="12" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/>
+<text x="802.5" y="283.0" fill="#4f5d75" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" font-weight="500" text-anchor="middle" letter-spacing="0.08em">RAG</text>
+<rect x="844" y="268" width="168" height="68" rx="6" fill="#f5f5f5"/>
+<rect x="844" y="268" width="168" height="68" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<text x="928.0" y="299.5" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">clarify / general</text>
+<text x="928.0" y="315.5" fill="#5a6580" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="middle">hỏi lại · handoff</text>
+<rect x="974.3" y="274" width="31.7" height="12" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/>
+<text x="990.1" y="283.0" fill="#4f5d75" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" font-weight="500" text-anchor="middle" letter-spacing="0.08em">GUARD</text>
+<rect x="1036" y="268" width="168" height="68" rx="6" fill="#f5f5f5"/>
+<rect x="1036" y="268" width="168" height="68" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<text x="1120.0" y="299.5" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">policy_side</text>
+<text x="1120.0" y="315.5" fill="#5a6580" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="middle">task chính sách phụ</text>
+<rect x="1174.98" y="274" width="23.0" height="12" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/>
+<text x="1186.5" y="283.0" fill="#4f5d75" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" font-weight="500" text-anchor="middle" letter-spacing="0.08em">RAG</text>
+<rect x="72" y="384" width="112" height="48" rx="6" fill="#f5f5f5"/>
+<rect x="72" y="384" width="112" height="48" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<text x="128.0" y="405.5" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">relax</text>
+<text x="128.0" y="421.5" fill="#5a6580" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="middle">nới ràng buộc</text>
+<rect x="146.3" y="390" width="31.7" height="12" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/>
+<text x="162.2" y="399.0" fill="#4f5d75" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" font-weight="500" text-anchor="middle" letter-spacing="0.08em">RULES</text>
+<rect x="540" y="488" width="200" height="56" rx="6" fill="#f5f5f5"/>
+<rect x="540" y="488" width="200" height="56" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<text x="640.0" y="513.5" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">collect</text>
+<text x="640.0" y="529.5" fill="#5a6580" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="middle">gom kết quả</text>
+<rect x="706.64" y="494" width="27.4" height="12" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/>
+<text x="720.3" y="503.0" fill="#4f5d75" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" font-weight="500" text-anchor="middle" letter-spacing="0.08em">JOIN</text>
+<rect x="880" y="488" width="180" height="56" rx="6" fill="#f5f5f5"/>
+<rect x="880" y="488" width="180" height="56" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.1"/>
+<text x="970.0" y="513.5" fill="#2d3142" font-size="12.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">finalize</text>
+<text x="970.0" y="529.5" fill="#5a6580" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" font-weight="400" text-anchor="middle">template | LLM</text>
+<rect x="1017.96" y="494" width="36.0" height="12" rx="2" fill="#f5f5f5" stroke="#4f5d75" stroke-width="0.7"/>
+<text x="1036.0" y="503.0" fill="#4f5d75" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" font-weight="500" text-anchor="middle" letter-spacing="0.08em">ANSWER</text>
+<text x="800.0" y="92.0" fill="#4f5d75" font-size="12.5" font-family="'Noto Serif', 'Instrument Serif', serif" font-weight="400" text-anchor="start" font-style="italic">Mỗi lượt có TurnBudget: tối đa 4 lần gọi LLM và hạn 8 giây.</text>
+<text x="800.0" y="110.0" fill="#4f5d75" font-size="12.5" font-family="'Noto Serif', 'Instrument Serif', serif" font-weight="400" text-anchor="start" font-style="italic">Hết budget, node chuyển sang đường tất định thay vì lỗi.</text>
+<line x1="32" y1="660" x2="1248" y2="660" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+<text x="32.0" y="682.0" fill="#5a6580" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" font-weight="500" text-anchor="start" letter-spacing="0.18em">CHÚ GIẢI</text>
+<rect x="108" y="670" width="30" height="16" rx="3" fill="rgba(191,69,32,0.08)" stroke="#bf4520"/>
+<text x="148.0" y="682.0" fill="#4f5d75" font-size="10" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">Thành phần trọng tâm</text>
+<rect x="278.0" y="670" width="30" height="16" rx="3" fill="#ffffff" stroke="#2d3142"/>
+<text x="318.0" y="682.0" fill="#4f5d75" font-size="10" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">Service / worker</text>
+<line x1="426.8" y1="678" x2="456.8" y2="678" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#m-fill)"/>
+<text x="466.8" y="682.0" fill="#4f5d75" font-size="10" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">Cạnh của graph</text>
+<line x1="565.0" y1="678" x2="595.0" y2="678" stroke="#bf4520" stroke-width="1.2" marker-end="url(#m-fill-accent)"/>
+<text x="605.0" y="682.0" fill="#4f5d75" font-size="10" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">Đường truy xuất chính</text>
+<line x1="740.3" y1="678" x2="770.3" y2="678" stroke="#2e5aa8" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#m-fill-link)"/>
+<text x="780.3" y="682.0" fill="#4f5d75" font-size="10" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">Nhánh song song</text>
+      </svg>
+    </div>
+    <p class="note">Nhóm &#x27;Tools tra cứu&#x27; gồm product_detail, cart_view, order_status, browse_categories; &#x27;Giao dịch&#x27; gồm prepare_cart, prepare_checkout, resolve_pending (chỉ ghi khi client gửi đúng confirmActionId). policy_side chạy cùng superstep với nhánh chính; finalize chờ cả collect và policy_side.</p>
+  </div>
+</body>
+</html>

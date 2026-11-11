@@ -1,6 +1,7 @@
 import unittest
 from types import SimpleNamespace
 
+from app.agents import ProductAgent
 from app.graph import AgenticShoppingGraph
 from app.retrieval import StructuredProductRetriever
 from app.schemas import (
@@ -121,7 +122,7 @@ class SemanticRegressionTests(unittest.IsolatedAsyncioTestCase):
                     ]
                 )
 
-        agent = object.__new__(AgenticShoppingGraph)
+        agent = object.__new__(ProductAgent)
         agent.settings = SimpleNamespace(
             retrieval_limit=30, result_limit=6, max_retrieval_rounds=2
         )

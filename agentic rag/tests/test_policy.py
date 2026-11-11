@@ -2,7 +2,7 @@ import unittest
 from types import SimpleNamespace
 
 from app.policy import PolicyRetriever
-from app.graph import AgenticShoppingGraph
+from app.agents import ProductAgent
 
 
 class PolicyRetrieverTests(unittest.IsolatedAsyncioTestCase):
@@ -89,7 +89,7 @@ class PolicyRetrieverTests(unittest.IsolatedAsyncioTestCase):
             async def answer_policy(self, _question, _context):
                 return "Sản phẩm đủ điều kiện được bảo hành [Nguồn 1]."
 
-        agent = object.__new__(AgenticShoppingGraph)
+        agent = object.__new__(ProductAgent)
         agent.policy = Policy()
         agent.models = Models()
         answer, sources = await agent._policy_result("chính sách bảo hành")

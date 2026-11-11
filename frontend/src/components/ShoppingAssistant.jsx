@@ -1,13 +1,67 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import api, { resolveImageUrl } from '../services/api';
+import api, { API_BASE_URL, resolveImageUrl } from '../services/api';
 import './ShoppingAssistant.css';
 import MicrophoneButton from './MicrophoneButton';
 import { useCart } from '../context/CartContext.jsx';
 
-// Image and voice search need backend support; set VITE_ASSISTANT_MEDIA=false
-// when the assistant backend has neither.
-const MEDIA_ENABLED = import.meta.env.VITE_ASSISTANT_MEDIA !== 'false';
+// Photo and voice search need backend support: set VITE_ASSISTANT_IMAGE=false
+// or VITE_ASSISTANT_VOICE=false when the assistant backend lacks one of them.
+const IMAGE_ENABLED = import.meta.env.VITE_ASSISTANT_IMAGE !== 'false';
+const VOICE_ENABLED = import.meta.env.VITE_ASSISTANT_VOICE !== 'false';
+const DEFAULT_STATUS = 'Đang tìm và kiểm tra sản phẩm…';
+
+// Server-sent events from /assistant/chat/stream: progress statuses, then the
+// same ChatResponse the plain endpoint returns. Resolves with that response;
+// rejects with an axios-shaped error so the caller handles both paths alike.
+async function streamChat(body, signal, onStatus) {
+  const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+  const response = await fetch(`${(API_BASE_URL || '').replace(/\/+$/, '')}/assistant/chat/stream`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'text/event-stream',
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    },
+    body: JSON.stringify(body),
+    signal
+  });
+  if (!response.ok || !response.body) {
+    let data = {};
+    try { data = await response.json(); } catch { /* not JSON */ }
+    const error = new Error('stream failed');
+    error.response = { status: response.status, data };
+    throw error;
+  }
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let boundary = buffer.indexOf('\n\n');
+    while (boundary !== -1) {
+      const block = buffer.slice(0, boundary);
+      buffer = buffer.slice(boundary + 2);
+      boundary = buffer.indexOf('\n\n');
+      const name = (block.match(/^event: (.*)$/m) || [])[1];
+      const raw = block.split('\n').filter((line) => line.startsWith('data: ')).map((line) => line.slice(6)).join('\n');
+      if (!name || !raw) continue;
+      let payload;
+      try { payload = JSON.parse(raw); } catch { continue; }
+      if (name === 'status' && typeof payload.message === 'string') onStatus(payload.message);
+      if (name === 'final') return payload;
+      if (name === 'error') {
+        const error = new Error('assistant error');
+        error.response = { status: payload.status, data: { detail: payload.detail } };
+        error.fromServer = true;
+        throw error;
+      }
+    }
+  }
+  throw new Error('stream ended without a response');
+}
 
 const welcome = { role: 'assistant', text: 'Chào bạn! Bạn đang tìm món gì? Gửi mô tả hoặc ảnh, tôi sẽ giúp tìm sản phẩm phù hợp trên sàn.' };
 
@@ -20,6 +74,7 @@ export default function ShoppingAssistant() {
   const [input, setInput] = useState('');
   const [attachment, setAttachment] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [statusText, setStatusText] = useState(DEFAULT_STATUS);
   const [voiceBusy, setVoiceBusy] = useState(false);
   const [error, setError] = useState('');
   const session = useRef(null);
@@ -79,11 +134,24 @@ export default function ShoppingAssistant() {
     setAttachment(null);
     const controller = new AbortController();
     activeRequest.current = controller;
+    setStatusText(DEFAULT_STATUS);
+    const body = {
+      message: text.trim(), image: selectedImage?.data || null,
+      sessionId: session.current, referenceProductId, ...action,
+    };
     try {
-      const { data } = await api.post('/assistant/chat', {
-        message: text.trim(), image: selectedImage?.data || null,
-        sessionId: session.current, referenceProductId, ...action,
-      }, { timeout: 370000, signal: controller.signal });
+      let data;
+      try {
+        data = await streamChat(body, controller.signal, setStatusText);
+      } catch (streamError) {
+        // A server answer (session expired, login needed) is final; a broken
+        // stream before any answer falls back to the plain endpoint.
+        const status = streamError.response?.status;
+        if (controller.signal.aborted || streamError.fromServer || [400, 401, 403, 409, 410, 413, 429].includes(status)) {
+          throw streamError;
+        }
+        ({ data } = await api.post('/assistant/chat', body, { timeout: 370000, signal: controller.signal }));
+      }
       session.current = data.sessionId;
       setMessages((previous) => [...previous, {
         role: 'assistant',
@@ -164,7 +232,7 @@ export default function ShoppingAssistant() {
         <section id="shopping-assistant-panel" className="sa-panel" role="dialog" aria-label="Trợ lý mua sắm"
           onKeyDown={(event) => { if (event.key === 'Escape') close(); }}>
           <header className="sa-header">
-            <div><strong>Trợ lý mua sắm</strong><span>{MEDIA_ENABLED ? 'Tìm bằng chữ, ảnh hoặc giọng nói' : 'Hỏi về sản phẩm, giỏ hàng, đơn hàng và chính sách'}</span></div>
+            <div><strong>Trợ lý mua sắm</strong><span>{['Tìm bằng chữ', IMAGE_ENABLED && 'ảnh', VOICE_ENABLED && 'giọng nói'].filter(Boolean).join(', ').replace(/, ([^,]*)$/, ' hoặc $1')}</span></div>
             <button type="button" onClick={close} aria-label="Đóng trợ lý">×</button>
           </header>
           <div className="sa-toolbar">
@@ -261,7 +329,7 @@ export default function ShoppingAssistant() {
                   disabled={busy}>Tìm mẫu giống sản phẩm đang xem</button>}
               </div>
             )}
-            {busy && <p className="sa-status" role="status">Đang tìm và kiểm tra sản phẩm…</p>}
+            {busy && <p className="sa-status" role="status">{statusText}</p>}
             <div ref={end} />
           </div>
           {error && <p className="sa-error" role="alert">{error}</p>}
@@ -270,9 +338,11 @@ export default function ShoppingAssistant() {
             <button type="button" onClick={() => setAttachment(null)} aria-label="Bỏ ảnh đã chọn">×</button>
           </div>}
           <form className="sa-composer" onSubmit={(event) => { event.preventDefault(); send(); }}>
-            {MEDIA_ENABLED && <>
+            {VOICE_ENABLED && (
               <MicrophoneButton disabled={busy} onBusy={setVoiceBusy} onError={setError}
                 onText={(text) => setInput((previous) => `${previous}${previous ? ' ' : ''}${text}`.slice(0, 2000))} />
+            )}
+            {IMAGE_ENABLED && <>
               <input ref={fileInput} type="file" accept="image/jpeg,image/png,image/webp" onChange={chooseImage} hidden />
               <button className="sa-image-button" type="button" onClick={() => fileInput.current?.click()} disabled={busy}
                 aria-label="Chọn ảnh sản phẩm" title="Chọn ảnh JPG, PNG, WebP (tối đa 5 MB)">
@@ -291,7 +361,7 @@ export default function ShoppingAssistant() {
               }} />
             <button className="sa-send" type="submit" disabled={busy || voiceBusy || (!input.trim() && !attachment)} aria-label="Gửi tin nhắn">Gửi</button>
           </form>
-          <p className="sa-footnote">{MEDIA_ENABLED ? 'Ảnh rõ một món đồ giúp tìm chính xác hơn. ' : ''}Giá và tồn kho có thể thay đổi.</p>
+          <p className="sa-footnote">{IMAGE_ENABLED ? 'Ảnh rõ một món đồ giúp tìm chính xác hơn. ' : ''}Giá và tồn kho có thể thay đổi.</p>
         </section>
       )}
     </div>

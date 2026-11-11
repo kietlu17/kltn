@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UC-B4 · Đặt hàng và thanh toán</title>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600&family=Geist+Mono:wght@400;500;600&family=Noto+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Be Vietnam Pro', 'Geist', system-ui, sans-serif; background: #f5f5f5; color: #2d3142; min-height: 100vh;
+           display: flex; align-items: flex-start; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1264px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow { font-family: 'Geist Mono', ui-monospace, monospace; font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em;
+               text-transform: uppercase; color: #4f5d75; margin-bottom: 0.5rem; }
+    h1 { font-family: 'Noto Serif', 'Instrument Serif', serif; font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400;
+         letter-spacing: -0.02em; line-height: 1.2; color: #2d3142; margin-bottom: 1.5rem; }
+    .note { font-size: 0.8rem; line-height: 1.6; color: #4f5d75; margin-top: 1rem; max-width: 70ch; }
+    .nav { font-family: 'Geist Mono', ui-monospace, monospace; font-size: 0.7rem; margin-bottom: 1rem; }
+    .nav a { color: #2e5aa8; text-decoration: none; margin-right: 1rem; }
+    svg { width: 100%; min-width: 1224px; display: block; }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0; } .nav { display: none; } }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="nav"><a href="index.html">← Mục lục</a></p>
+    <p class="eyebrow">UML 2.5 · Activity diagram · UC-B4 · Người mua</p>
+    <h1>UC-B4 · Đặt hàng và thanh toán</h1>
+    <div class="diagram-container">
+      <svg viewBox="0 0 1224 1528" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="b4-dat-hang-thanh-toan-activity-title b4-dat-hang-thanh-toan-activity-desc">
+        <title id="b4-dat-hang-thanh-toan-activity-title">UC-B4 · Đặt hàng và thanh toán</title>
+        <desc id="b4-dat-hang-thanh-toan-activity-desc">Activity diagram cho use case &quot;Đặt hàng và thanh toán&quot; của tác nhân Người mua.</desc>
+        <defs>
+  <marker id="m-fill" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><polygon points="0 0, 9 3.5, 0 7" fill="#4f5d75"/></marker>
+  <marker id="m-fill-ink" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><polygon points="0 0, 9 3.5, 0 7" fill="#2d3142"/></marker>
+  <marker id="m-fill-accent" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><polygon points="0 0, 9 3.5, 0 7" fill="#bf4520"/></marker>
+  <marker id="m-fill-link" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><polygon points="0 0, 9 3.5, 0 7" fill="#2e5aa8"/></marker>
+  <marker id="m-open" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><polyline points="0.5 0.5, 9 4, 0.5 7.5" fill="none" stroke="#4f5d75" stroke-width="1.2"/></marker>
+  <marker id="m-open-ink" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><polyline points="0.5 0.5, 9 4, 0.5 7.5" fill="none" stroke="#2d3142" stroke-width="1.2"/></marker>
+  <marker id="m-open-accent" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><polyline points="0.5 0.5, 9 4, 0.5 7.5" fill="none" stroke="#bf4520" stroke-width="1.2"/></marker>
+  <marker id="m-open-link" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><polyline points="0.5 0.5, 9 4, 0.5 7.5" fill="none" stroke="#2e5aa8" stroke-width="1.2"/></marker>
+  <marker id="m-hollow" markerWidth="11" markerHeight="9" refX="10" refY="4.5" orient="auto"><polygon points="0.8 0.8, 10 4.5, 0.8 8.2" fill="#ffffff" stroke="#4f5d75" stroke-width="1"/></marker>
+  <marker id="m-circ" markerWidth="9" markerHeight="9" refX="4.5" refY="4.5" orient="auto"><circle cx="4.5" cy="4.5" r="3.5" fill="#ffffff" stroke="#4f5d75" stroke-width="1"/></marker>
+</defs>
+        <rect width="100%" height="100%" fill="#f5f5f5"/>
+<rect x="16" y="16" width="1192" height="1435.2" fill="none" stroke="#2d3142" stroke-width="1"/>
+<polygon points="16,16 212,16 212,32 204,40 16,40" fill="#ffffff" stroke="#2d3142" stroke-width="1"/><text x="26" y="32" font-size="12" fill="#2d3142"><tspan font-family="'Geist Mono', ui-monospace, monospace" font-weight="600">act</tspan><tspan font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" dx="6">Đặt hàng và thanh toán</tspan></text>
+<rect x="32" y="56" width="1160" height="1379.2" fill="none" stroke="#2d3142" stroke-width="1"/>
+<rect x="32" y="56" width="300" height="36" fill="rgba(79,93,117,0.10)" stroke="#2d3142" stroke-width="1"/>
+<text x="182.0" y="79.0" fill="#2d3142" font-size="12" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">Người mua</text>
+<rect x="332" y="92" width="260" height="1343.2" fill="rgba(45,49,66,0.022)"/>
+<rect x="332" y="56" width="260" height="36" fill="rgba(79,93,117,0.10)" stroke="#2d3142" stroke-width="1"/>
+<text x="462.0" y="79.0" fill="#2d3142" font-size="12" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">Thanh toán (Payment · SePay)</text>
+<line x1="332" y1="56" x2="332" y2="1435.2" stroke="#2d3142" stroke-width="1"/>
+<rect x="592" y="56" width="340" height="36" fill="rgba(79,93,117,0.10)" stroke="#2d3142" stroke-width="1"/>
+<text x="762.0" y="79.0" fill="#2d3142" font-size="12" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">Order Service</text>
+<line x1="592" y1="56" x2="592" y2="1435.2" stroke="#2d3142" stroke-width="1"/>
+<rect x="932" y="92" width="260" height="1343.2" fill="rgba(45,49,66,0.022)"/>
+<rect x="932" y="56" width="260" height="36" fill="rgba(79,93,117,0.10)" stroke="#2d3142" stroke-width="1"/>
+<text x="1062.0" y="79.0" fill="#2d3142" font-size="12" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="600" text-anchor="middle">Inventory · Voucher</text>
+<line x1="932" y1="56" x2="932" y2="1435.2" stroke="#2d3142" stroke-width="1"/>
+<path d="M182.0,138.0 L182.0,170.0" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#m-open)"/>
+<path d="M182.0,214.0 L182.0,240.0" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#m-open)"/>
+<path d="M182.0,272.0 L182.0,298.0" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#m-open)"/>
+<path d="M280.0,320.0 L754.0,320.0 Q762.0,320.0 762.0,328.0 L762.0,362.0" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#m-open)"/>
+<path d="M762.0,406.0 L762.0,432.0" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#m-open)"/>
+<path d="M746.0,448.0 L56.0,448.0 Q48.0,448.0 48.0,440.0 L48.0,264.0 Q48.0,256.0 56.0,256.0 L166.0,256.0" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#m-open)"/>
+<path d="M762.0,464.0 L762.0,496.0 Q762.0,504.0 754.0,504.0 L280.0,504.0" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#m-open)"/>
+<path d="M280.0,520.0 L1054.0,520.0 Q1062.0,520.0 1062.0,528.0 L1062.0,554.0" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#m-open)"/>
+<path d="M1062.0,598.0 L1062.0,624.0" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#m-open)"/>
+<path d="M1046.0,640.0 L810.0,640.0 Q802.0,640.0 802.0,648.0 L802.0,682.0" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#m-open)"/>
+<path d="M702.0,704.0 L659.0,704.0" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#m-open)"/>
+<path d="M1062.0,656.0 L1062.0,785.6 Q1062.0,793.6 1054.0,793.6 L860.0,793.6" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#m-open)"/>
+<path d="M762.0,815.6 L762.0,841.6" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#m-open)"/>
+<path d="M746.0,857.6 L470.0,857.6 Q462.0,857.6 462.0,865.6 L462.0,903.6" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#m-open)"/>
+<path d="M762.0,873.6 L762.0,1040.4" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#m-open)"/>
+<path d="M364.0,921.6 L190.0,921.6 Q182.0,921.6 182.0,929.6 L182.0,963.6" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#m-open)"/>
+<path d="M280.0,985.6 L454.0,985.6 Q462.0,985.6 462.0,993.6 L462.0,1027.6" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#m-open)"/>
+<path d="M560.0,1049.6 L645.0,1049.6 Q653.0,1049.6 653.0,1057.6 L653.0,1131.2 Q653.0,1139.2 661.0,1139.2 L746.0,1139.2" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#m-open)"/>
+<path d="M762.0,1084.4 L762.0,1123.2" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#m-open)"/>
+<path d="M778.0,1139.2 L1054.0,1139.2 Q1062.0,1139.2 1062.0,1147.2 L1062.0,1185.2" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#m-open)"/>
+<path d="M964.0,1203.2 L770.0,1203.2 Q762.0,1203.2 762.0,1211.2 L762.0,1249.2" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#m-open)"/>
+<path d="M664.0,1267.2 L190.0,1267.2 Q182.0,1267.2 182.0,1275.2 L182.0,1313.2" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#m-open)"/>
+<path d="M182.0,1349.2 L182.0,1383.2" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#m-open)"/>
+<circle cx="182.0" cy="128" r="9" fill="#2d3142"/>
+<rect x="84.0" y="170.0" width="196" height="44" rx="12" fill="#ffffff" stroke="#2d3142" stroke-width="1.2"/>
+<text x="182.0" y="188.5" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="500" text-anchor="middle">Chọn sản phẩm trong giỏ, bấm</text>
+<text x="182.0" y="203.5" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="500" text-anchor="middle">Thanh toán</text>
+<polygon points="182.0,240 198.0,256 182.0,272 166.0,256" fill="#ffffff" stroke="#2d3142" stroke-width="1.2"/>
+<rect x="84.0" y="298.0" width="196" height="44" rx="12" fill="#ffffff" stroke="#2d3142" stroke-width="1.2"/>
+<text x="182.0" y="316.5" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="500" text-anchor="middle">Chọn địa chỉ, voucher,</text>
+<text x="182.0" y="331.5" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="500" text-anchor="middle">phương thức</text>
+<rect x="664.0" y="362.0" width="196" height="44" rx="12" fill="#ffffff" stroke="#2d3142" stroke-width="1.2"/>
+<text x="762.0" y="380.5" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="500" text-anchor="middle">Tạo báo giá: phí ship, kiểm</text>
+<text x="762.0" y="395.5" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="500" text-anchor="middle">tra voucher</text>
+<polygon points="762.0,432 778.0,448 762.0,464 746.0,448" fill="#ffffff" stroke="#2d3142" stroke-width="1.2"/>
+<rect x="782.0" y="425.5" width="91.5" height="14.5" fill="#f5f5f5"/><text x="786.0" y="436.0" fill="#5a6580" font-size="10.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">Voucher hợp lệ?</text>
+<rect x="84.0" y="490.0" width="196" height="44" rx="12" fill="#ffffff" stroke="#2d3142" stroke-width="1.2"/>
+<text x="182.0" y="508.5" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="500" text-anchor="middle">Xem báo giá, xác nhận đặt</text>
+<text x="182.0" y="523.5" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="500" text-anchor="middle">hàng</text>
+<rect x="964.0" y="554.0" width="196" height="44" rx="12" fill="#ffffff" stroke="#2d3142" stroke-width="1.2"/>
+<text x="1062.0" y="572.5" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="500" text-anchor="middle">Giữ tồn kho và voucher</text>
+<text x="1062.0" y="587.5" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="500" text-anchor="middle">(reserve)</text>
+<polygon points="1062.0,624 1078.0,640 1062.0,656 1046.0,640" fill="#ffffff" stroke="#2d3142" stroke-width="1.2"/>
+<rect x="1082.0" y="617.5" width="91.5" height="14.5" fill="#f5f5f5"/><text x="1086.0" y="628.0" fill="#5a6580" font-size="10.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">Giữ thành công?</text>
+<rect x="702.0" y="682.0" width="200" height="44" rx="12" fill="#ffffff" stroke="#2d3142" stroke-width="1.2"/>
+<text x="802.0" y="700.5" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="500" text-anchor="middle">Hủy báo giá, báo hàng /</text>
+<text x="802.0" y="715.5" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="500" text-anchor="middle">voucher đã đổi</text>
+<circle cx="647.0" cy="704" r="11" fill="#f5f5f5" stroke="#2d3142" stroke-width="1.4"/><circle cx="647.0" cy="704" r="6.5" fill="#2d3142"/>
+<rect x="664.0" y="771.6" width="196" height="44" rx="12" fill="#ffffff" stroke="#2d3142" stroke-width="1.2"/>
+<text x="762.0" y="790.1" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="500" text-anchor="middle">Tạo đơn pending_payment,</text>
+<text x="762.0" y="805.1" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="500" text-anchor="middle">phát order.created</text>
+<polygon points="762.0,841.6 778.0,857.6 762.0,873.6 746.0,857.6" fill="#ffffff" stroke="#2d3142" stroke-width="1.2"/>
+<rect x="782.0" y="835.1" width="74.8" height="14.5" fill="#f5f5f5"/><text x="786.0" y="845.6" fill="#5a6580" font-size="10.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">Phương thức?</text>
+<rect x="364.0" y="903.6" width="196" height="36" rx="12" fill="#ffffff" stroke="#2d3142" stroke-width="1.2"/>
+<text x="462.0" y="925.6" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="500" text-anchor="middle">Tạo mã QR SePay</text>
+<rect x="664.0" y="1040.4" width="196" height="44" rx="12" fill="#ffffff" stroke="#2d3142" stroke-width="1.2"/>
+<text x="762.0" y="1058.9" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="500" text-anchor="middle">Ghi nhận thu hộ</text>
+<text x="762.0" y="1073.9" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="500" text-anchor="middle">(pending_cod)</text>
+<rect x="84.0" y="963.6" width="196" height="44" rx="12" fill="#ffffff" stroke="#2d3142" stroke-width="1.2"/>
+<text x="182.0" y="982.1" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="500" text-anchor="middle">Quét QR, chuyển khoản qua</text>
+<text x="182.0" y="997.1" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="500" text-anchor="middle">ngân hàng</text>
+<rect x="364.0" y="1027.6" width="196" height="44" rx="12" fill="#ffffff" stroke="#2d3142" stroke-width="1.2"/>
+<text x="462.0" y="1046.1" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="500" text-anchor="middle">Nhận webhook, đối soát số</text>
+<text x="462.0" y="1061.1" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="500" text-anchor="middle">tiền</text>
+<polygon points="762.0,1123.2 778.0,1139.2 762.0,1155.2 746.0,1139.2" fill="#ffffff" stroke="#2d3142" stroke-width="1.2"/>
+<rect x="964.0" y="1185.2" width="196" height="36" rx="12" fill="#ffffff" stroke="#2d3142" stroke-width="1.2"/>
+<text x="1062.0" y="1207.2" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="500" text-anchor="middle">Commit tồn kho và voucher</text>
+<rect x="664.0" y="1249.2" width="196" height="36" rx="12" fill="rgba(191,69,32,0.08)" stroke="#bf4520" stroke-width="1.2"/>
+<text x="762.0" y="1271.2" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="500" text-anchor="middle">Cập nhật đơn: paid / chờ COD</text>
+<rect x="84.0" y="1313.2" width="196" height="36" rx="12" fill="#ffffff" stroke="#2d3142" stroke-width="1.2"/>
+<text x="182.0" y="1335.2" fill="#2d3142" font-size="11.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="500" text-anchor="middle">Xem đơn hàng đã đặt</text>
+<circle cx="182.0" cy="1395.2" r="11" fill="#f5f5f5" stroke="#2d3142" stroke-width="1.4"/><circle cx="182.0" cy="1395.2" r="6.5" fill="#2d3142"/>
+<rect x="693.0" y="430.5" width="47.0" height="14.5" fill="#f5f5f5"/><text x="716.5" y="441.0" fill="#2d3142" font-size="10.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="middle">[không]</text>
+<rect x="766.0" y="472.5" width="30.3" height="14.5" fill="#f5f5f5"/><text x="770.0" y="483.0" fill="#2d3142" font-size="10.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">[có]</text>
+<rect x="993.0" y="622.5" width="47.0" height="14.5" fill="#f5f5f5"/><text x="1016.5" y="633.0" fill="#2d3142" font-size="10.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="middle">[không]</text>
+<rect x="1066.0" y="664.5" width="30.3" height="14.5" fill="#f5f5f5"/><text x="1070.0" y="675.0" fill="#2d3142" font-size="10.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">[có]</text>
+<rect x="654.1" y="840.1" width="85.9" height="14.5" fill="#f5f5f5"/><text x="697.0" y="850.6" fill="#2d3142" font-size="10.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="middle">[chuyển khoản]</text>
+<rect x="766.0" y="882.1" width="35.8" height="14.5" fill="#f5f5f5"/><text x="770.0" y="892.6" fill="#2d3142" font-size="10.5" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">[COD]</text>
+<line x1="32" y1="1483.2" x2="1192" y2="1483.2" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+<text x="32.0" y="1505.2" fill="#5a6580" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" font-weight="500" text-anchor="start" letter-spacing="0.18em">CHÚ GIẢI</text>
+<circle cx="116" cy="1501.2" r="7" fill="#2d3142"/>
+<text x="148.0" y="1505.2" fill="#4f5d75" font-size="10" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">Bắt đầu</text>
+<circle cx="217.1" cy="1501.2" r="8" fill="#f5f5f5" stroke="#2d3142" stroke-width="1.2"/><circle cx="217.1" cy="1501.2" r="4.5" fill="#2d3142"/>
+<text x="249.1" y="1505.2" fill="#4f5d75" font-size="10" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">Kết thúc</text>
+<rect x="315.5" y="1492.2" width="32" height="18" rx="7" fill="#ffffff" stroke="#2d3142"/>
+<text x="355.5" y="1505.2" fill="#4f5d75" font-size="10" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">Hành động</text>
+<polygon points="441.2,1491.2 451.2,1501.2 441.2,1511.2 431.2,1501.2" fill="#ffffff" stroke="#2d3142"/>
+<text x="467.2" y="1505.2" fill="#4f5d75" font-size="10" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">Quyết định / Hợp nhất</text>
+<rect x="602.5" y="1498.2" width="30" height="6" fill="#2d3142"/>
+<text x="642.5" y="1505.2" fill="#4f5d75" font-size="10" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">Fork / Join</text>
+<line x1="724.8" y1="1501.2" x2="754.8" y2="1501.2" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#m-open)"/>
+<text x="764.8" y="1505.2" fill="#4f5d75" font-size="10" font-family="'Be Vietnam Pro', 'Geist', system-ui, sans-serif" font-weight="400" text-anchor="start">Luồng điều khiển [guard]</text>
+      </svg>
+    </div>
+    
+  </div>
+</body>
+</html>

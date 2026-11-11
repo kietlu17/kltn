@@ -5,6 +5,7 @@ const mongoose = require('mongoose');
 const { connectMongo } = require('../config/db');
 const Product = require('../models/Product');
 const Category = require('../models/Category');
+const { canonicalPath, ensureCategoryPath } = require('../utils/categoryTaxonomy');
 const { initProducer, closeProducer, publishProductCreated } = require('../kafka/producer');
 
 const SHOP_ID = process.env.MUJI_IMPORT_SHOP_ID || '69f1b1cb00f071907a7e0fd4';
@@ -110,12 +111,10 @@ async function main() {
     for (const row of records) {
       if (existingIds.has(String(row.sourceId))) continue;
       if (!categories.has(row.categoryPath)) {
-        const name = `MUJI · ${row.categoryPath}`;
-        const category = await Category.findOneAndUpdate(
-          { name, shopId: SHOP_ID },
-          { $setOnInsert: { description: `Sản phẩm tham khảo từ MUJI Việt Nam: ${row.categoryPath}.` } },
-          { new: true, upsert: true }
-        );
+        // Placed in the shared tree: Thời trang › Nữ › Áo Thun, ...
+        const category = await ensureCategoryPath(Category, canonicalPath(`MUJI · ${row.categoryPath}`), SHOP_ID, {
+          description: `Sản phẩm tham khảo từ MUJI Việt Nam: ${row.categoryPath}.`
+        });
         categories.set(row.categoryPath, category._id);
       }
       const product = await Product.create(buildProduct(row, categories.get(row.categoryPath)));

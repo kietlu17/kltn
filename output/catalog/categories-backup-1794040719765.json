@@ -1,0 +1,2756 @@
+[
+  {
+    "_id": "69f1b1e29c9c8a21c86e0080",
+    "name": "pc",
+    "description": "pc",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "createdAt": "2026-04-29T07:23:14.910Z",
+    "updatedAt": "2026-04-29T07:23:14.910Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a1e49337612ce70d7bb1838",
+    "name": "tai nghe",
+    "description": "",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "createdAt": "2026-06-02T03:08:35.665Z",
+    "updatedAt": "2026-06-02T03:08:35.665Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a1e622d0b0f6227325917c0",
+    "name": "ban phim",
+    "description": "",
+    "shopId": "6a1e61e224e57a2b15a8a588",
+    "createdAt": "2026-06-02T04:55:09.551Z",
+    "updatedAt": "2026-06-02T04:55:09.551Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a9fc3074f0f9eaaa72fae5e",
+    "name": "Sản phẩm Tiki tổng hợp",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-09-08T08:10:47.433Z",
+    "description": "Danh mục seed từ dữ liệu Tiki.vn",
+    "updatedAt": "2026-09-08T08:18:07.972Z"
+  },
+  {
+    "_id": "6a9fc3074f0f9eaaa72fae65",
+    "name": "Thời trang nữ",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-09-08T08:10:47.690Z",
+    "description": "Danh mục seed từ dữ liệu Tiki.vn",
+    "updatedAt": "2026-09-29T15:50:31.804Z"
+  },
+  {
+    "_id": "6a9fc3084f0f9eaaa72fae73",
+    "name": "Sách tiếng Việt",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-09-08T08:10:48.291Z",
+    "description": "Danh mục seed từ dữ liệu Tiki.vn",
+    "updatedAt": "2026-09-08T08:18:07.951Z"
+  },
+  {
+    "_id": "6a9fc3094f0f9eaaa72fae7d",
+    "name": "Fiction - Literature",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-09-08T08:10:49.307Z",
+    "description": "Danh mục seed từ dữ liệu Tiki.vn",
+    "updatedAt": "2026-09-08T08:18:07.951Z"
+  },
+  {
+    "_id": "6a9fc3094f0f9eaaa72fae81",
+    "name": "Làm Đẹp - Sức Khỏe",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-09-08T08:10:49.450Z",
+    "description": "Danh mục seed từ dữ liệu Tiki.vn",
+    "updatedAt": "2026-09-08T08:18:07.951Z"
+  },
+  {
+    "_id": "6a9fc30b4f0f9eaaa72faea4",
+    "name": "Children's Books",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-09-08T08:10:51.621Z",
+    "description": "Danh mục seed từ dữ liệu Tiki.vn",
+    "updatedAt": "2026-09-08T08:18:07.951Z"
+  },
+  {
+    "_id": "6a9fc30b4f0f9eaaa72faea8",
+    "name": "Literary",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-09-08T08:10:51.758Z",
+    "description": "Danh mục seed từ dữ liệu Tiki.vn",
+    "updatedAt": "2026-09-08T08:18:07.951Z"
+  },
+  {
+    "_id": "6a9fc30c4f0f9eaaa72faeae",
+    "name": "Mystery, Thriller & Suspense",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-09-08T08:10:52.110Z",
+    "description": "Danh mục seed từ dữ liệu Tiki.vn",
+    "updatedAt": "2026-09-08T08:18:07.951Z"
+  },
+  {
+    "_id": "6a9fc30c4f0f9eaaa72faeb2",
+    "name": "Children's Science Fiction & Fantasy",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-09-08T08:10:52.258Z",
+    "description": "Danh mục seed từ dữ liệu Tiki.vn",
+    "updatedAt": "2026-09-08T08:18:07.951Z"
+  },
+  {
+    "_id": "6a9fc30c4f0f9eaaa72faeb6",
+    "name": "Bài học kinh doanh",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-09-08T08:10:52.405Z",
+    "description": "Danh mục seed từ dữ liệu Tiki.vn",
+    "updatedAt": "2026-09-08T08:18:07.951Z"
+  },
+  {
+    "_id": "6a9fc30d4f0f9eaaa72faec3",
+    "name": "Thời Trang",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-09-08T08:10:53.231Z",
+    "description": "Danh mục seed từ dữ liệu Tiki.vn",
+    "updatedAt": "2026-09-08T08:18:07.951Z"
+  },
+  {
+    "_id": "6a9fc30d4f0f9eaaa72faecd",
+    "name": "Bàn chải cho bé",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-09-08T08:10:53.948Z",
+    "description": "Danh mục seed từ dữ liệu Tiki.vn",
+    "updatedAt": "2026-09-08T08:18:07.951Z"
+  },
+  {
+    "_id": "6a9fc30e4f0f9eaaa72faed7",
+    "name": "Nhà Cửa - Đời Sống",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-09-08T08:10:54.732Z",
+    "description": "Danh mục seed từ dữ liệu Tiki.vn",
+    "updatedAt": "2026-09-08T08:18:07.951Z"
+  },
+  {
+    "_id": "6a9fc30f4f0f9eaaa72faede",
+    "name": "Teaching - Learning",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-09-08T08:10:55.754Z",
+    "description": "Danh mục seed từ dữ liệu Tiki.vn",
+    "updatedAt": "2026-09-08T08:18:07.951Z"
+  },
+  {
+    "_id": "6a9fc30f4f0f9eaaa72faee2",
+    "name": "Picture books",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-09-08T08:10:55.892Z",
+    "description": "Danh mục seed từ dữ liệu Tiki.vn",
+    "updatedAt": "2026-09-08T08:18:07.951Z"
+  },
+  {
+    "_id": "6a9fc3134f0f9eaaa72faf0b",
+    "name": "Laptop Truyền Thống",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-09-08T08:10:59.492Z",
+    "description": "Danh mục seed từ dữ liệu Tiki.vn",
+    "updatedAt": "2026-09-08T08:18:07.951Z"
+  },
+  {
+    "_id": "6a9fc3144f0f9eaaa72faf23",
+    "name": "Laptop - Máy Vi Tính - Linh kiện",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-09-08T08:11:00.119Z",
+    "description": "Danh mục seed từ dữ liệu Tiki.vn",
+    "updatedAt": "2026-09-08T08:18:07.951Z"
+  },
+  {
+    "_id": "6a9fc3154f0f9eaaa72faf3e",
+    "name": "Balo và Vali",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-09-08T08:11:01.961Z",
+    "description": "Danh mục seed từ dữ liệu Tiki.vn",
+    "updatedAt": "2026-09-08T08:18:07.951Z"
+  },
+  {
+    "_id": "6a9fc3164f0f9eaaa72faf47",
+    "name": "Thiết Bị Số - Phụ Kiện Số",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-09-08T08:11:02.301Z",
+    "description": "Danh mục seed từ dữ liệu Tiki.vn",
+    "updatedAt": "2026-09-08T08:18:07.951Z"
+  },
+  {
+    "_id": "6a9fc3164f0f9eaaa72faf4b",
+    "name": "Giá Đỡ Laptop",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-09-08T08:11:02.488Z",
+    "description": "Danh mục seed từ dữ liệu Tiki.vn",
+    "updatedAt": "2026-09-08T08:18:07.951Z"
+  },
+  {
+    "_id": "6a9fc31b4f0f9eaaa72faf79",
+    "name": "Balo",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-09-08T08:11:07.121Z",
+    "description": "Danh mục seed từ dữ liệu Tiki.vn",
+    "updatedAt": "2026-09-08T08:18:07.951Z"
+  },
+  {
+    "_id": "6a9fc31c4f0f9eaaa72faf8c",
+    "name": "Phụ kiện thời trang nam khác",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-09-08T08:11:08.415Z",
+    "description": "Danh mục seed từ dữ liệu Tiki.vn",
+    "updatedAt": "2026-09-08T08:18:07.951Z"
+  },
+  {
+    "_id": "6a9fc31d4f0f9eaaa72fafb4",
+    "name": "Tai Nghe Có Dây",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-09-08T08:11:09.920Z",
+    "description": "Danh mục seed từ dữ liệu Tiki.vn",
+    "updatedAt": "2026-09-08T08:18:07.951Z"
+  },
+  {
+    "_id": "6a9fc31f4f0f9eaaa72fafd2",
+    "name": "Tai Nghe Có Dây Nhét Tai",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-09-08T08:11:11.837Z",
+    "description": "Danh mục seed từ dữ liệu Tiki.vn",
+    "updatedAt": "2026-09-08T08:18:07.951Z"
+  },
+  {
+    "_id": "6abbde3e1ece82a72c1e6001",
+    "name": "Thời trang nam",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-09-29T15:50:22.294Z",
+    "description": "Danh mục thời trang nam nhập từ dữ liệu công khai và biên soạn lại.",
+    "updatedAt": "2026-09-29T15:50:22.294Z"
+  },
+  {
+    "_id": "6ad8cc2272a164dfbeb1374a",
+    "name": "YODY · Áo polo nữ",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:50.548Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Áo polo nữ.",
+    "updatedAt": "2026-10-21T14:28:50.548Z"
+  },
+  {
+    "_id": "6ad8cc2272a164dfbeb1374d",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "YODY · Quần jeans nữ",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:50.633Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Quần jeans nữ.",
+    "updatedAt": "2026-10-21T14:28:50.633Z"
+  },
+  {
+    "_id": "6ad8cc2272a164dfbeb13751",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "YODY · Đầm và chân váy nữ",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:50.680Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Đầm và chân váy nữ.",
+    "updatedAt": "2026-10-21T14:28:50.680Z"
+  },
+  {
+    "_id": "6ad8cc2272a164dfbeb13758",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "YODY · Áo polo trẻ em",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:50.707Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Áo polo trẻ em.",
+    "updatedAt": "2026-10-21T14:28:50.707Z"
+  },
+  {
+    "_id": "6ad8cc2272a164dfbeb1375b",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "YODY · Áo khoác nữ",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:50.716Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Áo khoác nữ.",
+    "updatedAt": "2026-10-21T14:28:50.716Z"
+  },
+  {
+    "_id": "6ad8cc2272a164dfbeb1375e",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "YODY · Quần short nam",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:50.725Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Quần short nam.",
+    "updatedAt": "2026-10-21T14:28:50.725Z"
+  },
+  {
+    "_id": "6ad8cc2272a164dfbeb13762",
+    "name": "YODY · Áo polo nam",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:50.750Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Áo polo nam.",
+    "updatedAt": "2026-10-21T14:28:50.750Z"
+  },
+  {
+    "_id": "6ad8cc2272a164dfbeb13768",
+    "name": "YODY · Quần short nữ",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:50.784Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Quần short nữ.",
+    "updatedAt": "2026-10-21T14:28:50.784Z"
+  },
+  {
+    "_id": "6ad8cc2272a164dfbeb1376d",
+    "name": "YODY · Áo gió nam",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:50.803Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Áo gió nam.",
+    "updatedAt": "2026-10-21T14:28:50.803Z"
+  },
+  {
+    "_id": "6ad8cc2272a164dfbeb13770",
+    "name": "YODY · Áo sơ mi nữ",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:50.815Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Áo sơ mi nữ.",
+    "updatedAt": "2026-10-21T14:28:50.815Z"
+  },
+  {
+    "_id": "6ad8cc2272a164dfbeb13774",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "YODY · Nam",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:50.832Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Nam.",
+    "updatedAt": "2026-10-21T14:28:50.832Z"
+  },
+  {
+    "_id": "6ad8cc2272a164dfbeb13777",
+    "name": "YODY · Sản phẩm khác",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:50.842Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Sản phẩm khác.",
+    "updatedAt": "2026-10-21T14:28:50.842Z"
+  },
+  {
+    "_id": "6ad8cc2272a164dfbeb1377b",
+    "name": "YODY · Áo sơ mi nam",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:50.863Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Áo sơ mi nam.",
+    "updatedAt": "2026-10-21T14:28:50.863Z"
+  },
+  {
+    "_id": "6ad8cc2272a164dfbeb13780",
+    "name": "YODY · Áo vest nam",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:50.889Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Áo vest nam.",
+    "updatedAt": "2026-10-21T14:28:50.889Z"
+  },
+  {
+    "_id": "6ad8cc2272a164dfbeb13787",
+    "name": "YODY · Quần âu nữ",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:50.928Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Quần âu nữ.",
+    "updatedAt": "2026-10-21T14:28:50.928Z"
+  },
+  {
+    "_id": "6ad8cc2272a164dfbeb1378b",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "YODY · Đầm và chân váy bé gái",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:50.945Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Đầm và chân váy bé gái.",
+    "updatedAt": "2026-10-21T14:28:50.945Z"
+  },
+  {
+    "_id": "6ad8cc2272a164dfbeb1378f",
+    "name": "YODY · Áo thun nữ",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:50.964Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Áo thun nữ.",
+    "updatedAt": "2026-10-21T14:28:50.964Z"
+  },
+  {
+    "_id": "6ad8cc2372a164dfbeb13798",
+    "name": "YODY · Áo thun nam",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:51.020Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Áo thun nam.",
+    "updatedAt": "2026-10-21T14:28:51.020Z"
+  },
+  {
+    "_id": "6ad8cc2372a164dfbeb1379b",
+    "name": "YODY · Quần âu nam",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:51.028Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Quần âu nam.",
+    "updatedAt": "2026-10-21T14:28:51.028Z"
+  },
+  {
+    "_id": "6ad8cc2372a164dfbeb137a2",
+    "name": "YODY · Quần jeans nam",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:51.062Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Quần jeans nam.",
+    "updatedAt": "2026-10-21T14:28:51.062Z"
+  },
+  {
+    "_id": "6ad8cc2372a164dfbeb137a8",
+    "name": "YODY · Áo thun trẻ em",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:51.096Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Áo thun trẻ em.",
+    "updatedAt": "2026-10-21T14:28:51.096Z"
+  },
+  {
+    "_id": "6ad8cc2372a164dfbeb137ba",
+    "name": "YODY · Đồ bộ ngắn tay nam",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:51.193Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Đồ bộ ngắn tay nam.",
+    "updatedAt": "2026-10-21T14:28:51.193Z"
+  },
+  {
+    "_id": "6ad8cc2372a164dfbeb137c3",
+    "name": "YODY · Quần short trẻ em",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:51.237Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Quần short trẻ em.",
+    "updatedAt": "2026-10-21T14:28:51.237Z"
+  },
+  {
+    "_id": "6ad8cc2372a164dfbeb137d4",
+    "name": "YODY · Đồ bộ ngắn tay nữ",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:51.337Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Đồ bộ ngắn tay nữ.",
+    "updatedAt": "2026-10-21T14:28:51.337Z"
+  },
+  {
+    "_id": "6ad8cc2372a164dfbeb137fd",
+    "name": "YODY · Áo ba lỗ nam",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:51.564Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Áo ba lỗ nam.",
+    "updatedAt": "2026-10-21T14:28:51.564Z"
+  },
+  {
+    "_id": "6ad8cc2372a164dfbeb13805",
+    "name": "YODY · Quần kaki nữ",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:51.603Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Quần kaki nữ.",
+    "updatedAt": "2026-10-21T14:28:51.603Z"
+  },
+  {
+    "_id": "6ad8cc2372a164dfbeb1380f",
+    "name": "YODY · Áo phao nữ",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:51.643Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Áo phao nữ.",
+    "updatedAt": "2026-10-21T14:28:51.643Z"
+  },
+  {
+    "_id": "6ad8cc2372a164dfbeb1381d",
+    "name": "YODY · Áo len trẻ em",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:51.706Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Áo len trẻ em.",
+    "updatedAt": "2026-10-21T14:28:51.706Z"
+  },
+  {
+    "_id": "6ad8cc2372a164dfbeb13824",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "YODY · Áo Giữ Nhiệt Nữ XTRA-HEAT",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:51.735Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Áo Giữ Nhiệt Nữ XTRA-HEAT.",
+    "updatedAt": "2026-10-21T14:28:51.735Z"
+  },
+  {
+    "_id": "6ad8cc2372a164dfbeb13829",
+    "name": "YODY · Quần lót nam",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:51.755Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Quần lót nam.",
+    "updatedAt": "2026-10-21T14:28:51.755Z"
+  },
+  {
+    "_id": "6ad8cc2372a164dfbeb1382c",
+    "name": "YODY · Quần dài trẻ em",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:51.766Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Quần dài trẻ em.",
+    "updatedAt": "2026-10-21T14:28:51.766Z"
+  },
+  {
+    "_id": "6ad8cc2372a164dfbeb13833",
+    "name": "YODY · Áo hoodie - Áo nỉ nam",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:51.799Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Áo hoodie - Áo nỉ nam.",
+    "updatedAt": "2026-10-21T14:28:51.799Z"
+  },
+  {
+    "_id": "6ad8cc2372a164dfbeb1383b",
+    "name": "YODY · Quần lót nữ",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:51.835Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Quần lót nữ.",
+    "updatedAt": "2026-10-21T14:28:51.835Z"
+  },
+  {
+    "_id": "6ad8cc2372a164dfbeb13846",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "YODY · Áo ba lỗ - Áo hai dây nữ",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:51.883Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Áo ba lỗ - Áo hai dây nữ.",
+    "updatedAt": "2026-10-21T14:28:51.883Z"
+  },
+  {
+    "_id": "6ad8cc2372a164dfbeb1384e",
+    "name": "YODY · Đồ bộ nữ",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:51.925Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Đồ bộ nữ.",
+    "updatedAt": "2026-10-21T14:28:51.925Z"
+  },
+  {
+    "_id": "6ad8cc2372a164dfbeb13852",
+    "name": "YODY · Áo hoodie - Áo nỉ nữ",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:51.944Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Áo hoodie - Áo nỉ nữ.",
+    "updatedAt": "2026-10-21T14:28:51.944Z"
+  },
+  {
+    "_id": "6ad8cc2372a164dfbeb13855",
+    "name": "YODY · Áo gió nữ",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:51.954Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Áo gió nữ.",
+    "updatedAt": "2026-10-21T14:28:51.954Z"
+  },
+  {
+    "_id": "6ad8cc2372a164dfbeb1385a",
+    "name": "YODY · Áo phao nam",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:51.977Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Áo phao nam.",
+    "updatedAt": "2026-10-21T14:28:51.977Z"
+  },
+  {
+    "_id": "6ad8cc2472a164dfbeb13860",
+    "name": "YODY · Áo phao trẻ em",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:52.014Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Áo phao trẻ em.",
+    "updatedAt": "2026-10-21T14:28:52.014Z"
+  },
+  {
+    "_id": "6ad8cc2472a164dfbeb1386a",
+    "name": "YODY · Áo gió trẻ em",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:52.066Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Áo gió trẻ em.",
+    "updatedAt": "2026-10-21T14:28:52.066Z"
+  },
+  {
+    "_id": "6ad8cc2472a164dfbeb13879",
+    "name": "YODY · Áo khoác nam",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:52.176Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Áo khoác nam.",
+    "updatedAt": "2026-10-21T14:28:52.176Z"
+  },
+  {
+    "_id": "6ad8cc2472a164dfbeb138d1",
+    "name": "YODY · Áo len nữ",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:52.644Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Áo len nữ.",
+    "updatedAt": "2026-10-21T14:28:52.644Z"
+  },
+  {
+    "_id": "6ad8cc2472a164dfbeb138d5",
+    "name": "YODY · Áo polo thể thao nữ",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:52.651Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Áo polo thể thao nữ.",
+    "updatedAt": "2026-10-21T14:28:52.651Z"
+  },
+  {
+    "_id": "6ad8cc2472a164dfbeb138d9",
+    "name": "YODY · Áo giữ nhiệt trẻ em",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:52.665Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Áo giữ nhiệt trẻ em.",
+    "updatedAt": "2026-10-21T14:28:52.665Z"
+  },
+  {
+    "_id": "6ad8cc2472a164dfbeb138e2",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "YODY · Áo Giữ Nhiệt Nam XTRA-HEAT",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:52.706Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Áo Giữ Nhiệt Nam XTRA-HEAT.",
+    "updatedAt": "2026-10-21T14:28:52.706Z"
+  },
+  {
+    "_id": "6ad8cc2472a164dfbeb138ed",
+    "name": "YODY · Áo chống nắng nữ",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:52.753Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Áo chống nắng nữ.",
+    "updatedAt": "2026-10-21T14:28:52.753Z"
+  },
+  {
+    "_id": "6ad8cc2472a164dfbeb138fb",
+    "name": "YODY · Đồ bộ trẻ em",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:52.825Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Đồ bộ trẻ em.",
+    "updatedAt": "2026-10-21T14:28:52.825Z"
+  },
+  {
+    "_id": "6ad8cc2472a164dfbeb13901",
+    "name": "YODY · Áo polo thể thao nam",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:52.849Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Áo polo thể thao nam.",
+    "updatedAt": "2026-10-21T14:28:52.849Z"
+  },
+  {
+    "_id": "6ad8cc2472a164dfbeb1390b",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "YODY · Áo len nam",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:52.892Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Áo len nam.",
+    "updatedAt": "2026-10-21T14:28:52.892Z"
+  },
+  {
+    "_id": "6ad8cc2472a164dfbeb13912",
+    "name": "YODY · Quần kaki nam",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:52.917Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Quần kaki nam.",
+    "updatedAt": "2026-10-21T14:28:52.917Z"
+  },
+  {
+    "_id": "6ad8cc2472a164dfbeb13915",
+    "name": "YODY · Quần jeans trẻ em",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:52.924Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Quần jeans trẻ em.",
+    "updatedAt": "2026-10-21T14:28:52.924Z"
+  },
+  {
+    "_id": "6ad8cc2572a164dfbeb13932",
+    "name": "YODY · Quần thể thao nam",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:53.081Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Quần thể thao nam.",
+    "updatedAt": "2026-10-21T14:28:53.081Z"
+  },
+  {
+    "_id": "6ad8cc2572a164dfbeb1395e",
+    "name": "YODY · Áo thun thể thao nữ",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:53.308Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Áo thun thể thao nữ.",
+    "updatedAt": "2026-10-21T14:28:53.308Z"
+  },
+  {
+    "_id": "6ad8cc2572a164dfbeb13961",
+    "name": "YODY · Áo thun thể thao nam",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:53.315Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Áo thun thể thao nam.",
+    "updatedAt": "2026-10-21T14:28:53.315Z"
+  },
+  {
+    "_id": "6ad8cc2572a164dfbeb139d9",
+    "name": "YODY · Áo khoác trẻ em",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:53.976Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Áo khoác trẻ em.",
+    "updatedAt": "2026-10-21T14:28:53.976Z"
+  },
+  {
+    "_id": "6ad8cc2572a164dfbeb139dd",
+    "name": "YODY · Quần thể thao nữ",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:53.988Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Quần thể thao nữ.",
+    "updatedAt": "2026-10-21T14:28:53.988Z"
+  },
+  {
+    "_id": "6ad8cc2672a164dfbeb13a19",
+    "name": "YODY · Áo chống nắng nam",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:54.384Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Áo chống nắng nam.",
+    "updatedAt": "2026-10-21T14:28:54.384Z"
+  },
+  {
+    "_id": "6ad8cc2672a164dfbeb13a40",
+    "name": "YODY · Quần nỉ trẻ em",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:54.592Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Quần nỉ trẻ em.",
+    "updatedAt": "2026-10-21T14:28:54.592Z"
+  },
+  {
+    "_id": "6ad8cc2672a164dfbeb13a4a",
+    "name": "YODY · Đồ bộ nam",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:54.635Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Đồ bộ nam.",
+    "updatedAt": "2026-10-21T14:28:54.635Z"
+  },
+  {
+    "_id": "6ad8cc2672a164dfbeb13a55",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "YODY · Áo hoodie - áo nỉ trẻ em",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:54.684Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Áo hoodie - áo nỉ trẻ em.",
+    "updatedAt": "2026-10-21T14:28:54.684Z"
+  },
+  {
+    "_id": "6ad8cc2772a164dfbeb13aa5",
+    "name": "YODY · Áo măng tô nữ",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:55.091Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Áo măng tô nữ.",
+    "updatedAt": "2026-10-21T14:28:55.091Z"
+  },
+  {
+    "_id": "6ad8cc2772a164dfbeb13b1a",
+    "name": "YODY · Quần kaki trẻ em",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:55.627Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Quần kaki trẻ em.",
+    "updatedAt": "2026-10-21T14:28:55.627Z"
+  },
+  {
+    "_id": "6ad8cc2772a164dfbeb13b33",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "YODY · Nữ",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:55.735Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Nữ.",
+    "updatedAt": "2026-10-21T14:28:55.735Z"
+  },
+  {
+    "_id": "6ad8cc2772a164dfbeb13b36",
+    "name": "YODY · Áo ba lỗ trẻ em",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:55.741Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Áo ba lỗ trẻ em.",
+    "updatedAt": "2026-10-21T14:28:55.741Z"
+  },
+  {
+    "_id": "6ad8cc2772a164dfbeb13b42",
+    "name": "YODY · Quần dài nữ",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:55.786Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Quần dài nữ.",
+    "updatedAt": "2026-10-21T14:28:55.786Z"
+  },
+  {
+    "_id": "6ad8cc2772a164dfbeb13b66",
+    "name": "YODY · Quần nỉ nam",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:28:55.955Z",
+    "description": "Sản phẩm thời trang tham khảo từ YODY · Quần nỉ nam.",
+    "updatedAt": "2026-10-21T14:28:55.955Z"
+  },
+  {
+    "_id": "6ad8d27472a164dfbeb1575b",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Thực Phẩm › Đồ Uống › Trà & Cafe › 780:TEA",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:48.775Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Thực Phẩm › Đồ Uống › Trà & Cafe › 780:TEA.",
+    "updatedAt": "2026-10-21T14:55:48.775Z"
+  },
+  {
+    "_id": "6ad8d27472a164dfbeb1575e",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Làm Đẹp",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:48.831Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Làm Đẹp.",
+    "updatedAt": "2026-10-21T14:55:48.831Z"
+  },
+  {
+    "_id": "6ad8d27472a164dfbeb15762",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Văn Phòng Phẩm › Bút",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:48.846Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Văn Phòng Phẩm › Bút.",
+    "updatedAt": "2026-10-21T14:55:48.846Z"
+  },
+  {
+    "_id": "6ad8d27472a164dfbeb15765",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Du Lịch",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:48.861Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Du Lịch.",
+    "updatedAt": "2026-10-21T14:55:48.861Z"
+  },
+  {
+    "_id": "6ad8d27472a164dfbeb15768",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:48.872Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo.",
+    "updatedAt": "2026-10-21T14:55:48.872Z"
+  },
+  {
+    "_id": "6ad8d27472a164dfbeb1576b",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:48.882Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống.",
+    "updatedAt": "2026-10-21T14:55:48.882Z"
+  },
+  {
+    "_id": "6ad8d27472a164dfbeb1576e",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Thực Phẩm › Đồ Ăn › Bánh",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:48.890Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Thực Phẩm › Đồ Ăn › Bánh.",
+    "updatedAt": "2026-10-21T14:55:48.890Z"
+  },
+  {
+    "_id": "6ad8d27472a164dfbeb15771",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Làm Đẹp › Chăm Sóc Tóc › Dầu Gội & Dầu Xả",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:48.901Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Làm Đẹp › Chăm Sóc Tóc › Dầu Gội & Dầu Xả.",
+    "updatedAt": "2026-10-21T14:55:48.901Z"
+  },
+  {
+    "_id": "6ad8d27472a164dfbeb15774",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Văn Phòng Phẩm › Bút › 377:BALLPOINT PENS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:48.910Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Văn Phòng Phẩm › Bút › 377:BALLPOINT PENS.",
+    "updatedAt": "2026-10-21T14:55:48.910Z"
+  },
+  {
+    "_id": "6ad8d27472a164dfbeb15777",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Du Lịch › Đồ Dùng Du Lịch",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:48.920Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Du Lịch › Đồ Dùng Du Lịch.",
+    "updatedAt": "2026-10-21T14:55:48.920Z"
+  },
+  {
+    "_id": "6ad8d27472a164dfbeb1577a",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Giày & Dép › Dép",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:48.931Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Giày & Dép › Dép.",
+    "updatedAt": "2026-10-21T14:55:48.931Z"
+  },
+  {
+    "_id": "6ad8d27472a164dfbeb1577d",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Sản Phẩm Dệt May Trong Nhà › Chăn",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:48.952Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Sản Phẩm Dệt May Trong Nhà › Chăn.",
+    "updatedAt": "2026-10-21T15:13:27.616Z"
+  },
+  {
+    "_id": "6ad8d27472a164dfbeb15780",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Thực Phẩm › Đồ Ăn › Kẹo",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:48.960Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Thực Phẩm › Đồ Ăn › Kẹo.",
+    "updatedAt": "2026-10-21T14:55:48.960Z"
+  },
+  {
+    "_id": "6ad8d27472a164dfbeb15783",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Làm Đẹp › Chăm Sóc Tóc › Dầu Gội & Dầu Xả › 424:SHAMPOO&CONDITIONER",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:48.970Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Làm Đẹp › Chăm Sóc Tóc › Dầu Gội & Dầu Xả › 424:SHAMPOO&CONDITIONER.",
+    "updatedAt": "2026-10-21T14:55:48.970Z"
+  },
+  {
+    "_id": "6ad8d27472a164dfbeb15786",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Văn Phòng Phẩm › Bút › 378:MARKERS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:48.980Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Văn Phòng Phẩm › Bút › 378:MARKERS.",
+    "updatedAt": "2026-10-21T14:55:48.980Z"
+  },
+  {
+    "_id": "6ad8d27472a164dfbeb15789",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Du Lịch › Đồ Dùng Du Lịch › 444:TRAVEL ACCESSORIES",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:48.990Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Du Lịch › Đồ Dùng Du Lịch › 444:TRAVEL ACCESSORIES.",
+    "updatedAt": "2026-10-21T14:55:48.990Z"
+  },
+  {
+    "_id": "6ad8d27472a164dfbeb1578c",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Giày & Dép › Dép › 284:SLIPPERS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:48.998Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Giày & Dép › Dép › 284:SLIPPERS.",
+    "updatedAt": "2026-10-21T14:55:48.998Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb1578f",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Sản Phẩm Dệt May Trong Nhà › Chăn › 256:BLANKETS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.007Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Sản Phẩm Dệt May Trong Nhà › Chăn › 256:BLANKETS.",
+    "updatedAt": "2026-10-21T14:55:49.007Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb15792",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Thực Phẩm › Đồ Ăn › Sô Cô La",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.015Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Thực Phẩm › Đồ Ăn › Sô Cô La.",
+    "updatedAt": "2026-10-21T14:55:49.015Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb15795",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Làm Đẹp › Chăm Sóc Tóc › Phụ Kiện",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.022Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Làm Đẹp › Chăm Sóc Tóc › Phụ Kiện.",
+    "updatedAt": "2026-10-21T14:55:49.022Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb15798",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Văn Phòng Phẩm › Bút › 523:OFFICE ACCESSORIES",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.030Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Văn Phòng Phẩm › Bút › 523:OFFICE ACCESSORIES.",
+    "updatedAt": "2026-10-21T14:55:49.030Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb1579c",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Giày & Dép › Giày Sandals",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.042Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Giày & Dép › Giày Sandals.",
+    "updatedAt": "2026-10-21T14:55:49.042Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb1579f",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Sản Phẩm Dệt May Trong Nhà › Gối",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.052Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Sản Phẩm Dệt May Trong Nhà › Gối.",
+    "updatedAt": "2026-10-21T14:55:49.052Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb157a2",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Thực Phẩm › Đồ Ăn › Sô Cô La › 630:CANDY&GUM",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.059Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Thực Phẩm › Đồ Ăn › Sô Cô La › 630:CANDY&GUM.",
+    "updatedAt": "2026-10-21T14:55:49.059Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb157a5",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Làm Đẹp › Phụ Kiện Trang Điểm › Hộp Đựng Đồ Trang Điểm",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.066Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Làm Đẹp › Phụ Kiện Trang Điểm › Hộp Đựng Đồ Trang Điểm.",
+    "updatedAt": "2026-10-21T14:55:49.066Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb157a8",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Văn Phòng Phẩm › Dụng Cụ Bưu Thiếp",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.074Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Văn Phòng Phẩm › Dụng Cụ Bưu Thiếp.",
+    "updatedAt": "2026-10-21T14:55:49.074Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb157ac",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Giày & Dép › Giày Sneaker",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.085Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Giày & Dép › Giày Sneaker.",
+    "updatedAt": "2026-10-21T14:55:49.085Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb157af",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Sản Phẩm Dệt May Trong Nhà › Khăn",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.098Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Sản Phẩm Dệt May Trong Nhà › Khăn.",
+    "updatedAt": "2026-10-21T14:55:49.098Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb157b3",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Làm Đẹp › Phụ Kiện Trang Điểm › Hộp Đựng Đồ Trang Điểm › 579:MAKE BOX",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.110Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Làm Đẹp › Phụ Kiện Trang Điểm › Hộp Đựng Đồ Trang Điểm › 579:MAKE BOX.",
+    "updatedAt": "2026-10-21T14:55:49.110Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb157b6",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Văn Phòng Phẩm › Dụng Cụ Bưu Thiếp › 522:DESK ITEMS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.117Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Văn Phòng Phẩm › Dụng Cụ Bưu Thiếp › 522:DESK ITEMS.",
+    "updatedAt": "2026-10-21T14:55:49.117Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb157ba",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › MUJI Labo › Quần & Váy Labo",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.128Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › MUJI Labo › Quần & Váy Labo.",
+    "updatedAt": "2026-10-21T14:55:49.128Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb157bd",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Sản Phẩm Dệt May Trong Nhà › Khăn › 277:HAND TOWELS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.135Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Sản Phẩm Dệt May Trong Nhà › Khăn › 277:HAND TOWELS.",
+    "updatedAt": "2026-10-21T14:55:49.135Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb157c1",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Làm Đẹp › Phụ Kiện Trang Điểm › Hộp Đựng Đồ Trang Điểm › 583:CASE",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.147Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Làm Đẹp › Phụ Kiện Trang Điểm › Hộp Đựng Đồ Trang Điểm › 583:CASE.",
+    "updatedAt": "2026-10-21T14:55:49.147Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb157c4",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Văn Phòng Phẩm › Dụng Cụ Bưu Thiếp › 524:HOME MANAGEMENT ITEM",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.153Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Văn Phòng Phẩm › Dụng Cụ Bưu Thiếp › 524:HOME MANAGEMENT ITEM.",
+    "updatedAt": "2026-10-21T14:55:49.153Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb157c8",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › MUJI Labo › Áo Sơ Mi Labo",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.165Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › MUJI Labo › Áo Sơ Mi Labo.",
+    "updatedAt": "2026-10-21T14:55:49.165Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb157cb",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Sản Phẩm Dệt May Trong Nhà › Khăn › 278:FACE TOWELS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.174Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Sản Phẩm Dệt May Trong Nhà › Khăn › 278:FACE TOWELS.",
+    "updatedAt": "2026-10-21T14:55:49.174Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb157cf",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Làm Đẹp › Phụ Kiện Trang Điểm › Đồ Trang Điểm",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.186Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Làm Đẹp › Phụ Kiện Trang Điểm › Đồ Trang Điểm.",
+    "updatedAt": "2026-10-21T14:55:49.186Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb157d2",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Văn Phòng Phẩm › Dụng Cụ Văn Phòng",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.192Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Văn Phòng Phẩm › Dụng Cụ Văn Phòng.",
+    "updatedAt": "2026-10-21T14:55:49.192Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb157d7",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › MUJI Labo › Áo Sơ Mi Labo › 221:LABO SHIRTS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.206Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › MUJI Labo › Áo Sơ Mi Labo › 221:LABO SHIRTS.",
+    "updatedAt": "2026-10-21T14:55:49.206Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb157db",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Sản Phẩm Dệt May Trong Nhà › Khăn › 279:BATH TOWELS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.218Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Sản Phẩm Dệt May Trong Nhà › Khăn › 279:BATH TOWELS.",
+    "updatedAt": "2026-10-21T14:55:49.218Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb157df",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Làm Đẹp › Phụ Kiện Trang Điểm › Đồ Trang Điểm › 339:BEAUTY APPLIANCES",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.230Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Làm Đẹp › Phụ Kiện Trang Điểm › Đồ Trang Điểm › 339:BEAUTY APPLIANCES.",
+    "updatedAt": "2026-10-21T14:55:49.230Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb157e2",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Văn Phòng Phẩm › Dụng Cụ Văn Phòng › 065:OFFICE ITEMS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.237Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Văn Phòng Phẩm › Dụng Cụ Văn Phòng › 065:OFFICE ITEMS.",
+    "updatedAt": "2026-10-21T14:55:49.237Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb157e6",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › MUJI Labo › Đồ Dệt Kim Labo",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.249Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › MUJI Labo › Đồ Dệt Kim Labo.",
+    "updatedAt": "2026-10-21T14:55:49.249Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb157e9",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Sản Phẩm Dệt May Trong Nhà › Khăn › 283:TOWEL SETS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.256Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Sản Phẩm Dệt May Trong Nhà › Khăn › 283:TOWEL SETS.",
+    "updatedAt": "2026-10-21T14:55:49.256Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb157ed",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Làm Đẹp › Sản Phẩm Làm Sạch › Bông Tẩy Trang",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.268Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Làm Đẹp › Sản Phẩm Làm Sạch › Bông Tẩy Trang.",
+    "updatedAt": "2026-10-21T14:55:49.268Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb157f0",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Văn Phòng Phẩm › Dụng Cụ Văn Phòng › 336:OTHER DESK ORGANISERS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.274Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Văn Phòng Phẩm › Dụng Cụ Văn Phòng › 336:OTHER DESK ORGANISERS.",
+    "updatedAt": "2026-10-21T14:55:49.274Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb157f4",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › MUJI Labo › Đồ Thun Labo",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.286Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › MUJI Labo › Đồ Thun Labo.",
+    "updatedAt": "2026-10-21T14:55:49.286Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb157f7",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Sản Phẩm Dệt May Trong Nhà › Nệm",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.294Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Sản Phẩm Dệt May Trong Nhà › Nệm.",
+    "updatedAt": "2026-10-21T14:55:49.294Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb157fb",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Làm Đẹp › Sản Phẩm Làm Sạch › Sản Phẩm Làm Sạch",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.305Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Làm Đẹp › Sản Phẩm Làm Sạch › Sản Phẩm Làm Sạch.",
+    "updatedAt": "2026-10-21T14:55:49.305Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb157fe",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Văn Phòng Phẩm › Dụng Cụ Văn Phòng › 379:OFFICE ACCESSORIES",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.312Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Văn Phòng Phẩm › Dụng Cụ Văn Phòng › 379:OFFICE ACCESSORIES.",
+    "updatedAt": "2026-10-21T14:55:49.312Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb15802",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Phụ Kiện › Dù & Áo Mưa",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.323Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Phụ Kiện › Dù & Áo Mưa.",
+    "updatedAt": "2026-10-21T14:55:49.323Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb15805",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Sản Phẩm Dệt May Trong Nhà › Nệm › 259:DUVET COVERS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.331Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Sản Phẩm Dệt May Trong Nhà › Nệm › 259:DUVET COVERS.",
+    "updatedAt": "2026-10-21T14:55:49.331Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb15809",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Làm Đẹp › Sản Phẩm Làm Đẹp › Chăm Sóc Da",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.342Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Làm Đẹp › Sản Phẩm Làm Đẹp › Chăm Sóc Da.",
+    "updatedAt": "2026-10-21T14:55:49.342Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb1580c",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Văn Phòng Phẩm › Dụng Cụ Văn Phòng › 381:DESK SUPPLIES",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.349Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Văn Phòng Phẩm › Dụng Cụ Văn Phòng › 381:DESK SUPPLIES.",
+    "updatedAt": "2026-10-21T14:55:49.349Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb15810",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Phụ Kiện › Găng Tay",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.361Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Phụ Kiện › Găng Tay.",
+    "updatedAt": "2026-10-21T14:55:49.361Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb15813",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Sản Phẩm Dệt May Trong Nhà › Thảm",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.369Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Sản Phẩm Dệt May Trong Nhà › Thảm.",
+    "updatedAt": "2026-10-21T14:55:49.369Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb15817",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Làm Đẹp › Sản Phẩm Làm Đẹp › Chăm Sóc Răng Miệng",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.383Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Làm Đẹp › Sản Phẩm Làm Đẹp › Chăm Sóc Răng Miệng.",
+    "updatedAt": "2026-10-21T14:55:49.383Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb1581a",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Văn Phòng Phẩm › Dụng Cụ Văn Phòng › 449:MOBILE SUPPLIES",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.390Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Văn Phòng Phẩm › Dụng Cụ Văn Phòng › 449:MOBILE SUPPLIES.",
+    "updatedAt": "2026-10-21T14:55:49.390Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb1581e",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Phụ Kiện › Mũ Bảo Hiểm",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.401Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Phụ Kiện › Mũ Bảo Hiểm.",
+    "updatedAt": "2026-10-21T14:55:49.401Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb15821",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Sản Phẩm Dệt May Trong Nhà › Vỏ Chăn & Ga & Gối",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.407Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Sản Phẩm Dệt May Trong Nhà › Vỏ Chăn & Ga & Gối.",
+    "updatedAt": "2026-10-21T15:13:27.670Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb15825",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Làm Đẹp › Sản Phẩm Làm Đẹp › Chăm Sóc Răng Miệng › 431:ORAL CARE ITEMS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.418Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Làm Đẹp › Sản Phẩm Làm Đẹp › Chăm Sóc Răng Miệng › 431:ORAL CARE ITEMS.",
+    "updatedAt": "2026-10-21T14:55:49.418Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb15828",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Văn Phòng Phẩm › Dụng Cụ Văn Phòng › 509:REPORT › MEMO",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.425Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Văn Phòng Phẩm › Dụng Cụ Văn Phòng › 509:REPORT › MEMO.",
+    "updatedAt": "2026-10-21T14:55:49.425Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb1582c",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Phụ Kiện › Nón & Mũ",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.436Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Phụ Kiện › Nón & Mũ.",
+    "updatedAt": "2026-10-21T14:55:49.436Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb1582f",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Sản Phẩm Dệt May Trong Nhà › Vỏ Chăn & Ga & Gối › 260:FITTED SHEETS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.443Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Sản Phẩm Dệt May Trong Nhà › Vỏ Chăn & Ga & Gối › 260:FITTED SHEETS.",
+    "updatedAt": "2026-10-21T14:55:49.443Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb15833",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Làm Đẹp › Sản Phẩm Làm Đẹp › Chăm Sóc Toàn Thân",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.454Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Làm Đẹp › Sản Phẩm Làm Đẹp › Chăm Sóc Toàn Thân.",
+    "updatedAt": "2026-10-21T14:55:49.454Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb15836",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Văn Phòng Phẩm › Dụng Cụ Văn Phòng › 513:MECHANICAL PENCILS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.461Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Văn Phòng Phẩm › Dụng Cụ Văn Phòng › 513:MECHANICAL PENCILS.",
+    "updatedAt": "2026-10-21T14:55:49.461Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb1583a",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Phụ Kiện › Phụ Kiện Thời Trang",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.471Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Phụ Kiện › Phụ Kiện Thời Trang.",
+    "updatedAt": "2026-10-21T14:55:49.471Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb1583d",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Sản Phẩm Dệt May Trong Nhà › Vỏ Chăn & Ga & Gối › 262:PILLOW CASES",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.477Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Sản Phẩm Dệt May Trong Nhà › Vỏ Chăn & Ga & Gối › 262:PILLOW CASES.",
+    "updatedAt": "2026-10-21T14:55:49.477Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb15841",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Làm Đẹp › Sản Phẩm Làm Đẹp › Chăm Sóc Toàn Thân › 419:BODY SOAP&HAND SOAP",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.488Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Làm Đẹp › Sản Phẩm Làm Đẹp › Chăm Sóc Toàn Thân › 419:BODY SOAP&HAND SOAP.",
+    "updatedAt": "2026-10-21T14:55:49.488Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb15844",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Văn Phòng Phẩm › Dụng Cụ Đựng Tài Liệu",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.495Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Văn Phòng Phẩm › Dụng Cụ Đựng Tài Liệu.",
+    "updatedAt": "2026-10-21T14:55:49.495Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb15848",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Phụ Kiện › Tất › 134:SNEAKER IN SOCKS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.513Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Phụ Kiện › Tất › 134:SNEAKER IN SOCKS.",
+    "updatedAt": "2026-10-21T14:55:49.513Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb1584b",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Sản Phẩm Dệt May Trong Nhà › Vỏ Chăn & Ga & Gối › 272:CUSHION COVERS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.522Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Sản Phẩm Dệt May Trong Nhà › Vỏ Chăn & Ga & Gối › 272:CUSHION COVERS.",
+    "updatedAt": "2026-10-21T14:55:49.522Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb1584e",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Làm Đẹp › Sản Phẩm Làm Đẹp › Chăm Sóc Toàn Thân › 421:BODY CARE TOOLS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.531Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Làm Đẹp › Sản Phẩm Làm Đẹp › Chăm Sóc Toàn Thân › 421:BODY CARE TOOLS.",
+    "updatedAt": "2026-10-21T14:55:49.531Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb15851",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Văn Phòng Phẩm › Sổ Ghi Chú",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.541Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Văn Phòng Phẩm › Sổ Ghi Chú.",
+    "updatedAt": "2026-10-21T14:55:49.541Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb15855",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Phụ Kiện › Tất › 155:FOOT COVER",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.555Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Phụ Kiện › Tất › 155:FOOT COVER.",
+    "updatedAt": "2026-10-21T14:55:49.555Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb15858",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Sản Phẩm Dệt May Trong Nhà › Đệm Ngồi",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.563Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Sản Phẩm Dệt May Trong Nhà › Đệm Ngồi.",
+    "updatedAt": "2026-10-21T15:13:27.684Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb1585c",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Làm Đẹp › Sản Phẩm Làm Đẹp › Chăm Sóc Toàn Thân › 576:BRUSH",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.572Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Làm Đẹp › Sản Phẩm Làm Đẹp › Chăm Sóc Toàn Thân › 576:BRUSH.",
+    "updatedAt": "2026-10-21T14:55:49.572Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb1585f",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Văn Phòng Phẩm › Sổ Ghi Chú › 372:NOTEBOOKS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.578Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Văn Phòng Phẩm › Sổ Ghi Chú › 372:NOTEBOOKS.",
+    "updatedAt": "2026-10-21T14:55:49.578Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb15863",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Phụ Kiện › Tất › 157:SNEAKER IN SOCKS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.589Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Phụ Kiện › Tất › 157:SNEAKER IN SOCKS.",
+    "updatedAt": "2026-10-21T14:55:49.589Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb15866",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Sản Phẩm Dệt May Trong Nhà › Đệm Ngồi › 270:CUSHIONS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.595Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Sản Phẩm Dệt May Trong Nhà › Đệm Ngồi › 270:CUSHIONS.",
+    "updatedAt": "2026-10-21T14:55:49.595Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb1586c",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Phụ Kiện › Tất › 160:SHORT SOCKS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.615Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Phụ Kiện › Tất › 160:SHORT SOCKS.",
+    "updatedAt": "2026-10-21T14:55:49.615Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb1586f",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Sản Phẩm Dệt May Trong Nhà › Đệm Ngồi › 731:OTHER SEASONAL ITEMS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.621Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Sản Phẩm Dệt May Trong Nhà › Đệm Ngồi › 731:OTHER SEASONAL ITEMS.",
+    "updatedAt": "2026-10-21T14:55:49.621Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb15875",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Phụ Kiện › Tất › 163:SNEAKER IN SOCKS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.644Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Phụ Kiện › Tất › 163:SNEAKER IN SOCKS.",
+    "updatedAt": "2026-10-21T15:13:27.712Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb15878",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Đồ Dùng Gia Đình › Dụng Cụ Bàn Ăn",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.652Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Đồ Dùng Gia Đình › Dụng Cụ Bàn Ăn.",
+    "updatedAt": "2026-10-21T14:55:49.652Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb1587e",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Phụ Kiện › Tất › 164:SHORT SOCKS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.671Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Phụ Kiện › Tất › 164:SHORT SOCKS.",
+    "updatedAt": "2026-10-21T14:55:49.671Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb15881",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Đồ Dùng Gia Đình › Dụng Cụ Bàn Ăn › 408:BEVERAGES",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.677Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Đồ Dùng Gia Đình › Dụng Cụ Bàn Ăn › 408:BEVERAGES.",
+    "updatedAt": "2026-10-21T14:55:49.677Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb15887",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Phụ Kiện › Tất › 165:REGULAR SOCKS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.695Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Phụ Kiện › Tất › 165:REGULAR SOCKS.",
+    "updatedAt": "2026-10-21T14:55:49.695Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb1588a",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Đồ Dùng Gia Đình › Dụng Cụ Bàn Ăn › 409:LUNCH",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.702Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Đồ Dùng Gia Đình › Dụng Cụ Bàn Ăn › 409:LUNCH.",
+    "updatedAt": "2026-10-21T14:55:49.702Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb15890",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Phụ Kiện › Tất › 166:SNEAKER IN SOCKS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.720Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Phụ Kiện › Tất › 166:SNEAKER IN SOCKS.",
+    "updatedAt": "2026-10-21T14:55:49.720Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb15893",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Đồ Dùng Gia Đình › Dụng Cụ Bàn Ăn › 411:TABLEWARE",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.727Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Đồ Dùng Gia Đình › Dụng Cụ Bàn Ăn › 411:TABLEWARE.",
+    "updatedAt": "2026-10-21T14:55:49.727Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb15899",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Phụ Kiện › Tất › 167:FOOT COVER",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.745Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Phụ Kiện › Tất › 167:FOOT COVER.",
+    "updatedAt": "2026-10-21T14:55:49.745Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb1589c",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Đồ Dùng Gia Đình › Dụng Cụ Bàn Ăn › 413:TABLE LINEN",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.751Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Đồ Dùng Gia Đình › Dụng Cụ Bàn Ăn › 413:TABLE LINEN.",
+    "updatedAt": "2026-10-21T14:55:49.751Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb158a2",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Phụ Kiện › Tất › 326:SHORT SOCKS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.769Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Phụ Kiện › Tất › 326:SHORT SOCKS.",
+    "updatedAt": "2026-10-21T15:13:27.728Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb158a5",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Đồ Dùng Gia Đình › Dụng Cụ Nhà Bếp",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.776Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Đồ Dùng Gia Đình › Dụng Cụ Nhà Bếp.",
+    "updatedAt": "2026-10-21T14:55:49.776Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb158ab",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Phụ Kiện › Tất › 327:REGULAR SOCKS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.795Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Phụ Kiện › Tất › 327:REGULAR SOCKS.",
+    "updatedAt": "2026-10-21T15:13:27.744Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb158ae",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Đồ Dùng Gia Đình › Dụng Cụ Nhà Bếp › 400:KITCHEN CONSUMABLES",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.802Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Đồ Dùng Gia Đình › Dụng Cụ Nhà Bếp › 400:KITCHEN CONSUMABLES.",
+    "updatedAt": "2026-10-21T14:55:49.802Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb158b4",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Phụ Kiện › Váy Chống Nắng › 976:OTHERS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.821Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Phụ Kiện › Váy Chống Nắng › 976:OTHERS.",
+    "updatedAt": "2026-10-21T14:55:49.821Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb158b7",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Đồ Dùng Gia Đình › Dụng Cụ Nhà Bếp › 406:KITCHEN ACCESSORIES",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.830Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Đồ Dùng Gia Đình › Dụng Cụ Nhà Bếp › 406:KITCHEN ACCESSORIES.",
+    "updatedAt": "2026-10-21T14:55:49.830Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb158bd",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nam › Quần",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.849Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nam › Quần.",
+    "updatedAt": "2026-10-21T15:30:05.837Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb158c0",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Đồ Dùng Gia Đình › Dụng Cụ Nhà Bếp › 407:POTS&FRYING PANS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.858Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Đồ Dùng Gia Đình › Dụng Cụ Nhà Bếp › 407:POTS&FRYING PANS.",
+    "updatedAt": "2026-10-21T14:55:49.858Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb158c6",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nam › Quần › 019:BOTTOM",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.877Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nam › Quần › 019:BOTTOM.",
+    "updatedAt": "2026-10-21T14:55:49.877Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb158c9",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Đồ Dùng Gia Đình › Dụng Cụ Nhà Tắm",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.884Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Đồ Dùng Gia Đình › Dụng Cụ Nhà Tắm.",
+    "updatedAt": "2026-10-21T14:55:49.884Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb158cf",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nam › Quần › 036:DENIM",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.903Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nam › Quần › 036:DENIM.",
+    "updatedAt": "2026-10-21T14:55:49.903Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb158d2",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Đồ Dùng Gia Đình › Dụng Cụ Nhà Tắm › 582:SMALL CONTAINER",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.912Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Đồ Dùng Gia Đình › Dụng Cụ Nhà Tắm › 582:SMALL CONTAINER.",
+    "updatedAt": "2026-10-21T14:55:49.912Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb158d9",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nam › Quần › 038:EASY PANTS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.930Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nam › Quần › 038:EASY PANTS.",
+    "updatedAt": "2026-10-21T14:55:49.930Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb158dc",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Đồ Dùng Gia Đình › Dụng Cụ Vệ Sinh",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.940Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Đồ Dùng Gia Đình › Dụng Cụ Vệ Sinh.",
+    "updatedAt": "2026-10-21T14:55:49.940Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb158e2",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nam › Quần › 040:SHORTS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.957Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nam › Quần › 040:SHORTS.",
+    "updatedAt": "2026-10-21T14:55:49.957Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb158e5",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Đồ Dùng Gia Đình › Dụng Cụ Vệ Sinh › 397:DEODORANT ITEMS&INSECT REPELLENTS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.964Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Đồ Dùng Gia Đình › Dụng Cụ Vệ Sinh › 397:DEODORANT ITEMS&INSECT REPELLENTS.",
+    "updatedAt": "2026-10-21T14:55:49.964Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb158eb",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nam › Áo Khoác",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.981Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nam › Áo Khoác.",
+    "updatedAt": "2026-10-21T14:55:49.981Z"
+  },
+  {
+    "_id": "6ad8d27572a164dfbeb158ee",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Đồ Nội Thất › Bàn Ghế & Sofa",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:49.989Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Đồ Nội Thất › Bàn Ghế & Sofa.",
+    "updatedAt": "2026-10-21T14:55:49.989Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb158f4",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nam › Áo Khoác › 001:HIGH-GAUGE PULLOVER",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.007Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nam › Áo Khoác › 001:HIGH-GAUGE PULLOVER.",
+    "updatedAt": "2026-10-21T14:55:50.007Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb158f7",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Đồ Nội Thất › Bàn Ghế & Sofa › 300:DINING TABLES",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.014Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Đồ Nội Thất › Bàn Ghế & Sofa › 300:DINING TABLES.",
+    "updatedAt": "2026-10-21T14:55:50.014Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb158fd",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nam › Áo Khoác › 017:FLEECE PULLOVER",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.032Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nam › Áo Khoác › 017:FLEECE PULLOVER.",
+    "updatedAt": "2026-10-21T14:55:50.032Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb15900",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Đồ Nội Thất › Bàn Ghế & Sofa › 301:CHAIRS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.041Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Đồ Nội Thất › Bàn Ghế & Sofa › 301:CHAIRS.",
+    "updatedAt": "2026-10-21T14:55:50.041Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb15906",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nam › Áo Khoác › 030:JACKET",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.061Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nam › Áo Khoác › 030:JACKET.",
+    "updatedAt": "2026-10-21T14:55:50.061Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb15909",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Đồ Nội Thất › Bàn Ghế & Sofa › 560:GARDEN FURNITURE",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.069Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Đồ Nội Thất › Bàn Ghế & Sofa › 560:GARDEN FURNITURE.",
+    "updatedAt": "2026-10-21T14:55:50.069Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb1590f",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nam › Áo Khoác › 033:LIGHTWEIGHT DOWN",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.085Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nam › Áo Khoác › 033:LIGHTWEIGHT DOWN.",
+    "updatedAt": "2026-10-21T14:55:50.085Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb15912",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Đồ Nội Thất › Dụng Cụ Lưu Trữ",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.093Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Đồ Nội Thất › Dụng Cụ Lưu Trữ.",
+    "updatedAt": "2026-10-21T14:55:50.093Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb15918",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nam › Áo Sơ Mi",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.111Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nam › Áo Sơ Mi.",
+    "updatedAt": "2026-10-21T14:55:50.111Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb1591b",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Đồ Nội Thất › Dụng Cụ Lưu Trữ › 740:SUS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.120Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Đồ Nội Thất › Dụng Cụ Lưu Trữ › 740:SUS.",
+    "updatedAt": "2026-10-21T14:55:50.120Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb15921",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nam › Áo Sơ Mi › 022:L&S SHIRT",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.137Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nam › Áo Sơ Mi › 022:L&S SHIRT.",
+    "updatedAt": "2026-10-21T14:55:50.137Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb15924",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Đồ Nội Thất › Dụng Cụ Lưu Trữ › 986:STORAGES FOR EXHIBITION (NEW)",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.144Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Đồ Nội Thất › Dụng Cụ Lưu Trữ › 986:STORAGES FOR EXHIBITION (NEW).",
+    "updatedAt": "2026-10-21T14:55:50.144Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb1592a",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nam › Áo Sơ Mi › 023:S&S SHIRT",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.163Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nam › Áo Sơ Mi › 023:S&S SHIRT.",
+    "updatedAt": "2026-10-21T14:55:50.163Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb1592d",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Đồ Nội Thất › Giường & Nệm › 448:BED FRAMES",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.171Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Đồ Nội Thất › Giường & Nệm › 448:BED FRAMES.",
+    "updatedAt": "2026-10-21T14:55:50.171Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb15933",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nam › Áo Sơ Mi › 102:L&S BUSINESS SHIRTS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.188Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nam › Áo Sơ Mi › 102:L&S BUSINESS SHIRTS.",
+    "updatedAt": "2026-10-21T14:55:50.188Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb15936",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Đồ Nội Thất › Giường & Nệm › 449:SPRING MATTRESSES",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.195Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Đồ Nội Thất › Giường & Nệm › 449:SPRING MATTRESSES.",
+    "updatedAt": "2026-10-21T14:55:50.195Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb1593c",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nam › Áo Thun",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.213Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nam › Áo Thun.",
+    "updatedAt": "2026-10-21T14:55:50.213Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb1593f",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Đồ Nội Thất › Giường & Nệm › 450:STORAGE UNDER BED",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.220Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Đồ Nội Thất › Giường & Nệm › 450:STORAGE UNDER BED.",
+    "updatedAt": "2026-10-21T14:55:50.220Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb15945",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nam › Áo Thun › 009:L&S T-SHIRT",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.240Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nam › Áo Thun › 009:L&S T-SHIRT.",
+    "updatedAt": "2026-10-21T14:55:50.240Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb15948",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Đồ Nội Thất › Kệ Lưu Trữ",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.248Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Đồ Nội Thất › Kệ Lưu Trữ.",
+    "updatedAt": "2026-10-21T14:55:50.248Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb1594e",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nam › Áo Thun › 011:S&S T-SHIRT",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.265Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nam › Áo Thun › 011:S&S T-SHIRT.",
+    "updatedAt": "2026-10-21T14:55:50.265Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb15951",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Đồ Nội Thất › Kệ Lưu Trữ › 316:METALLIC STORAGE FURNITURE",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.273Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Đồ Nội Thất › Kệ Lưu Trữ › 316:METALLIC STORAGE FURNITURE.",
+    "updatedAt": "2026-10-21T14:55:50.273Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb15957",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nam › Đồ Lót",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.291Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nam › Đồ Lót.",
+    "updatedAt": "2026-10-21T14:55:50.291Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb1595a",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Đồ Nội Thất › Kệ Lưu Trữ › 330:METALLIC STORAGE",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.297Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Đồ Nội Thất › Kệ Lưu Trữ › 330:METALLIC STORAGE.",
+    "updatedAt": "2026-10-21T14:55:50.297Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb15960",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nam › Đồ Lót › 233:STAPLE INNERWEAR",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.316Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nam › Đồ Lót › 233:STAPLE INNERWEAR.",
+    "updatedAt": "2026-10-21T14:55:50.316Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb15963",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Đồ Nội Thất › Kệ Lưu Trữ › 460:DESKWARE",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.322Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Đồ Nội Thất › Kệ Lưu Trữ › 460:DESKWARE.",
+    "updatedAt": "2026-10-21T14:55:50.322Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb15969",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nam › Đồ Lót › 293:FUNCTIONAL INNERWEAR SUMMER",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.340Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nam › Đồ Lót › 293:FUNCTIONAL INNERWEAR SUMMER.",
+    "updatedAt": "2026-10-21T14:55:50.340Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb1596c",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Đồ Nội Thất › Kệ Lưu Trữ › 487:PP",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.346Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Đồ Nội Thất › Kệ Lưu Trữ › 487:PP.",
+    "updatedAt": "2026-10-21T14:55:50.346Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb15972",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nam › Đồ Lót › 294:FUNCTIONAL INNERWEAR WINTER",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.365Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nam › Đồ Lót › 294:FUNCTIONAL INNERWEAR WINTER.",
+    "updatedAt": "2026-10-21T14:55:50.365Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb15975",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Đồ Nội Thất › Kệ Lưu Trữ › 489:NATURAL MATERIAL UNITS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.372Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Đồ Nội Thất › Kệ Lưu Trữ › 489:NATURAL MATERIAL UNITS.",
+    "updatedAt": "2026-10-21T14:55:50.372Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb1597c",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nam › Đồ Mặc Nhà & Pyjama",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.393Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nam › Đồ Mặc Nhà & Pyjama.",
+    "updatedAt": "2026-10-21T14:55:50.393Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb1597f",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Đồ Nội Thất › Kệ Lưu Trữ › 491:OTHER STORAGE UNITS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.404Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Đồ Nội Thất › Kệ Lưu Trữ › 491:OTHER STORAGE UNITS.",
+    "updatedAt": "2026-10-21T14:55:50.404Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb15985",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nam › Đồ Mặc Nhà & Pyjama › 122:PAJAMAS L&S",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.424Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nam › Đồ Mặc Nhà & Pyjama › 122:PAJAMAS L&S.",
+    "updatedAt": "2026-10-21T14:55:50.424Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb15988",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Đồ Nội Thất › Kệ Lưu Trữ › 747:CRAFT PULP BOARD BOX",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.432Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Đồ Nội Thất › Kệ Lưu Trữ › 747:CRAFT PULP BOARD BOX.",
+    "updatedAt": "2026-10-21T14:55:50.432Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb1598e",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nam › Đồ Mặc Nhà & Pyjama › 398:CUT&SEWN PANTS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.449Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nam › Đồ Mặc Nhà & Pyjama › 398:CUT&SEWN PANTS.",
+    "updatedAt": "2026-10-21T14:55:50.449Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb15991",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Đồ Nội Thất › Phụ Kiện Trang Trí",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.455Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Đồ Nội Thất › Phụ Kiện Trang Trí.",
+    "updatedAt": "2026-10-21T14:55:50.455Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb15997",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nữ › Quần Dài",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.473Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nữ › Quần Dài.",
+    "updatedAt": "2026-10-21T14:55:50.473Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb1599a",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Đồ Nội Thất › Phụ Kiện Trang Trí › 581:MOBILE GOODS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.479Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Đồ Nội Thất › Phụ Kiện Trang Trí › 581:MOBILE GOODS.",
+    "updatedAt": "2026-10-21T14:55:50.479Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb159a0",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nữ › Quần Dài › 064:BOTTOMS&SKIRT",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.496Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nữ › Quần Dài › 064:BOTTOMS&SKIRT.",
+    "updatedAt": "2026-10-21T14:55:50.496Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb159a3",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Đồ Nội Thất › Phụ Kiện Trang Trí › 858:LARGE DECORS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.504Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Đồ Nội Thất › Phụ Kiện Trang Trí › 858:LARGE DECORS.",
+    "updatedAt": "2026-10-21T14:55:50.504Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb159a9",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nữ › Quần Dài › 084:DENIM",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.522Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nữ › Quần Dài › 084:DENIM.",
+    "updatedAt": "2026-10-21T15:13:27.760Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb159ac",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Đồ Nội Thất › Tinh Dầu & Nến & Dầu Thơm Nội Thất",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.531Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Đồ Nội Thất › Tinh Dầu & Nến & Dầu Thơm Nội Thất.",
+    "updatedAt": "2026-10-21T14:55:50.531Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb159b2",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nữ › Quần Dài › 086:EASY PANTS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.551Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nữ › Quần Dài › 086:EASY PANTS.",
+    "updatedAt": "2026-10-21T14:55:50.551Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb159b5",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Đồ Nội Thất › Tinh Dầu & Nến & Dầu Thơm Nội Thất › 436:INTERIOR FRAGRANCE OIL",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.559Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Đồ Nội Thất › Tinh Dầu & Nến & Dầu Thơm Nội Thất › 436:INTERIOR FRAGRANCE OIL.",
+    "updatedAt": "2026-10-21T14:55:50.559Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb159bb",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nữ › Quần Ngắn",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.577Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nữ › Quần Ngắn.",
+    "updatedAt": "2026-10-21T15:13:27.775Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb159be",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Đồ Điện Tử › Phụ Kiện Điện Tử",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.584Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Đồ Điện Tử › Phụ Kiện Điện Tử.",
+    "updatedAt": "2026-10-21T14:55:50.584Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb159c4",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nữ › Quần Ngắn › 088:CROPPED PANTS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.601Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nữ › Quần Ngắn › 088:CROPPED PANTS.",
+    "updatedAt": "2026-10-21T14:55:50.601Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb159c7",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Đồ Điện Tử › Quạt",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.607Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Đồ Điện Tử › Quạt.",
+    "updatedAt": "2026-10-21T14:55:50.607Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb159cd",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nữ › Quần Ngắn › 090:SHORTS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.625Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nữ › Quần Ngắn › 090:SHORTS.",
+    "updatedAt": "2026-10-21T14:55:50.625Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb159d0",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Đồ Điện Tử › Quạt › 762:HOME APPLIANCE MAINTENANCE PARTS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.632Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Đồ Điện Tử › Quạt › 762:HOME APPLIANCE MAINTENANCE PARTS.",
+    "updatedAt": "2026-10-21T14:55:50.632Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb159d6",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nữ › Váy",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.649Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nữ › Váy.",
+    "updatedAt": "2026-10-21T14:55:50.649Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb159d9",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Đồ Điện Tử › Đèn",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.655Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Đồ Điện Tử › Đèn.",
+    "updatedAt": "2026-10-21T14:55:50.655Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb159df",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nữ › Váy › 064:BOTTOMS&SKIRT",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.673Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nữ › Váy › 064:BOTTOMS&SKIRT.",
+    "updatedAt": "2026-10-21T14:55:50.673Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb159e2",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Đồ Điện Tử › Đèn › 350:PORTABLE LIGHTS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.679Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Đồ Điện Tử › Đèn › 350:PORTABLE LIGHTS.",
+    "updatedAt": "2026-10-21T14:55:50.679Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb159e8",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nữ › Váy › 091:SKIRT",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.697Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nữ › Váy › 091:SKIRT.",
+    "updatedAt": "2026-10-21T14:55:50.697Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb159eb",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Đồ Điện Tử › Đồng Hồ",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.704Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Đồ Điện Tử › Đồng Hồ.",
+    "updatedAt": "2026-10-21T14:55:50.704Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb159f1",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nữ › Áo Khoác",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.723Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nữ › Áo Khoác.",
+    "updatedAt": "2026-10-21T15:30:05.787Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb159f4",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › Đồ Điện Tử › Đồng Hồ › 341:CLOCKS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.730Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › Đồ Điện Tử › Đồng Hồ › 341:CLOCKS.",
+    "updatedAt": "2026-10-21T14:55:50.730Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb159fa",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nữ › Áo Khoác › 043:HIGH-GAUGE PULLOVER",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.750Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nữ › Áo Khoác › 043:HIGH-GAUGE PULLOVER.",
+    "updatedAt": "2026-10-21T14:55:50.750Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb159fd",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Nhà Cửa Đời Sống › ƯU ĐÃI ĐẶC BIỆT",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.760Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Nhà Cửa Đời Sống › ƯU ĐÃI ĐẶC BIỆT.",
+    "updatedAt": "2026-10-21T14:55:50.760Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb15a03",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nữ › Áo Khoác › 044:HIGH-GAUGE CARDIGAN",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.780Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nữ › Áo Khoác › 044:HIGH-GAUGE CARDIGAN.",
+    "updatedAt": "2026-10-21T14:55:50.780Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb15a0b",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nữ › Áo Khoác › 046:MID-GAUGE PULLOVER",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.811Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nữ › Áo Khoác › 046:MID-GAUGE PULLOVER.",
+    "updatedAt": "2026-10-21T14:55:50.811Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb15a12",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nữ › Áo Khoác › 047:MID-GAUGE CARDIGAN",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.836Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nữ › Áo Khoác › 047:MID-GAUGE CARDIGAN.",
+    "updatedAt": "2026-10-21T14:55:50.836Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb15a19",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nữ › Áo Khoác › 061:FLEECE PULLOVER",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.857Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nữ › Áo Khoác › 061:FLEECE PULLOVER.",
+    "updatedAt": "2026-10-21T14:55:50.857Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb15a20",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nữ › Áo Khoác › 076:NO LINING OUTER",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.881Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nữ › Áo Khoác › 076:NO LINING OUTER.",
+    "updatedAt": "2026-10-21T14:55:50.881Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb15a27",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nữ › Áo Khoác › 080:COTTON IN",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.904Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nữ › Áo Khoác › 080:COTTON IN.",
+    "updatedAt": "2026-10-21T14:55:50.904Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb15a2e",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nữ › Áo Khoác › 081:LIGHTWEIGHT DOWN",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.928Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nữ › Áo Khoác › 081:LIGHTWEIGHT DOWN.",
+    "updatedAt": "2026-10-21T14:55:50.928Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb15a35",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nữ › Áo Sơ Mi & Áo Kiểu",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.951Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nữ › Áo Sơ Mi & Áo Kiểu.",
+    "updatedAt": "2026-10-21T14:55:50.951Z"
+  },
+  {
+    "_id": "6ad8d27672a164dfbeb15a3c",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nữ › Áo Sơ Mi & Áo Kiểu › 068:L&S SHIRT",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:50.974Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nữ › Áo Sơ Mi & Áo Kiểu › 068:L&S SHIRT.",
+    "updatedAt": "2026-10-21T14:55:50.974Z"
+  },
+  {
+    "_id": "6ad8d27772a164dfbeb15a43",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nữ › Áo Sơ Mi & Áo Kiểu › 072:S&S SHIRT",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:51.001Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nữ › Áo Sơ Mi & Áo Kiểu › 072:S&S SHIRT.",
+    "updatedAt": "2026-10-21T14:55:51.001Z"
+  },
+  {
+    "_id": "6ad8d27772a164dfbeb15a4a",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nữ › Áo Thun",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:51.027Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nữ › Áo Thun.",
+    "updatedAt": "2026-10-21T14:55:51.027Z"
+  },
+  {
+    "_id": "6ad8d27772a164dfbeb15a51",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nữ › Áo Thun › 053:L&S T-SHIRT",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:51.056Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nữ › Áo Thun › 053:L&S T-SHIRT.",
+    "updatedAt": "2026-10-21T14:55:51.056Z"
+  },
+  {
+    "_id": "6ad8d27772a164dfbeb15a58",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nữ › Áo Thun › 055:S&S T-SHIRT",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:51.082Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nữ › Áo Thun › 055:S&S T-SHIRT.",
+    "updatedAt": "2026-10-21T14:55:51.082Z"
+  },
+  {
+    "_id": "6ad8d27772a164dfbeb15a5f",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nữ › Đầm",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:51.110Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nữ › Đầm.",
+    "updatedAt": "2026-10-21T14:55:51.110Z"
+  },
+  {
+    "_id": "6ad8d27772a164dfbeb15a66",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nữ › Đầm › 074:ONEPIECE & DRESS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:51.139Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nữ › Đầm › 074:ONEPIECE & DRESS.",
+    "updatedAt": "2026-10-21T14:55:51.139Z"
+  },
+  {
+    "_id": "6ad8d27772a164dfbeb15a6d",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nữ › Đồ Lót",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:51.164Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nữ › Đồ Lót.",
+    "updatedAt": "2026-10-21T14:55:51.164Z"
+  },
+  {
+    "_id": "6ad8d27772a164dfbeb15a74",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nữ › Đồ Lót › 138:SHORTS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:51.188Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nữ › Đồ Lót › 138:SHORTS.",
+    "updatedAt": "2026-10-21T14:55:51.188Z"
+  },
+  {
+    "_id": "6ad8d27772a164dfbeb15a7b",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nữ › Đồ Lót › 139:BRA",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:51.211Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nữ › Đồ Lót › 139:BRA.",
+    "updatedAt": "2026-10-21T14:55:51.211Z"
+  },
+  {
+    "_id": "6ad8d27772a164dfbeb15a83",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nữ › Đồ Lót › 143:CUPPED INNERWEAR",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:51.235Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nữ › Đồ Lót › 143:CUPPED INNERWEAR.",
+    "updatedAt": "2026-10-21T14:55:51.235Z"
+  },
+  {
+    "_id": "6ad8d27772a164dfbeb15a8a",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nữ › Đồ Mặc Nhà & Pyjama",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:51.257Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nữ › Đồ Mặc Nhà & Pyjama.",
+    "updatedAt": "2026-10-21T14:55:51.257Z"
+  },
+  {
+    "_id": "6ad8d27772a164dfbeb15a92",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nữ › Đồ Mặc Nhà & Pyjama › 146:WOMEN'S PAJAMAS L&S",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:51.277Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nữ › Đồ Mặc Nhà & Pyjama › 146:WOMEN'S PAJAMAS L&S.",
+    "updatedAt": "2026-10-21T14:55:51.277Z"
+  },
+  {
+    "_id": "6ad8d27772a164dfbeb15a99",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nữ › Đồ Mặc Nhà & Pyjama › 152:LONG PANTS",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:51.303Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nữ › Đồ Mặc Nhà & Pyjama › 152:LONG PANTS.",
+    "updatedAt": "2026-10-21T14:55:51.303Z"
+  },
+  {
+    "_id": "6ad8d27772a164dfbeb15aa0",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Nữ › Đồ Mặc Nhà & Pyjama › 263:LADIES L&S T",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:51.328Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Nữ › Đồ Mặc Nhà & Pyjama › 263:LADIES L&S T.",
+    "updatedAt": "2026-10-21T14:55:51.328Z"
+  },
+  {
+    "_id": "6ad8d27772a164dfbeb15aa7",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Trẻ Em › Em Bé",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:51.349Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Trẻ Em › Em Bé.",
+    "updatedAt": "2026-10-21T14:55:51.349Z"
+  },
+  {
+    "_id": "6ad8d27772a164dfbeb15aae",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Trẻ Em › Em Bé › 104:OUTER",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:51.370Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Trẻ Em › Em Bé › 104:OUTER.",
+    "updatedAt": "2026-10-21T14:55:51.370Z"
+  },
+  {
+    "_id": "6ad8d27772a164dfbeb15ab5",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Trẻ Em › Em Bé › 106:L&S T-SHIRT",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:51.391Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Trẻ Em › Em Bé › 106:L&S T-SHIRT.",
+    "updatedAt": "2026-10-21T14:55:51.391Z"
+  },
+  {
+    "_id": "6ad8d27772a164dfbeb15abc",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Trẻ Em › Em Bé › 110:SHIRT",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:51.414Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Trẻ Em › Em Bé › 110:SHIRT.",
+    "updatedAt": "2026-10-21T14:55:51.414Z"
+  },
+  {
+    "_id": "6ad8d27772a164dfbeb15ac3",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Trẻ Em › Trẻ Em",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:51.438Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Trẻ Em › Trẻ Em.",
+    "updatedAt": "2026-10-21T14:55:51.438Z"
+  },
+  {
+    "_id": "6ad8d27772a164dfbeb15aca",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Trẻ Em › Trẻ Em › 093:OUTER",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:51.460Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Trẻ Em › Trẻ Em › 093:OUTER.",
+    "updatedAt": "2026-10-21T14:55:51.460Z"
+  },
+  {
+    "_id": "6ad8d27772a164dfbeb15ad1",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Trẻ Em › Trẻ Em › 095:L&S T-SHIRT",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:51.482Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Trẻ Em › Trẻ Em › 095:L&S T-SHIRT.",
+    "updatedAt": "2026-10-21T14:55:51.482Z"
+  },
+  {
+    "_id": "6ad8d27772a164dfbeb15ad8",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Trẻ Em › Trẻ Em › 099:SHIRT",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:51.505Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Trẻ Em › Trẻ Em › 099:SHIRT.",
+    "updatedAt": "2026-10-21T14:55:51.505Z"
+  },
+  {
+    "_id": "6ad8d27772a164dfbeb15adf",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Trang Phục Trẻ Em › Trẻ Em › 108:CARDIGAN",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:51.527Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Trang Phục Trẻ Em › Trẻ Em › 108:CARDIGAN.",
+    "updatedAt": "2026-10-21T14:55:51.527Z"
+  },
+  {
+    "_id": "6ad8d27772a164dfbeb15ae6",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Túi",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:51.551Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Túi.",
+    "updatedAt": "2026-10-21T14:55:51.551Z"
+  },
+  {
+    "_id": "6ad8d27772a164dfbeb15aee",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Túi › Ba Lô",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:51.574Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Túi › Ba Lô.",
+    "updatedAt": "2026-10-21T14:55:51.574Z"
+  },
+  {
+    "_id": "6ad8d27772a164dfbeb15af5",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Túi › Túi xách",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:51.595Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Túi › Túi xách.",
+    "updatedAt": "2026-10-21T14:55:51.595Z"
+  },
+  {
+    "_id": "6ad8d27772a164dfbeb15afc",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Túi › Túi xách › 205:SHOULDER",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:51.617Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Túi › Túi xách › 205:SHOULDER.",
+    "updatedAt": "2026-10-21T14:55:51.617Z"
+  },
+  {
+    "_id": "6ad8d27772a164dfbeb15b03",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Túi › Vali › 439:HARD-SHELL SUITCASE",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:51.645Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Túi › Vali › 439:HARD-SHELL SUITCASE.",
+    "updatedAt": "2026-10-21T14:55:51.645Z"
+  },
+  {
+    "_id": "6ad8d27772a164dfbeb15b0a",
+    "shopId": "69f1b1cb00f071907a7e0fd4",
+    "name": "MUJI · Quần áo › Túi › Ví",
+    "__v": 0,
+    "createdAt": "2026-10-21T14:55:51.665Z",
+    "description": "Sản phẩm tham khảo từ MUJI Việt Nam: Quần áo › Túi › Ví.",
+    "updatedAt": "2026-10-21T14:55:51.665Z"
+  },
+  {
+    "_id": "6ae5ce366802e65a46062635",
+    "name": "Laptop",
+    "description": "Danh mục sản phẩm công nghệ tham khảo từ dữ liệu công khai.",
+    "shopId": "6ae5cccd3d0b883d3146c35a",
+    "createdAt": "2026-10-31T11:17:10.778Z",
+    "updatedAt": "2026-11-05T08:18:15.785Z",
+    "__v": 0
+  },
+  {
+    "_id": "6ae5ce366802e65a46062637",
+    "name": "Điện thoại",
+    "description": "Danh mục sản phẩm công nghệ tham khảo từ dữ liệu công khai.",
+    "shopId": "6ae5cccd3d0b883d3146c35a",
+    "createdAt": "2026-10-31T11:17:10.835Z",
+    "updatedAt": "2026-11-05T08:18:15.792Z",
+    "__v": 0
+  },
+  {
+    "_id": "6ae5ce366802e65a46062639",
+    "name": "Tai nghe",
+    "description": "Danh mục sản phẩm công nghệ tham khảo từ dữ liệu công khai.",
+    "shopId": "6ae5cccd3d0b883d3146c35a",
+    "createdAt": "2026-10-31T11:17:10.871Z",
+    "updatedAt": "2026-11-05T08:18:15.794Z",
+    "__v": 0
+  },
+  {
+    "_id": "6ae5ce366802e65a4606263b",
+    "name": "Loa",
+    "description": "Danh mục sản phẩm công nghệ tham khảo từ dữ liệu công khai.",
+    "shopId": "6ae5cccd3d0b883d3146c35a",
+    "createdAt": "2026-10-31T11:17:10.905Z",
+    "updatedAt": "2026-11-05T08:18:15.795Z",
+    "__v": 0
+  }
+]

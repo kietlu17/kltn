@@ -5,6 +5,7 @@ const mongoose = require('mongoose');
 const { connectMongo } = require('../config/db');
 const Product = require('../models/Product');
 const Category = require('../models/Category');
+const { canonicalPath, ensureCategoryPath } = require('../utils/categoryTaxonomy');
 const { initProducer, closeProducer, publishProductCreated } = require('../kafka/producer');
 
 const SHOP_ID = process.env.YODY_IMPORT_SHOP_ID || '69f1b1cb00f071907a7e0fd4';
@@ -132,12 +133,10 @@ async function main() {
         continue;
       }
       if (!categories.has(record.categoryName)) {
-        const name = `YODY · ${record.categoryName}`;
-        const category = await Category.findOneAndUpdate(
-          { name, shopId: SHOP_ID },
-          { $setOnInsert: { description: `Sản phẩm thời trang tham khảo từ ${name}.` } },
-          { new: true, upsert: true }
-        );
+        // Placed in the shared tree: Thời trang › Nữ › Áo thun nữ, ...
+        const category = await ensureCategoryPath(Category, canonicalPath(record.categoryName), SHOP_ID, {
+          description: `Sản phẩm thời trang tham khảo từ YODY · ${record.categoryName}.`
+        });
         categories.set(record.categoryName, category._id);
       }
       const product = await Product.create(buildProduct(record, categories.get(record.categoryName)));
