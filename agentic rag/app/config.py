@@ -61,9 +61,40 @@ class AgenticSettings:
     answer_temperature: float = field(
         default_factory=lambda: _bounded_float("AGENTIC_ANSWER_TEMPERATURE", 1.0, 0, 2)
     )
+    # "graph": every turn runs the fixed pipeline. "hybrid": advice turns
+    # (search, compare, multi-part questions) are run by a tool-calling
+    # advisor that decides what to look up; cart, checkout, orders and policy
+    # stay on the graph, and a failed advisor turn falls back to it.
+    agentic_mode: str = field(
+        default_factory=lambda: os.getenv("AGENTIC_MODE", "graph").strip().casefold()
+    )
+    # Tool-calling model of the advisor; empty uses the answer model.
+    advisor_model: str = field(default_factory=lambda: os.getenv("AGENTIC_ADVISOR_MODEL", "").strip())
+    advisor_max_steps: int = field(
+        default_factory=lambda: _bounded_int("AGENTIC_ADVISOR_MAX_STEPS", 4, 1, 8)
+    )
+    advisor_step_timeout: float = field(
+        default_factory=lambda: _bounded_float("AGENTIC_ADVISOR_STEP_TIMEOUT_SECONDS", 12, 2, 60)
+    )
     # Messages (user + assistant) the reply model reads as the conversation.
     answer_history_messages: int = field(
         default_factory=lambda: _bounded_int("AGENTIC_ANSWER_HISTORY_MESSAGES", 16, 2, 40)
+    )
+    # Session memory. The transcript keeps at most history_max messages;
+    # beyond that the oldest are folded into a rolling summary until only
+    # history_keep remain, so a summary call runs every few turns, not each.
+    history_keep_messages: int = field(
+        default_factory=lambda: _bounded_int("AGENTIC_HISTORY_KEEP_MESSAGES", 12, 4, 40)
+    )
+    history_max_messages: int = field(
+        default_factory=lambda: _bounded_int("AGENTIC_HISTORY_MAX_MESSAGES", 20, 6, 60)
+    )
+    summary_enabled: bool = field(
+        default_factory=lambda: os.getenv("AGENTIC_SUMMARY_ENABLED", "true").strip().casefold()
+        in {"1", "true", "yes", "on"}
+    )
+    summary_timeout: float = field(
+        default_factory=lambda: _bounded_float("AGENTIC_SUMMARY_TIMEOUT_SECONDS", 15, 2, 60)
     )
 
     @property
@@ -176,7 +207,7 @@ class AgenticSettings:
     # turn wins, so a slow gateway never drops the turn to the rule parser.
     decide_fallback_after: float = field(
         default_factory=lambda: _bounded_float(
-            "AGENTIC_DECIDE_FALLBACK_AFTER_SECONDS", 6, 0, 60
+            "AGENTIC_DECIDE_FALLBACK_AFTER_SECONDS", 2.5, 0, 60
         )
     )
     # How long a plain search waits for the semantic model before it runs

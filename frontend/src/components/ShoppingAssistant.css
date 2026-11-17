@@ -16,6 +16,8 @@
 .sa-speaker { font-size: 11px; color: #6b7280; display: block; margin-bottom: 5px; }
 .sa-message > p { margin: 0; white-space: pre-wrap; line-height: 1.6; padding: 12px 14px; border-radius: 4px 14px 14px; background: white; border: 1px solid #ececec; }
 .sa-user { margin-left: 35px; }
+/* The reply as it streams in; replaced by the final answer and its cards. */
+.sa-draft > p { color: #374151; border-style: dashed; }
 .sa-user .sa-speaker { text-align: right; }
 .sa-user > p { background: #fff0e9; border-color: #f7d7ca; border-radius: 14px 4px 14px 14px; }
 .sa-sent-image { width: 130px; max-height: 160px; object-fit: contain; border-radius: 10px; display: block; margin: 5px 0 5px auto; }
@@ -59,3 +61,5 @@
   .sa-launcher { padding: 11px 16px; font-size: 13px !important; }
   .sa-panel { width: calc(100vw - 24px); bottom: 58px; height: min(680px, calc(100dvh - 100px)); border-radius: 16px; }
 }
+
+.sa-rating { display: block; font-size: 12px; color: #b7791f; margin-top: 2px; }

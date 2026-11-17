@@ -127,6 +127,64 @@ async function getReviewSummaries(req, res) {
   }
 }
 
+function shortComment(text, limit = 220) {
+  const clean = String(text || '').replace(/\s+/g, ' ').trim();
+  return clean.length > limit ? `${clean.slice(0, limit - 1).trimEnd()}…` : clean;
+}
+
+// Rating, star distribution and a few representative comments for many
+// products at once, for the shopping assistant: the most useful praise and
+// the most useful criticism, newest first among equals.
+async function getReviewInsights(req, res) {
+  try {
+    const productIds = parseProductIds(req.query.ids, 50);
+    const perProduct = Math.max(1, Math.min(6, Number(req.query.comments) || 4));
+    if (!productIds.length) return res.json({ items: [] });
+    const reviews = await Review.find(
+      { productId: { $in: productIds } },
+      { productId: 1, rating: 1, comment: 1, userName: 1, createdAt: 1 }
+    ).sort({ createdAt: -1 }).lean();
+    const grouped = new Map(productIds.map((id) => [id, []]));
+    for (const review of reviews) grouped.get(String(review.productId))?.push(review);
+    const items = [];
+    for (const [productId, list] of grouped) {
+      if (!list.length) continue;
+      const ratingCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+      let total = 0;
+      for (const review of list) {
+        ratingCounts[review.rating] = (ratingCounts[review.rating] || 0) + 1;
+        total += review.rating;
+      }
+      const written = list.filter((review) => String(review.comment || '').trim().length >= 25);
+      const byLength = (a, b) => String(b.comment).length - String(a.comment).length;
+      const positive = written.filter((review) => review.rating >= 4).sort(byLength);
+      const critical = written.filter((review) => review.rating <= 3).sort((a, b) => a.rating - b.rating || byLength(a, b));
+      // Mostly praise when most buyers are happy, but always the worst
+      // complaint if there is one: that is what a careful buyer asks about.
+      const chosen = [];
+      const criticalSlots = critical.length ? Math.max(1, Math.round(perProduct * (critical.length / written.length))) : 0;
+      chosen.push(...critical.slice(0, Math.min(criticalSlots, perProduct - Math.min(1, positive.length))));
+      chosen.push(...positive.slice(0, perProduct - chosen.length));
+      if (chosen.length < perProduct) chosen.push(...critical.slice(chosen.length, perProduct));
+      items.push({
+        productId,
+        averageRating: Number((total / list.length).toFixed(2)),
+        reviewCount: list.length,
+        ratingCounts,
+        highlights: chosen.slice(0, perProduct).map((review) => ({
+          rating: review.rating,
+          comment: shortComment(review.comment),
+          userName: review.userName || 'Ẩn danh',
+          createdAt: review.createdAt,
+        })),
+      });
+    }
+    return res.json({ items });
+  } catch (err) {
+    return res.status(500).json({ message: 'Get review insights failed', error: err.message });
+  }
+}
+
 async function createReview(req, res) {
   try {
     const { userId, userName, rating, comment } = req.body;
@@ -163,4 +221,4 @@ async function createReview(req, res) {
   }
 }
 
-module.exports = { getReviewsByProduct, getReviewSummaries, createReview };
+module.exports = { getReviewsByProduct, getReviewSummaries, getReviewInsights, createReview };

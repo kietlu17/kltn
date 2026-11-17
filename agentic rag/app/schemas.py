@@ -112,6 +112,36 @@ class SemanticTask(BaseModel):
         return self
 
 
+ProfileKey = Literal[
+    "recipient",
+    "body",
+    "preferred_brands",
+    "avoided_brands",
+    "preferred_colors",
+    "avoided_colors",
+    "use_case",
+    "style",
+    "notes",
+]
+
+
+class ProfileUpdate(BaseModel):
+    """One lasting fact about the shopper said in this turn ("mua cho bố",
+    "mình cao 1m70 nặng 65kg", "đừng gợi ý Xiaomi"). value is the key's full
+    new value, already merged with what the profile held."""
+
+    key: ProfileKey
+    action: Literal["set", "remove"] = "set"
+    value: str = Field(default="", max_length=200)
+
+    @model_validator(mode="before")
+    @classmethod
+    def trim_value(cls, data):
+        if isinstance(data, dict) and isinstance(data.get("value"), str):
+            data = {**data, "value": data["value"].strip()[:200]}
+        return data
+
+
 class SemanticTurn(BaseModel):
     tasks: list[SemanticTask] = Field(default_factory=list, min_length=1, max_length=3)
     conversation_action: Literal["new", "continue", "switch", "resume", "clarify"] = "new"
@@ -122,6 +152,23 @@ class SemanticTurn(BaseModel):
     # The user's answer to the action waiting for confirmation (cart change,
     # checkout): typed "xác nhận" works like the confirm button.
     pending_decision: Literal["none", "confirm", "cancel"] = "none"
+    # Lasting facts about the shopper from this message only; empty when the
+    # message adds none. Kept in the session's shopper_profile.
+    profile_updates: list[ProfileUpdate] = Field(default_factory=list, max_length=6)
+    # The whole message rewritten to stand on its own, references resolved
+    # from the conversation ("cái thứ 2 bảo hành bao lâu" -> "Laptop Asus
+    # Vivobook 15 bảo hành bao lâu?"). The retrieval fallback when a task has
+    # no query, and what the turn log records as the understood request.
+    standalone_query: str = Field(default="", max_length=500)
+
+    @model_validator(mode="before")
+    @classmethod
+    def trim_profile_updates(cls, data):
+        if isinstance(data, dict) and isinstance(data.get("profile_updates"), list):
+            data = {**data, "profile_updates": data["profile_updates"][:6]}
+        if isinstance(data, dict) and isinstance(data.get("standalone_query"), str):
+            data = {**data, "standalone_query": " ".join(data["standalone_query"].split())[:500]}
+        return data
 
     @model_validator(mode="after")
     def validate_clarification(self):
@@ -274,6 +321,12 @@ class ProductCard(BaseModel):
     score: float | None = None
     variants: list[ProductVariant] = Field(default_factory=list)
     specifications: list[dict[str, str]] = Field(default_factory=list)
+    # Buyers' reviews from review-service: average stars, count, star
+    # distribution and a few representative comments (praise and complaints).
+    rating: float | None = None
+    reviewCount: int = 0
+    ratingCounts: dict[str, int] = Field(default_factory=dict)
+    reviewHighlights: list[dict] = Field(default_factory=list)
 
 
 class PolicySource(BaseModel):
@@ -349,6 +402,8 @@ class OrderDecision(BaseModel):
     action: Literal["add", "update", "remove", "clarify"] = "clarify"
     line_index: int | None = Field(default=None, ge=1, le=50)
     variant_index: int | None = Field(default=None, ge=1, le=50)
+    # "lấy cả L và XL": every variant the customer named, when more than one.
+    variant_indices: list[Annotated[int, Field(ge=1, le=50)]] = Field(default_factory=list, max_length=12)
     quantity: int | None = Field(default=None, ge=1, le=100)
     clarification: str = Field(default="", max_length=500)
     confidence: float = Field(default=0, ge=0, le=1)
@@ -388,6 +443,14 @@ class ChatRequest(BaseModel):
     cancelActionId: str | None = Field(default=None, min_length=8, max_length=128)
     # Photo search: a data URL or bare base64 JPEG/PNG/WebP (5 MB decoded).
     image: str | None = Field(default=None, max_length=7_200_000)
+    # Checkbox pickers of the widget: the variants of referenceProductId to
+    # add to the cart, and the cart lines ("<productId>::<variantId>") to pay.
+    variantIds: list[Annotated[str, Field(pattern=r"^[a-fA-F0-9]{24}$")]] | None = Field(
+        default=None, max_length=12
+    )
+    checkoutLineIds: list[
+        Annotated[str, Field(pattern=r"^[a-fA-F0-9]{24}::(?:[a-fA-F0-9]{24})?$")]
+    ] | None = Field(default=None, max_length=20)
 
     @model_validator(mode="after")
     def require_input(self):
@@ -398,9 +461,16 @@ class ChatRequest(BaseModel):
                 self.referenceProductId,
                 self.confirmActionId,
                 self.cancelActionId,
+                self.checkoutLineIds,
             ]
         ):
             raise ValueError("Nhập yêu cầu hoặc chọn một hành động.")
+        if self.variantIds is not None and not self.referenceProductId:
+            raise ValueError("Chọn biến thể cần kèm sản phẩm.")
+        if self.variantIds is not None and not self.variantIds:
+            raise ValueError("Hãy chọn ít nhất một phiên bản.")
+        if self.checkoutLineIds is not None and not self.checkoutLineIds:
+            raise ValueError("Hãy chọn ít nhất một sản phẩm để thanh toán.")
         return self
 
 
@@ -416,6 +486,9 @@ class ChatResponse(BaseModel):
     sources: list[PolicySource] = Field(default_factory=list)
     suggestions: list[str] = Field(default_factory=list)
     handoff: bool = False
+    # A checkbox picker the widget renders under the answer: variants to add
+    # ("variant_select") or cart lines to pay ("checkout_select").
+    selection: dict | None = None
 
 
 class AgentState(TypedDict, total=False):
@@ -424,6 +497,12 @@ class AgentState(TypedDict, total=False):
     role: str
     session_id: str
     history: list[dict]
+    # Session memory beyond the transcript window: a rolling summary of the
+    # turns that left it, the messages still waiting to be folded in, and the
+    # lasting facts the shopper said about themselves.
+    conversation_summary: str
+    summary_backlog: list[dict]
+    shopper_profile: dict[str, str]
     request: Annotated[dict, UntrackedValue(dict)]
     understanding: dict
     semantic_turn: dict
@@ -433,6 +512,8 @@ class AgentState(TypedDict, total=False):
     last_search: dict
     plan: dict
     query: str
+    # This turn's message rewritten to stand on its own (SemanticTurn).
+    standalone_query: Annotated[str, UntrackedValue(str)]
     retrieval_rounds: int
     retrieval_hits: Annotated[list[dict], UntrackedValue(list)]
     products: Annotated[list[dict], UntrackedValue(list)]
@@ -443,6 +524,9 @@ class AgentState(TypedDict, total=False):
     focused_products: list[dict]
     active_product_id: str | None
     selected_options: dict[str, list[str]]
+    # Cart lines ("<productId>::<variantId>") this chat added, so "thanh toán
+    # áo thun" pre-selects the shirt added here, not an older one in the cart.
+    cart_lines_added: list[str]
     shopping_phase: ShoppingPhase
     route: str
     warnings: list[str]
@@ -460,4 +544,12 @@ class AgentState(TypedDict, total=False):
     last_clarify_key: str
     session_expires_at: float
     committed: bool
+    # Hybrid mode: the tool-calling advisor's reply, or that it failed and
+    # the turn fell back to the graph.
+    advisor_answer: Annotated[str, UntrackedValue(str)]
+    advisor_failed: Annotated[bool, UntrackedValue(bool)]
+    # The other product searches of one message ("và 1 cái tất") and what
+    # search_side found for each.
+    extra_searches: Annotated[list[dict], UntrackedValue(list)]
+    extra_results: Annotated[list[dict], UntrackedValue(list)]
 

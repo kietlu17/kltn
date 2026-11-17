@@ -1,0 +1,150 @@
+---
+title: System Use Case Diagram - E-commerce Microservices
+config:
+  theme: base
+  themeCSS: ".usecase-actor .usecase-actor-stick { stroke: #222 !important; fill: #fff !important; stroke-width: 1.5px !important; } .usecase-actor.admin .usecase-actor-stick { stroke: #A0574A !important; fill: #E8C9C2 !important; } .usecase-actor.sys .usecase-actor-stick { stroke: #555 !important; fill: #eee !important; } .usecase-ellipse .label-container { fill: #FCF3CF !important; stroke: #B8A060 !important; stroke-width: 1px !important; } .usecase-system-boundary .boundary-body, .usecase-system-boundary rect, .usecase-system-boundary path { fill: #fff !important; stroke: #222 !important; stroke-width: 1px !important; filter: none !important; } .system-boundary-title, .system-boundary-title * { font-family: Source Sans Pro, Segoe UI, Arial, sans-serif !important; } .relationship-association, .relationship-generalization { stroke: #333 !important; stroke-width: 1px !important; }"
+  themeVariables:
+    fontFamily: "Source Sans Pro, Segoe UI, Arial, sans-serif"
+    lineColor: "#333333"
+    primaryTextColor: "#222222"
+---
+usecase-beta
+direction LR
+
+%% ===== Actors =====
+actor Guest("Guest")
+actor Buyer("Buyer")
+actor Seller("Seller")
+actor Admin("Admin")
+actor SePay("SePay Payment Gateway")
+actor Carrier("Shipping Carrier")
+actor Scheduler("Settlement Scheduler")
+
+%% ===== System boundary =====
+systemBoundary Store["E-commerce Platform"]
+  Register("Register Account")
+  Login("Log In")
+  Profile("Manage Profile")
+  Address("Manage Addresses")
+
+  BrowseCategory("Browse Categories")
+  SearchProduct("Search & Filter Products")
+  ViewProduct("View Product Details")
+  ViewShop("View Shop")
+  ViewReview("View Product Reviews")
+
+  ManageCart("Manage Cart")
+  PlaceOrder("Place Order")
+  ApplyVoucher("Apply Voucher")
+  PayOrder("Pay for Order")
+  PayWallet("Pay with Wallet")
+  PayQR("Pay via SePay QR")
+  PayCOD("Cash on Delivery")
+  TrackOrder("Track Order")
+  CancelOrder("Cancel Order")
+  Dispute("Open Dispute")
+  WriteReview("Review Product")
+
+  TopUp("Top Up Wallet")
+  Withdraw("Withdraw from Wallet")
+  WalletHistory("View Transaction History")
+
+  ChatAI("Chat with AI Assistant")
+  AIAdvise("Get Product Advice & Comparison")
+  AICart("Manage Cart via Chat")
+  AIOrderPolicy("Check Orders & Policies via Chat")
+  ChatSeller("Message Seller")
+
+  ManageShop("Manage Shop")
+  ManageProduct("Manage Products")
+  ManageInventory("Manage Inventory")
+  ShopCategory("Manage Shop Categories")
+  ProcessOrder("Process Orders")
+  ShopVoucher("Manage Shop Vouchers")
+  SalesStats("View Sales Statistics")
+  ShopPayout("Manage Shop Balance & Payouts")
+  InvoiceRequest("Request Invoice Feature")
+  ReplyChat("Reply to Customer Messages")
+
+  ManageUser("Manage Users")
+  ModerateProduct("Moderate Products")
+  PlatformCategory("Manage Platform Categories")
+  ManageAllOrders("Manage All Orders")
+  ResolveDispute("Resolve Disputes")
+  PlatformVoucher("Manage Platform Vouchers")
+  ApproveInvoice("Approve Invoice Requests")
+  Settlement("Settlement & Payouts")
+end
+
+%% ===== Guest =====
+Guest -- Register
+Guest -- Login
+Guest -- BrowseCategory
+Guest -- SearchProduct
+Guest -- ViewProduct
+Guest -- ViewShop
+Guest -- ViewReview
+Guest -- ChatAI
+
+%% ===== Buyer (inherits Guest) =====
+Buyer --|> Guest
+Buyer -- Profile
+Buyer -- Address
+Buyer -- ManageCart
+Buyer -- PlaceOrder
+Buyer -- TrackOrder
+Buyer -- CancelOrder
+Buyer -- Dispute
+Buyer -- WriteReview
+Buyer -- TopUp
+Buyer -- Withdraw
+Buyer -- WalletHistory
+Buyer -- ChatSeller
+
+%% ===== Seller =====
+Login -- Seller
+ManageShop -- Seller
+ManageProduct -- Seller
+ManageInventory -- Seller
+ShopCategory -- Seller
+ProcessOrder -- Seller
+ShopVoucher -- Seller
+SalesStats -- Seller
+ShopPayout -- Seller
+InvoiceRequest -- Seller
+ReplyChat -- Seller
+
+%% ===== Admin =====
+Login -- Admin
+ManageUser -- Admin
+ModerateProduct -- Admin
+PlatformCategory -- Admin
+ManageAllOrders -- Admin
+ResolveDispute -- Admin
+PlatformVoucher -- Admin
+ApproveInvoice -- Admin
+Settlement -- Admin
+
+%% ===== External systems =====
+PayQR -- SePay
+TopUp -- SePay
+TrackOrder -- Carrier
+ProcessOrder -- Carrier
+Settlement -- Scheduler
+
+%% ===== include / extend =====
+PlaceOrder ..>:include PayOrder
+PlaceOrder ..>:include Address
+ApplyVoucher ..>:extend PlaceOrder
+PayWallet ..>:extend PayOrder
+PayQR ..>:extend PayOrder
+PayCOD ..>:extend PayOrder
+AIAdvise ..>:extend ChatAI
+AICart ..>:extend ChatAI
+AIOrderPolicy ..>:extend ChatAI
+
+%% ===== Style =====
+classDef admin fill:#E8C9C2,stroke:#A0574A
+classDef sys fill:#EEEEEE,stroke:#555555
+class Admin admin
+class SePay,Carrier,Scheduler sys

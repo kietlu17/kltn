@@ -267,7 +267,51 @@ class MarketplaceClient:
             cards.append(card.model_dump())
             if len(cards) >= limit:
                 break
+        insights = await self.review_insights([card["id"] for card in cards])
+        for card in cards:
+            review = insights.get(card["id"])
+            if review:
+                card.update(review)
         return cards
+
+    async def review_insights(self, product_ids: list[str]) -> dict[str, dict]:
+        """Buyers' reviews per product, keyed by product id. Reviews only
+        enrich the cards: when review-service is slow or down the cards are
+        returned without them."""
+        ids = list(dict.fromkeys(item for item in product_ids if item))[:50]
+        review_url = getattr(self.settings, "review_url", "")
+        if not ids or not review_url:
+            return {}
+        try:
+            response = await self.http.get(
+                f"{review_url}/reviews/products/insights",
+                params={"ids": ",".join(ids), "comments": 4},
+                timeout=getattr(self.settings, "review_timeout", 2.0),
+            )
+            body = await self._json(response)
+        except Exception:
+            return {}
+        result: dict[str, dict] = {}
+        for item in (body.get("items") or []) if isinstance(body, dict) else []:
+            if not isinstance(item, dict) or not item.get("productId") or not item.get("reviewCount"):
+                continue
+            result[str(item["productId"])] = {
+                "rating": round(float(item.get("averageRating") or 0), 1),
+                "reviewCount": int(item.get("reviewCount") or 0),
+                "ratingCounts": {
+                    str(key): int(value or 0)
+                    for key, value in (item.get("ratingCounts") or {}).items()
+                },
+                "reviewHighlights": [
+                    {
+                        "rating": int(entry.get("rating") or 0),
+                        "comment": _plain_text(entry.get("comment"), 240),
+                    }
+                    for entry in (item.get("highlights") or [])[:4]
+                    if isinstance(entry, dict) and _plain_text(entry.get("comment"), 240)
+                ],
+            }
+        return result
 
     async def product_card(
         self, product_id: str, filters: SearchFilters | None = None

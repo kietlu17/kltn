@@ -20,8 +20,10 @@ import re
 from langgraph.graph import END, START, StateGraph
 
 from .agents import OrderAgent, ProductAgent
+from .agents.advisor import ShoppingAdvisor
 from .agents.order import ORDER_NODES
 from .config import AgenticSettings
+from .memory import apply_profile_updates, memory_context, memory_note, resolved_message
 from .conversation import (  # noqa: F401 - re-exported for callers and tests
     _last_assistant_message,
     _INTENT_LABELS,
@@ -38,16 +40,21 @@ from .conversation import (  # noqa: F401 - re-exported for callers and tests
     _merge_selected_options,
     _next_relaxation,
     _normalized,
+    _price_text,
     _requests_purchase,
     _search_template_answer,
     _shopping_phase,
     _size_tokens,
     _sync_context_from_filters,
 )
+from .search_parser import _money as _parse_money
 from .search_parser import (
+    mentions_other_product,
     parse_checkout_turn,
+    parse_followup_turn,
     parse_policy_turn,
     parse_search_turn,
+    parse_smalltalk_turn,
     reconcile_turn,
 )
 from .schemas import (
@@ -76,7 +83,9 @@ _CONFIRM_REPLY = re.compile(
     r"thanh toan di|dat hang di)"
 )
 _CANCEL_REPLY = re.compile(
-    r"(?:huy|huy di|khong|ko|thoi|thoi khoi|bo qua|cancel|khong them|de sau|chua|chua can)"
+    r"(?:huy|huy di|huy nhe|khong|ko|thoi|thoi khoi|thoi khong|thoi khong can|thoi bo|bo qua|bo di|"
+    r"cancel|khong them|khong can|khong can dau|khong can nua|khong lay|khong mua|khong dat|de sau|"
+    r"chua|chua can|chua can dau|chua can nua|de khi khac)"
 )
 
 
@@ -112,11 +121,158 @@ def _soften(constraint: SemanticConstraint) -> SemanticConstraint:
     return constraint.model_copy(update={"strength": "soft"})
 
 
+# A message with several product searches: results kept for the main one
+# and shown for each other one.
+_MAIN_RESULTS_WITH_EXTRAS = 4
+_EXTRA_SEARCH_RESULTS = 3
+# Order-agent intents answered from the customer's real cart or orders.
+_CART_READING_INTENTS = {"checkout", "cart_view", "cart_update", "cart_remove", "order_status"}
+# Matched on _normalized text: a bare "yes" to the assistant's question.
+_AFFIRMATION = re.compile(
+    r"^(?:dung|dung roi|dung vay|dung the|phai|phai roi|u|uh|um|uhm|vang|da|da dung|co|ok|oke|okay|yes|chuan|chinh xac)"
+    r"(?:\s+(?:roi|a|nhe|nha|ban|em|shop|vay))*[\s.!]*$"
+)
+# A clarification that only re-states the request and asks for a yes/no.
+_CONFIRMING_QUESTION = re.compile(r"\b(?:dung khong|phai khong|co phai|dung chua|phai chu)\b")
+
+
+def _clarified_search(turn: SemanticTurn, state: AgentState, message: str) -> SemanticTurn | None:
+    """A product search to run instead of another clarifying question.
+
+    The assistant asks at most once in a row: right after a clarification
+    the customer's answer ("áo thun", "đúng") is joined with the request it
+    answers. A question that only asks "…đúng không?" about a search the
+    model already understood is skipped too. None keeps the clarification.
+    """
+    search = next(
+        (
+            task for task in turn.tasks
+            if task.intent == "product_search" and re.search(r"\w{2,}", task.query)
+        ),
+        None,
+    )
+    question = _normalized(turn.clarification_question or "")
+    confirming = bool(_CONFIRMING_QUESTION.search(question))
+    if search and confirming:
+        return turn.model_copy(update={"tasks": [search], "needs_clarification": False,
+                                       "clarification_question": "", "conversation_action": "continue"})
+    if int(state.get("clarify_count") or 0) < 1:
+        return None
+    # Only when the need is already understood: the model now only asks
+    # "…đúng không?", the customer said yes to such a question, or the model
+    # proposes a search it is fairly sure of. A vague "cái đó đó" keeps being
+    # asked (and is escalated by clarify_guard).
+    last_question = _normalized(_last_assistant_message(state.get("history") or []))
+    said_yes = bool(
+        _CONFIRMING_QUESTION.search(last_question) and _AFFIRMATION.match(_normalized(message).strip())
+    )
+    if not (confirming or said_yes or (search and turn.confidence >= 0.5)):
+        return None
+    if search:
+        query = search.query.strip()
+    else:
+        # The model gave no search: rebuild it from what the customer said
+        # since the first question (its request included), dropping bare
+        # yes-words.
+        asked = int(state.get("clarify_count") or 0)
+        said = [
+            str(item.get("content") or "")
+            for item in (state.get("history") or [])
+            if item.get("role") == "user"
+        ][-asked:] + [message]
+        parts = [
+            text.strip() for text in said
+            if text.strip() and not _AFFIRMATION.match(_normalized(text).strip())
+            and text.strip() != "[Hành động UI]"
+        ]
+        query = " ".join(dict.fromkeys(parts))[:300]
+        if not query:
+            return None
+        search = SemanticTask(intent="product_search", query=query)
+    return turn.model_copy(update={
+        "tasks": [search.model_copy(update={"query": query})],
+        "needs_clarification": False,
+        "clarification_question": "",
+        "conversation_action": "continue",
+        "focus_update": "replace",
+        "confidence": max(turn.confidence, 0.6),
+    })
+
+
+def _ui_selection_intent(request: dict) -> str | None:
+    """The intent of a turn sent from a checkbox picker of the widget."""
+    if request.get("confirmActionId") or request.get("cancelActionId"):
+        return None
+    if request.get("variantIds") and request.get("referenceProductId"):
+        return "cart_add"
+    if request.get("checkoutLineIds"):
+        return "checkout"
+    return None
+
+
+_GENERIC_CLARIFICATIONS = {
+    "ban co the noi ro hon san pham hoac nhu cau can ho tro khong",
+    "minh chua hieu chac yeu cau ban muon tim san pham hoi chinh sach hay thao tac voi don hang",
+}
+
+
+def _is_generic_clarification(question: str) -> bool:
+    key = " ".join(re.findall(r"[a-z0-9]+", _normalized(question or "")))
+    return not key or key in _GENERIC_CLARIFICATIONS
+
+
+def _contextual_clarification(profile: dict, last_search: dict) -> str | None:
+    """A clarifying question built from what the customer already said."""
+    recipient = str((profile or {}).get("recipient") or "").strip()
+    use_case = str((profile or {}).get("use_case") or "").strip()
+    if recipient:
+        hint = f" để {use_case}" if use_case else ""
+        return (
+            f"Bạn muốn tìm món gì cho {recipient}{hint}: đồ công nghệ (điện thoại, tai nghe, đồng hồ), "
+            "đồ chăm sóc sức khỏe hay quần áo, phụ kiện? Ngân sách khoảng bao nhiêu để mình gợi ý sát hơn?"
+        )
+    kind = str((last_search or {}).get("product_type") or "").strip()
+    if kind:
+        return (
+            f"Bạn đang hỏi thêm về {kind} vừa xem hay muốn tìm món khác? "
+            "Nói mình tiêu chí bạn quan tâm (giá, hãng, tính năng) nhé."
+        )
+    return None
+
+
+def _price_value(value) -> float | None:
+    """A price constraint's value in VND: a number, a numeric string or a
+    phrase with an amount ("8 triệu"); None when it states no amount."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value) if value >= 0 else None
+    if isinstance(value, str):
+        match = re.search(
+            r"(\d+(?:[.,]\d+)*)\s*(trieu|nghin|ngan|dong|vnd|tr|cu|k|d)?(?![a-z])",
+            _normalized(value),
+        )
+        if not match:
+            return None
+        amount = _parse_money(match.group(1), match.group(2))
+        if amount is None and not match.group(2):
+            # A bare small number is not a price for the text parser, but a
+            # price slot holding "8000000" or "500" is one.
+            try:
+                amount = float(match.group(1).replace(",", "."))
+            except ValueError:
+                return None
+        return amount
+    return None
+
+
 def _pending_reply(message: str) -> str | None:
     """'confirm' / 'cancel' when the whole message only answers the action
     waiting for confirmation; anything longer goes to the model."""
     text = re.sub(r"[^\w\s]", " ", _normalized(message)).split()
-    phrase = " ".join(word for word in text if word not in {"nhe", "nha", "a", "ban", "minh", "giup"})
+    phrase = " ".join(
+        word for word in text if word not in {"nhe", "nha", "a", "ban", "minh", "giup", "oi", "shop"}
+    )
     if not phrase or len(text) > 5:
         return None
     if _CONFIRM_REPLY.fullmatch(phrase):
@@ -259,6 +415,7 @@ class AgenticShoppingGraph:
             policy=policy, reranker=reranker, visual=visual,
         )
         self.order_agent = OrderAgent(settings, models_gateway, marketplace)
+        self.advisor = ShoppingAdvisor(settings, models_gateway, retriever, marketplace)
         self.graph = self._compile(checkpointer)
 
     # Product answers are composed from catalog facts by the product agent.
@@ -273,6 +430,7 @@ class AgenticShoppingGraph:
         builder.add_node("general", self.general)
         builder.add_node("collect", self.collect)
         builder.add_node("finalize", self.finalize)
+        builder.add_node("search_side", self.search_side)
         builder.add_edge(START, "understand")
         builder.add_edge("understand", "resolve_context")
         builder.add_edge("resolve_context", "plan")
@@ -280,7 +438,15 @@ class AgenticShoppingGraph:
         self.order_agent.register(builder, join="collect")
         # The main route and the side branches (policy, web research) run in
         # the same superstep; finalize waits for all of them.
+        builder.add_node("advisor", self.run_advisor)
+        # A failed advisor turn continues on the route the graph planned.
+        builder.add_conditional_edges(
+            "advisor",
+            self.route_after_advisor,
+            {"collect": "collect", "retrieve": "retrieve", "product_detail": "product_detail"},
+        )
         routes = {
+            "advisor": "advisor",
             "browse_categories": "browse_categories",
             "product_search": "retrieve",
             "product_detail": "product_detail",
@@ -289,12 +455,13 @@ class AgenticShoppingGraph:
             "general": "general",
             "policy_side": "policy_side",
             "research_side": "research_side",
+            "search_side": "search_side",
             **{node: node for node in ORDER_NODES},
         }
         builder.add_conditional_edges("plan", self.route_after_plan, routes)
         for node in ("clarify_guard", "general"):
             builder.add_edge(node, "collect")
-        builder.add_edge(["collect", "policy_side", "research_side"], "finalize")
+        builder.add_edge(["collect", "policy_side", "research_side", "search_side"], "finalize")
         builder.add_edge("finalize", END)
         return builder.compile(checkpointer=checkpointer)
 
@@ -343,6 +510,19 @@ class AgenticShoppingGraph:
         turn = None if llm_first else _deterministic_turn(
             message, history, active_product_id, selected
         )
+        ui_intent = _ui_selection_intent(state.get("request") or {})
+        if ui_intent:
+            # Boxes ticked in the widget's picker: the request names exactly
+            # what to add or pay, so no model reads the message.
+            return {
+                "semantic_turn": SemanticTurn(
+                    tasks=[SemanticTask(intent=ui_intent, query=message)],
+                    conversation_action="continue",
+                    confidence=1,
+                ).model_dump(),
+                "understanding": {},
+                "warnings": [*warnings, "UI_SELECTION"],
+            }
         pending_reply = _pending_reply(message) if state.get("pending_action") else None
         if pending_reply and not (state.get("request") or {}).get("image"):
             # A bare "xác nhận" / "thôi" answers the waiting action at once:
@@ -404,7 +584,16 @@ class AgenticShoppingGraph:
                     _deterministic_turn(message, history, active_product_id, selected)
                     if llm_first
                     else None
-                ) or parsed or _deterministic_turn(
+                ) or parsed or (
+                    # A product in focus blocks the strict parse (a bare "màu
+                    # đen" is a variant pick), but a named product kind is a
+                    # new search; with the model down, nothing else reads it.
+                    parse_search_turn(message)
+                    if active_product_id and mentions_other_product(message)
+                    else None
+                ) or parse_smalltalk_turn(message) or parse_followup_turn(
+                    message, state.get("last_search") or {}
+                ) or _deterministic_turn(
                     message, history, active_product_id, selected, short_only=False
                 ) or (
                     # The loose parse turns long sentences into nonsense
@@ -440,6 +629,34 @@ class AgenticShoppingGraph:
                     or "Bạn có thể nói rõ hơn sản phẩm hoặc nhu cầu cần hỗ trợ không?"
                 )
                 warnings.append("LOW_CONFIDENCE")
+        clarifies = turn.needs_clarification or turn.tasks[0].intent == "clarify"
+        if clarifies and "MODEL_UNAVAILABLE" not in warnings:
+            resolved = _clarified_search(turn, state, message)
+            if resolved is not None:
+                turn = resolved
+                primary = turn.tasks[0]
+                warnings = [item for item in warnings if item != "LOW_CONFIDENCE"]
+                warnings.append("ASSUMED_INTENT")
+        clarifies = turn.needs_clarification or turn.tasks[0].intent == "clarify"
+        if clarifies and "MODEL_UNAVAILABLE" not in warnings:
+            # "thanh toán đơn" with a model question about cart lines it never
+            # saw: the order agent reads the real cart and asks from that (or
+            # says it is empty), so the model must not answer for it.
+            cart_task = next(
+                (task for task in turn.tasks if task.intent in _CART_READING_INTENTS), None
+            ) or next(iter((parse_checkout_turn(message) or SemanticTurn(
+                tasks=[SemanticTask(intent="general")])).tasks), None)
+            if cart_task is not None and cart_task.intent in _CART_READING_INTENTS:
+                turn = turn.model_copy(update={
+                    "tasks": [cart_task],
+                    "needs_clarification": False,
+                    "clarification_question": "",
+                    "conversation_action": "continue",
+                    "focus_update": "keep",
+                })
+                primary = cart_task
+                warnings = [item for item in warnings if item != "LOW_CONFIDENCE"]
+                warnings.append("CART_DECIDES")
 
         requested_attribute = (
             primary.requested_attributes[0] if primary.requested_attributes else None
@@ -472,10 +689,23 @@ class AgenticShoppingGraph:
             result_limit=primary.result_limit,
             confidence=turn.confidence,
         )
+        profile = apply_profile_updates(state.get("shopper_profile"), turn.profile_updates)
+        if (
+            turn.needs_clarification
+            and "MODEL_UNAVAILABLE" not in warnings
+            and _is_generic_clarification(turn.clarification_question)
+        ):
+            # The model asked nothing in particular: ask from what the
+            # customer already said (who it is for, what they last looked at).
+            specific = _contextual_clarification(profile, state.get("last_search") or {})
+            if specific:
+                turn = turn.model_copy(update={"clarification_question": specific})
         return {
             "semantic_turn": turn.model_dump(),
             "understanding": compatibility.model_dump(),
             "warnings": warnings,
+            "shopper_profile": profile,
+            "standalone_query": turn.standalone_query,
         }
 
     @staticmethod
@@ -587,8 +817,9 @@ class AgenticShoppingGraph:
     @staticmethod
     def _conversation_state(state: AgentState) -> dict:
         """What the model must remember beyond the transcript: the action
-        waiting for confirmation and the criteria of the latest search."""
-        context: dict = {}
+        waiting for confirmation, the criteria of the latest search, the
+        summary of turns that left the transcript and the shopper profile."""
+        context: dict = memory_context(state)
         pending = state.get("pending_action") or {}
         if pending:
             context["pending_confirmation"] = {
@@ -975,14 +1206,18 @@ class AgenticShoppingGraph:
                 else:
                     # "nhỏ gọn" is a wish about the product, not a variant size.
                     filters.spec_constraints.append(constraint.model_copy(update={"strength": "soft"}))
+            elif key in {"max_price", "min_price", "price"} and _price_value(value) is None:
+                # "rẻ hơn các mẫu vừa xem": a relative wish in a price slot.
+                # Not a number, so it cannot filter; it must not fail the turn.
+                continue
             elif key in {"max_price", "price"} and constraint.operator in {"lt", "lte"}:
-                filters.max_price = float(value)
+                filters.max_price = _price_value(value)
             elif key in {"min_price", "price"} and constraint.operator in {"gt", "gte"}:
-                filters.min_price = float(value)
+                filters.min_price = _price_value(value)
             elif key == "price" and constraint.operator == "eq":
                 # A stated price is a budget, never an exact match.
-                filters.min_price = round(float(value) * 0.5)
-                filters.max_price = round(float(value) * 1.1)
+                filters.min_price = round(_price_value(value) * 0.5)
+                filters.max_price = round(_price_value(value) * 1.1)
             elif _UNVERIFIABLE_KEY.search(key):
                 # Delivery time, gift wrap, warranty, total for several items:
                 # no listing field proves them, so they cannot filter results.
@@ -1112,7 +1347,7 @@ class AgenticShoppingGraph:
             None,
         )
 
-        query = task.query or state.get("message", "")
+        query = task.query or resolved_message(state)
         plan = AgentPlan(
             intent=intent,
             query=query,
@@ -1134,6 +1369,36 @@ class AgenticShoppingGraph:
                 plan.filters = filters
             except Exception:
                 pass
+        # "áo thun đen XL và 1 cái tất": every other product search of the
+        # turn runs beside the main route (search_side) instead of being
+        # dropped because the turn already searched once.
+        extra_searches: list[dict] = []
+        if not turn.needs_clarification and intent not in {"clarify", "out_of_scope"}:
+            extra_tasks = [
+                item for item in turn.tasks
+                if item is not task and item.intent == "product_search" and item.query.strip()
+            ][:2]
+            category_tree = None
+            for extra in extra_tasks:
+                extra_filters = self._semantic_filters(extra)
+                if extra_filters.category_path or extra_filters.product_type:
+                    try:
+                        if category_tree is None:
+                            category_tree = build_catalog_tree(await self.marketplace.categories())
+                        extra_filters.category_ids = self._resolve_categories(category_tree, extra_filters)
+                    except Exception:
+                        pass
+                extra_searches.append({"query": extra.query.strip(), "filters": extra_filters.model_dump()})
+            if extra_searches:
+                label = _INTENT_LABELS["product_search"]
+                handled = len(extra_searches)
+                kept = []
+                for item in skipped_tasks:
+                    if item == label and handled:
+                        handled -= 1
+                        continue
+                    kept.append(item)
+                skipped_tasks = kept
         next_active = state.get("active_product_id")
         if turn.focus_update == "clear":
             next_active = None
@@ -1159,6 +1424,7 @@ class AgenticShoppingGraph:
             "warnings": [*state.get("warnings", []), *(["ASSUMED_FIRST_PRODUCT"] if assumed_product else [])],
             "route": task.intent if task.intent in {"clarify", "out_of_scope"} else intent,
             "skipped_tasks": skipped_tasks,
+            "extra_searches": extra_searches,
             "semantic_turn": turn.model_dump(),
             **(
                 {"last_search": self._search_criteria(query, filters)}
@@ -1172,8 +1438,30 @@ class AgenticShoppingGraph:
         request = state.get("request", {})
         if request.get("confirmActionId") or request.get("cancelActionId"):
             return {"route": "resolve_pending", "committed": False}
+        ui_intent = _ui_selection_intent(request)
+        if ui_intent:
+            product_id = request.get("referenceProductId") if ui_intent == "cart_add" else None
+            plan = AgentPlan(
+                intent=ui_intent,
+                query=state.get("message", ""),
+                product_id=product_id,
+                product_ids=[product_id] if product_id else [],
+                quantity=request.get("quantity") or 1,
+                payment_method=request.get("paymentMethod"),
+            )
+            return {
+                "plan": plan.model_dump(),
+                "query": plan.query,
+                "products": [],
+                "render_product_cards": False,
+                "active_product_id": product_id or state.get("active_product_id"),
+                "tool_result": {},
+                "route": ui_intent,
+                "skipped_tasks": [],
+                "committed": False,
+            }
         pending = state.get("pending_action") or {}
-        decision = (state.get("semantic_turn") or {}).get("pending_decision", "none")
+        decision =(state.get("semantic_turn") or {}).get("pending_decision", "none")
         if (
             decision in {"confirm", "cancel"}
             and "TEXT_CONFIRMATION" not in state.get("warnings", [])
@@ -1357,7 +1645,7 @@ class AgenticShoppingGraph:
             updates["variant_id"] = request["variantId"]
         if request.get("quantity"):
             updates["quantity"] = request["quantity"]
-        updates["query"] = updates.get("query") or state.get("message", "")
+        updates["query"] = updates.get("query") or resolved_message(state)
         if understanding.sort_by != "relevance":
             updates["sort_by"] = understanding.sort_by
             updates["result_limit"] = understanding.result_limit or 1
@@ -1412,7 +1700,7 @@ class AgenticShoppingGraph:
                 updates["product_ids"] = []
                 updates["sort_by"] = "relevance"
                 updates["result_limit"] = self.settings.result_limit
-                updates["query"] = search_context.semantic_query or state.get("message", "")
+                updates["query"] = search_context.semantic_query or resolved_message(state)
                 next_active_product = None
                 context_followup = False
                 filters = _apply_search_context(filters, search_context)
@@ -1494,9 +1782,51 @@ class AgenticShoppingGraph:
             return intent
         return "clarify_guard" if plan.get("clarification") else "general"
 
-    @classmethod
-    def route_after_plan(cls, state: AgentState) -> list[str]:
-        return [cls._main_route(state), "policy_side", "research_side"]
+    def _advised(self, state: AgentState, main: str) -> bool:
+        """Hybrid mode: advice turns go to the tool-calling advisor. A plain
+        detail question ("còn size M không") stays on the graph, which reads
+        variants and size charts exactly; one with another part goes too."""
+        advisor = getattr(self, "advisor", None)
+        if advisor is None or not advisor.enabled():
+            return False
+        if (state.get("request") or {}).get("image"):
+            return False
+        if main == "product_search":
+            return True
+        return main == "product_detail" and bool(state.get("skipped_tasks"))
+
+    def route_after_plan(self, state: AgentState) -> list[str]:
+        main = self._main_route(state)
+        if self._advised(state, main):
+            main = "advisor"
+        return [main, "policy_side", "research_side", "search_side"]
+
+    def route_after_advisor(self, state: AgentState) -> str:
+        if state.get("advisor_answer"):
+            return "collect"
+        main = self._main_route(state)
+        return "product_detail" if main == "product_detail" else "retrieve"
+
+    async def run_advisor(self, state: AgentState) -> dict:
+        try:
+            result = await self.advisor.run(state)
+        except Exception as error:
+            log.warning("advisor failed, using the graph: %s: %s", type(error).__name__, str(error)[:200])
+            result = None
+        if not result:
+            return {"advisor_failed": True, "warnings": [*state.get("warnings", []), "ADVISOR_FALLBACK"]}
+        products = result["products"]
+        return {
+            "route": "product_search",
+            "advisor_answer": result["answer"],
+            "products": products,
+            "render_product_cards": bool(products),
+            "active_product_id": str(products[0]["id"]) if len(products) == 1 else state.get("active_product_id"),
+            "tool_result": {"advisor": {"calls": result["calls"]}, "found": len(products)},
+            "skipped_tasks": [],
+            "warnings": [*state.get("warnings", []), "ADVISOR"],
+            **({"last_search": result["last_search"]} if result["last_search"] else {}),
+        }
 
     async def collect(self, _state: AgentState) -> dict:
         """Join point of the main route before the policy barrier."""
@@ -1518,6 +1848,26 @@ class AgenticShoppingGraph:
             )
         return [str(node.get("name")) for node in tree if node.get("name")][:limit]
 
+    async def search_side(self, state: AgentState) -> dict:
+        """The other product searches of one message ("và 1 cái tất"), run
+        next to the main route: a plain catalog search, top few each."""
+        extras = state.get("extra_searches") or []
+        if not extras or state.get("route") == "resolve_pending":
+            return {}
+        limit = int(getattr(self.settings, "retrieval_limit", 20) or 20)
+
+        async def run(extra: dict) -> dict:
+            filters = SearchFilters.model_validate(extra.get("filters") or {})
+            try:
+                hits = await self.retriever.search(extra["query"], filters, limit=limit)
+                products = await self.marketplace.hydrate_products(hits, filters, _EXTRA_SEARCH_RESULTS)
+            except Exception as error:
+                log.warning("extra search failed: %s: %s", type(error).__name__, str(error)[:200])
+                products = []
+            return {"query": extra["query"], "products": list(products)[:_EXTRA_SEARCH_RESULTS]}
+
+        return {"extra_results": list(await asyncio.gather(*(run(item) for item in extras[:2])))}
+
     async def clarify_guard(self, state: AgentState) -> dict:
         """Escalate repeated clarifications instead of asking the same thing again.
 
@@ -1532,6 +1882,8 @@ class AgenticShoppingGraph:
         if "MODEL_UNAVAILABLE" in state.get("warnings", []):
             # Our own outage is not the customer being unclear: ask once,
             # plainly, and do not move them towards a human handoff for it.
+            # The key stays the previous one: the customer was asked to send
+            # this message again, and doing so must not count as repeating.
             return {
                 "route": "clarify",
                 "render_product_cards": False,
@@ -1542,7 +1894,7 @@ class AgenticShoppingGraph:
                 "suggestions": await self._category_suggestions(4),
                 "handoff": False,
                 "clarify_count": previous_count,
-                "last_clarify_key": message_key,
+                "last_clarify_key": state.get("last_clarify_key", ""),
             }
         # Each new, different message is a fresh attempt: escalate only when
         # the customer repeats themselves or the model keeps asking.
@@ -1674,6 +2026,9 @@ class AgenticShoppingGraph:
         attribute_answer = self._product_attribute_answer(state)
         result = state.get("tool_result") or {}
         products = state.get("products", [])
+        if state.get("extra_results") and not state.get("advisor_answer"):
+            # The other searches of the message share the list (see below).
+            products = products[:_MAIN_RESULTS_WITH_EXTRAS]
         plan = state.get("plan", {}) if isinstance(state.get("plan"), dict) else {}
         relaxed = (
             list(result.get("relaxedConstraints") or []) if isinstance(result, dict) else []
@@ -1732,7 +2087,10 @@ class AgenticShoppingGraph:
             model_result["specComparison"] = comparison
         if "ASSUMED_FIRST_PRODUCT" in state.get("warnings", []) and isinstance(model_result, dict):
             model_result["assumedFirstProduct"] = True
-        if attribute_answer and not model_answers:
+        if state.get("advisor_answer"):
+            # The advisor looked up and answered the whole message itself.
+            answer = str(state["advisor_answer"])
+        elif attribute_answer and not model_answers:
             answer = attribute_answer
         elif should_be_deterministic:
             answer = direct
@@ -1740,12 +2098,15 @@ class AgenticShoppingGraph:
             answer = template_answer
         else:
             try:
+                memory = memory_note(state)
                 answer = await self.models.answer(
                     state.get("message", ""),
                     state.get("plan", {}),
                     model_result,
                     products,
                     state.get("history", []),
+                    # Only when there is memory: test doubles keep the old signature.
+                    **({"memory": memory} if memory else {}),
                 )
             except Exception as error:
                 log.warning("answer failed, using template: %s: %s", type(error).__name__, str(error)[:200])
@@ -1783,14 +2144,33 @@ class AgenticShoppingGraph:
                 "\n\nCòn phần " + ", ".join(skipped)
                 + ", bạn nhắn tiếp ngay sau đây là mình làm luôn nhé."
             )
+        shown = list(state.get("products", []))
+        extra_update: dict = {}
+        extra_results = [] if state.get("advisor_answer") else list(state.get("extra_results") or [])
+        if extra_results:
+            # Each part of "áo thun XL và 1 cái tất" gets its own short list.
+            shown = shown[:_MAIN_RESULTS_WITH_EXTRAS] if state.get("render_product_cards", True) else []
+            seen = {str(item.get("id")) for item in shown}
+            for extra in extra_results:
+                found = [item for item in extra["products"] if str(item.get("id")) not in seen]
+                seen.update(str(item.get("id")) for item in found)
+                shown.extend(found)
+                if found:
+                    listed = "; ".join(
+                        f"{item.get('name', 'Sản phẩm')} ({_price_text(item.get('price'))})" for item in found
+                    )
+                    answer += f"\n\nVới “{extra['query']}”, mình tìm thấy: {listed}."
+                else:
+                    answer += f"\n\nMình chưa tìm thấy “{extra['query']}” còn hàng phù hợp."
+            extra_update = {"products": shown, "render_product_cards": bool(shown)}
         if policy_appendix:
             answer = f"{answer}\n\n{policy_appendix}" if answer else policy_appendix
         clarifying = state.get("route") in {"clarify", "out_of_scope"}
         new_focused = [
             {"id": item.get("id"), "name": item.get("name", "")}
-            for item in state.get("products", [])
+            for item in shown
             if item.get("id")
-        ][:6]
+        ][:10 if extra_results else 6]
         focused = state.get("focused_products", [])
         if state.get("semantic_turn"):
             turn = SemanticTurn.model_validate(state["semantic_turn"])
@@ -1803,6 +2183,7 @@ class AgenticShoppingGraph:
         elif new_focused:
             focused = new_focused
         return {
+            **extra_update,
             "answer": answer,
             "focused_products": focused,
             "sources": sources,

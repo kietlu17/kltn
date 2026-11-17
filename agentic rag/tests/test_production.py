@@ -473,7 +473,9 @@ class BenchmarkRegressionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([item["id"] for item in result["products"]], ["1" * 24])
 
     def test_cheapest_mid_conversation_is_left_to_the_model(self):
-        self.assertIsNotNone(_deterministic_turn("cái nào rẻ nhất", [], "", {}))
+        # Without a named product kind the rule could only sort the whole
+        # catalog; the model or the last-search follow-up decides instead.
+        self.assertIsNone(_deterministic_turn("cái nào rẻ nhất", [], "", {}))
         history = [{"role": "user", "content": "áo thun nam"}, {"role": "assistant", "content": "Mình tìm thấy 6 sản phẩm"}]
         self.assertIsNone(_deterministic_turn("cái nào rẻ nhất", history, "", {}))
 

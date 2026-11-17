@@ -671,16 +671,10 @@ def _deterministic_turn(
             constraints=_variant_constraints(understood.colors, understood.sizes),
         )
         action = "continue"
-    elif act == "new_search" and understood.sort_by != "relevance" and not history:
-        # Mid-conversation "cái nào rẻ nhất" ranks the products being
-        # discussed, which only the model can tie to the previous search.
-        task = SemanticTask(
-            intent="product_search",
-            query=message,
-            sort_by=understood.sort_by,
-            result_limit=understood.result_limit or 1,
-        )
-        action, focus = "new", "replace"
+    # No rule for "cái nào rẻ nhất": a message that names a product kind
+    # never reaches here (mentions_other_product), so such a rule could only
+    # sort the whole catalog. The model, or parse_followup_turn with the
+    # last search, ties it to the products being discussed.
     elif act == "browse_catalog":
         task = SemanticTask(intent="browse_categories")
         action = "new"

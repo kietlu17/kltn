@@ -1,6 +1,7 @@
 ﻿import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api, { resolveImageUrl } from '../services/api';
+import AssistantSelection from './AssistantSelection.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useCart } from '../context/CartContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
@@ -163,7 +164,8 @@ export default function ChatWidget({ product, shopId, shopName, onClose, initial
         role: 'assistant',
         text: data.answer || '...',
         products: data.products || [],
-        pendingAction: data.pendingAction || null
+        pendingAction: data.pendingAction || null,
+        selection: data.selection && Array.isArray(data.selection.options) ? data.selection : null
       }]);
 
       if (data.actionResult?.status === 'completed' || data.actionResult?.cartChanged) {
@@ -323,6 +325,11 @@ export default function ChatWidget({ product, shopId, shopName, onClose, initial
                         {Number.isFinite(Number(item.price)) && (
                           <small>{formatPrice(item.price)}</small>
                         )}
+                        {Number(item.reviewCount) > 0 && (
+                          <small className="chat-ai-rating">
+                            ★ {Number(item.rating).toLocaleString('vi-VN', { maximumFractionDigits: 1 })} ({item.reviewCount})
+                          </small>
+                        )}
                       </Link>
                       <button
                         type="button"
@@ -336,6 +343,9 @@ export default function ChatWidget({ product, shopId, shopName, onClose, initial
                     </div>
                   ))}
                 </div>
+              )}
+              {mode === 'ai' && msg.selection && msg === aiMessages[aiMessages.length - 1] && (
+                <AssistantSelection selection={msg.selection} disabled={loading} onSubmit={sendAi} />
               )}
               {mode === 'ai' && msg.pendingAction?.type === 'checkout_confirmation' && (
                 <div className="chat-ai-confirm">

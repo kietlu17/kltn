@@ -76,6 +76,12 @@ _COLORS = (
 )
 _COLORS_AFTER_MAU = ("cam", "be", "ghi", "bạc", "rêu", "navy")
 _SIZE = re.compile(r"\b(?:size|co)\s*(xxxl|4xl|3xl|2xl|xxl|xl|xs|s|m|l|\d{2})\b")
+# Price extremes: a sort order, not part of the product kind ("laptop đắt nhất").
+_SORT_ASC = re.compile(r"\b(?:re nhat|gia thap nhat|gia re nhat|thap nhat)\b")
+_SORT_DESC = re.compile(r"\b(?:dat nhat|gia cao nhat|mac nhat|cao cap nhat)\b")
+# "rẻ hơn chút", "đắt hơn": relative to the last search, without an amount.
+_CHEAPER = re.compile(r"\b(?:re hon|mem hon|gia thap hon)(?:\s+(?:chut|mot chut|nua|xiu|ti))?\b")
+_PRICIER = re.compile(r"\b(?:dat hon|cao cap hon|xin hon|gia cao hon)(?:\s+(?:chut|mot chut|nua|xiu|ti))?\b")
 _TRAILING_QUESTION = re.compile(r"\b(?:khong|ko|k|chu|vay)\s*\??\s*$")
 
 # Words without product meaning. Accented forms are unambiguous; an
@@ -363,29 +369,13 @@ def parse_search_turn(
         # With a product in focus, "màu đen size L" is a variant pick.
         return None
 
-    min_price, max_price, removed = _price(folded)
-    colors, color_spans = _colors(original)
-    removed += color_spans
-    sizes = []
-    for match in _SIZE.finditer(folded):
-        sizes.append(match.group(1).upper())
-        removed.append(match.span())
-    trailing = _TRAILING_QUESTION.search(folded)
-    if trailing:
-        removed.append(trailing.span())
-
-    kept = list(original)
-    for start, end in removed:
-        kept[start:end] = " " * (end - start)
-    words = [
-        word for word in re.findall(r"\w+", "".join(kept))
-        if word not in _FILLER_ACCENTED
-        and not (word == _fold(word) and word in _FILLER_PLAIN)
-    ]
+    parts = _search_parts(original, folded)
+    min_price, max_price = parts["min_price"], parts["max_price"]
+    colors, sizes, sort_by, words = parts["colors"], parts["sizes"], parts["sort_by"], parts["words"]
     core_tokens = [_fold(word) for word in words]
     if not words or len(words) > 8 or not any(len(token) >= 2 for token in core_tokens):
         return None
-    has_constraint = bool(min_price or max_price or colors or sizes)
+    has_constraint = bool(min_price or max_price or colors or sizes or sort_by != "relevance")
     if strict and not (explicit_verb or has_constraint or _known_product_type(" ".join(core_tokens))):
         return None
 
@@ -401,8 +391,142 @@ def parse_search_turn(
     if brand := _brand(folded):
         constraints.append(SemanticConstraint(key="brand", operator="eq", value=brand))
     return SemanticTurn(
-        tasks=[SemanticTask(intent="product_search", query=original, constraints=constraints)],
+        tasks=[SemanticTask(
+            intent="product_search", query=original, constraints=constraints, sort_by=sort_by
+        )],
         conversation_action="new",
         focus_update="replace",
         confidence=STRICT_CONFIDENCE if strict else LOOSE_CONFIDENCE,
+    )
+
+
+# Words that only carry the follow-up itself ("loại 16GB", "thêm chút nữa").
+_FOLLOWUP_FILLER = {"loai", "kieu", "chut", "xiu", "ti", "nua", "them", "hon", "con", "co", "khong", "duoc", "cai"}
+
+
+def _search_parts(original: str, folded: str) -> dict:
+    """Price, colours, sizes, sort order and the remaining content words of
+    a search phrase; the spans of everything recognised are blanked out."""
+    min_price, max_price, removed = _price(folded)
+    colors, color_spans = _colors(original)
+    removed += color_spans
+    sizes = []
+    for match in _SIZE.finditer(folded):
+        sizes.append(match.group(1).upper())
+        removed.append(match.span())
+    sort_by = "relevance"
+    for pattern, order in ((_SORT_ASC, "price_asc"), (_SORT_DESC, "price_desc")):
+        match = pattern.search(folded)
+        if match:
+            sort_by = order
+            removed.append(match.span())
+            break
+    trailing = _TRAILING_QUESTION.search(folded)
+    if trailing:
+        removed.append(trailing.span())
+    kept = list(original)
+    for start, end in removed:
+        kept[start:end] = " " * (end - start)
+    words = [
+        word for word in re.findall(r"\w+", "".join(kept))
+        if word not in _FILLER_ACCENTED
+        and not (word == _fold(word) and word in _FILLER_PLAIN)
+    ]
+    return {
+        "min_price": min_price, "max_price": max_price, "colors": colors, "sizes": sizes,
+        "sort_by": sort_by, "words": words, "kept": "".join(kept),
+    }
+
+
+def parse_followup_turn(message: str, last_search: dict | None) -> SemanticTurn | None:
+    """A short follow-up of the latest search that names no product kind
+    ("dưới 15 triệu thôi", "rẻ hơn chút", "loại 16GB RAM", "cái nào rẻ nhất"):
+    the same kind with the new price, colour, size, order or spec. Used when
+    the semantic model is unavailable; the graph carries the other criteria
+    of the last search over (_carry_over)."""
+    last = last_search or {}
+    kind = str(last.get("product_type") or "").strip()
+    path = str(last.get("category_path") or "").strip()
+    if not (kind or path):
+        return None
+    original, folded = _normalize_message(message)
+    if not folded or len(folded) > 120:
+        return None
+    if _NOT_A_SEARCH.search(folded) or _REFERENCE.search(folded) or _known_product_type(folded):
+        return None
+    relative = None
+    for pattern, direction in ((_CHEAPER, "cheaper"), (_PRICIER, "pricier")):
+        match = pattern.search(folded)
+        if match and not _MAX.search(folded):
+            relative = direction
+            folded = folded[: match.start()] + " " * (match.end() - match.start()) + folded[match.end():]
+            original = original[: match.start()] + " " * (match.end() - match.start()) + original[match.end():]
+            break
+    parts = _search_parts(original, folded)
+    spec_words = [word for word in parts["words"] if _fold(word) not in _FOLLOWUP_FILLER]
+    min_price, max_price, sort_by = parts["min_price"], parts["max_price"], parts["sort_by"]
+    if relative == "cheaper":
+        sort_by = "price_asc"
+        if max_price is None and last.get("max_price"):
+            max_price = float(last["max_price"])
+    elif relative == "pricier":
+        sort_by = "price_desc"
+        if min_price is None and last.get("max_price"):
+            min_price = float(last["max_price"]) * 0.8
+    criteria = bool(min_price or max_price or parts["colors"] or parts["sizes"] or sort_by != "relevance")
+    # Words alone read as a spec only with a measurable one ("16GB RAM", "14
+    # inch"); anything else ("chào", "chống nước") is left to the model.
+    measurable = any(re.search(r"\d", word) for word in spec_words)
+    if not (criteria or measurable) or len(spec_words) > 4:
+        return None
+    constraints = [SemanticConstraint(key="product_type", operator="eq", value=kind or path, source="conversation")]
+    if path:
+        constraints.append(SemanticConstraint(key="category_path", operator="eq", value=path, source="conversation"))
+    if max_price is not None:
+        constraints.append(SemanticConstraint(key="price", operator="lte", value=max_price, unit="VND"))
+    if min_price is not None:
+        constraints.append(SemanticConstraint(key="price", operator="gte", value=min_price, unit="VND"))
+    if parts["colors"]:
+        constraints.append(SemanticConstraint(key="color", operator="any", value=parts["colors"]))
+    if parts["sizes"]:
+        constraints.append(SemanticConstraint(key="size", operator="any", value=list(dict.fromkeys(parts["sizes"]))))
+    if spec_words:
+        constraints.append(SemanticConstraint(
+            key="feature", operator="contains", value=" ".join(spec_words), strength="soft"
+        ))
+    base = str(last.get("query") or kind or path).strip()
+    query = " ".join([base, *spec_words]).strip()
+    return SemanticTurn(
+        tasks=[SemanticTask(intent="product_search", query=query, constraints=constraints, sort_by=sort_by)],
+        conversation_action="continue",
+        focus_update="replace",
+        confidence=0.8,
+    )
+
+
+_GREETING = re.compile(r"^(?:xin chao|chao|hello|hi|alo|hey)(?:\s+(?:shop|ban|ad|admin|em|anh|chi|moi nguoi))*$")
+_THANKS = re.compile(r"^(?:cam on|cam on nhieu|thank you|thanks|thank|tks|ok cam on|tam biet|bye)(?:\s+(?:shop|ban|nhe|nha|nhieu|a|em|ad))*$")
+_BROWSE = re.compile(
+    r"\b(?:shop|ben ban|ben minh|cua hang)\s+(?:ban|co)\s+(?:nhung\s+|cac\s+)?(?:gi|mat hang gi|loai gi|san pham gi)\b"
+    r"|\b(?:danh muc|nganh hang|cac loai hang)\b"
+)
+
+
+def parse_smalltalk_turn(message: str) -> SemanticTurn | None:
+    """Greetings, thanks and "shop bán những gì": answerable without the
+    model, so an outage does not answer them with an apology."""
+    folded = " ".join(re.findall(r"[a-z0-9]+", _fold(unicodedata.normalize("NFC", message.casefold()))))
+    if not folded or len(folded.split()) > 8:
+        return None
+    if _GREETING.fullmatch(folded) or _THANKS.fullmatch(folded):
+        intent = "general"
+    elif _BROWSE.search(folded) and not _known_product_type(folded):
+        intent = "browse_categories"
+    else:
+        return None
+    return SemanticTurn(
+        tasks=[SemanticTask(intent=intent, query=message.strip())],
+        conversation_action="new" if intent == "browse_categories" else "continue",
+        focus_update="keep",
+        confidence=STRICT_CONFIDENCE,
     )

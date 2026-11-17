@@ -50,6 +50,12 @@ def start_turn(max_calls: int, seconds: float) -> TurnBudget:
     return budget
 
 
+def detach_turn() -> None:
+    """Work started by a turn but run after it (a background task copies the
+    turn's context) must not spend, or be refused by, that turn's budget."""
+    _current.set(None)
+
+
 def current_budget() -> TurnBudget | None:
     return _current.get()
 

@@ -33,6 +33,7 @@ from ..conversation import (
 from ..brands import brand_in_text, canonical_brand
 from ..rerank import adaptive_top_k
 from ..retrieval import _search_terms
+from ..memory import resolved_message
 from ..schemas import (
     AgentPlan,
     AgentState,
@@ -139,7 +140,7 @@ class ProductAgent:
             task = next((item for item in turn.tasks if item.intent == "product_search"), None)
             if task and task.query.strip():
                 return task.query.strip()[:500]
-        return str(state.get("query") or state.get("message") or "")[:500]
+        return str(state.get("query") or resolved_message(state))[:500]
 
     async def _research(self, question: str) -> dict | None:
         if not self._web_enabled() or not question.strip():
@@ -728,7 +729,7 @@ class ProductAgent:
         if not task:
             return {}
         research = await self._research(
-            task.research_query or task.query or state.get("message", "")
+            task.research_query or task.query or resolved_message(state)
         )
         return {"web_research": research} if research else {}
 
@@ -846,7 +847,8 @@ class ProductAgent:
         keys = {fact.get("key") for fact in facts}
         missing: list[str] = []
         for attribute in requested:
-            if attribute in {"price", "stock", "specification", "size", "fit"}:
+            if attribute in {"price", "stock", "specification", "size", "fit", "reviews", "rating"}:
+                # Reviews come from the shop's buyers, never from the web.
                 continue
             if attribute == "color":
                 # A product without variants gets one id-less stand-in offer.
@@ -888,7 +890,7 @@ class ProductAgent:
 
     async def policy_answer(self, state: AgentState) -> dict:
         answer, sources = await self._policy_result(
-            state.get("query") or state.get("message", "")
+            state.get("query") or resolved_message(state)
         )
         return {
             "route": "policy",
@@ -907,7 +909,7 @@ class ProductAgent:
         if not task:
             return {}
         answer, sources = await self._policy_result(
-            task.query or state.get("message", "")
+            task.query or resolved_message(state)
         )
         return {"policy_appendix": answer, "policy_sources": sources}
 
@@ -927,6 +929,9 @@ class ProductAgent:
             if task and task.intent == "compare_products":
                 return None
             requested = task.requested_attributes if task else []
+            if {"reviews", "rating"} & set(requested):
+                # The answer model summarises what buyers wrote.
+                return None
             # Variant-oriented questions (color/size/fit or a bare variant pick)
             # fall through to the deterministic variant logic below.
             spec_question = (

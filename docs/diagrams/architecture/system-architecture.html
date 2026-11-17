@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>E-commerce Microservices Architecture</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&family=Noto+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper: #f5f5f5; --color-ink: #2d3142; --color-muted: #4f5d75;
+      --color-soft: #5a6580; --color-accent: #bf4520; --color-link: #2e5aa8;
+      --font-sans: 'Geist', system-ui, sans-serif;
+      --font-serif: 'Instrument Serif', 'Noto Serif', serif;
+      --font-mono: 'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink);
+           min-height: 100vh; display: flex; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1400px; width: 100%; min-width: 0; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em;
+               text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400;
+         letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    svg { width: 100%; min-width: 1336px; display: block; }
+    .cards { display: grid; grid-template-columns: 1.15fr 1fr 0.9fr; gap: 16px; margin-top: 24px; }
+    .card { background: #fff; border: 1px solid rgba(45,49,66,0.12); border-radius: 6px; padding: 16px 18px; }
+    .card h2 { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.16em;
+               text-transform: uppercase; color: var(--color-muted); margin-bottom: 8px; }
+    .card p, .card li { font-size: 0.85rem; line-height: 1.55; color: var(--color-ink); }
+    .card ul { padding-left: 1.1em; }
+    .card code { font-family: var(--font-mono); font-size: 0.78rem; color: var(--color-soft); }
+    .note { margin-top: 16px; font-family: var(--font-serif); font-style: italic; font-size: 1rem; color: var(--color-muted); }
+    @media (max-width: 860px) { .cards { grid-template-columns: 1fr; } body { padding: 2rem 16px; } }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0; } }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Architecture · ecommerce-microservices</p>
+    <h1>Kiến trúc toàn hệ thống</h1>
+
+    <div class="diagram-container">
+      <svg viewBox="0 0 1336 696" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="system-architecture-title system-architecture-desc">
+        <title id="system-architecture-title">E-commerce microservices system architecture</title>
+        <desc id="system-architecture-desc">The web frontend reaches an API gateway through a Cloudflare tunnel; the gateway routes over mTLS to thirteen domain services and an agentic RAG assistant, which store data in MongoDB, PostgreSQL, MinIO and Qdrant and coordinate orders and payments through a Kafka event bus.</desc>
+        <defs>
+          <pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="0.9" fill="rgba(45,49,66,0.10)"/></pattern>
+          <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/></marker>
+          <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bf4520"/></marker>
+          <marker id="arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#2e5aa8"/></marker>
+        </defs>
+        <rect width="100%" height="100%" fill="#f5f5f5"/>
+        <rect width="100%" height="100%" fill="url(#dots)" opacity="0.55"/>
+        <rect x="24" y="264" width="352" height="128" rx="8" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+        <rect x="236" y="268" width="72" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="272" y="277" fill="#5a6580" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.14em">PUBLIC EDGE</text>
+        <rect x="424" y="120" width="872" height="336" rx="8" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+        <rect x="440" y="124" width="336" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="608" y="133" fill="#5a6580" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.14em">SERVICES · HTTPS + MTLS · INTERNAL CA · ALL ROUTES VIA GATEWAY</text>
+        <rect x="424" y="488" width="872" height="112" rx="8" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+        <rect x="440" y="492" width="116" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="498" y="501" fill="#5a6580" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.14em">DATA &amp; MESSAGING</text>
+        <text x="440" y="156" fill="#5a6580" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">IDENTITY</text>
+        <text x="612" y="156" fill="#5a6580" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">SHOPPING</text>
+        <text x="784" y="156" fill="#5a6580" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">CATALOG · ORDER</text>
+        <text x="956" y="156" fill="#5a6580" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">PAYMENTS</text>
+        <text x="1128" y="156" fill="#5a6580" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">AI ASSISTANT</text>
+        <path d="M 104,224 V 304" fill="none" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+        <path d="M 168,332 H 216" fill="none" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+        <path d="M 360,332 H 424" fill="none" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+        <path d="M 1240,168 V 88" fill="none" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+        <path d="M 1202,224 V 264" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <path d="M 1202,360 V 320" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <path d="M 832,368 V 520" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <path d="M 884,520 V 368" fill="none" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+        <path d="M 1004,368 V 520" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <path d="M 1056,520 V 368" fill="none" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+        <rect x="112" y="256" width="40" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="132" y="265" fill="#2e5aa8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">HTTPS</text>
+        <rect x="372" y="312" width="36" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="390" y="321" fill="#2e5aa8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">MTLS</text>
+        <rect x="1184" y="98" width="48" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="1208" y="107" fill="#2e5aa8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">LLM API</text>
+        <rect x="1210" y="238" width="40" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="1230" y="247" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">SEARCH</text>
+        <rect x="1210" y="334" width="40" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="1230" y="343" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">UPSERT</text>
+        <rect x="776" y="468" width="48" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="800" y="477" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">ORDER.*</text>
+        <rect x="892" y="468" width="56" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="920" y="477" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">PAYMENT.*</text>
+        <rect x="940" y="400" width="56" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="968" y="409" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">PAYMENT.*</text>
+        <rect x="1064" y="468" width="48" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="1088" y="477" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">ORDER.*</text>
+        <rect x="40" y="168" width="128" height="56" rx="6" fill="#f5f5f5"/>
+        <rect x="40" y="168" width="128" height="56" rx="6" fill="rgba(79,93,117,0.10)" stroke="#5a6580" stroke-width="1"/>
+        <rect x="48" y="174" width="40" height="12" rx="2" fill="transparent" stroke="rgba(90,101,128,0.40)" stroke-width="0.8"/>
+        <text x="68" y="183" fill="#5a6580" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">CLIENT</text>
+        <text x="104" y="200" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Web Frontend</text>
+        <text x="104" y="214" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">React · Vite SPA</text>
+        <rect x="40" y="304" width="128" height="56" rx="6" fill="#f5f5f5"/>
+        <rect x="40" y="304" width="128" height="56" rx="6" fill="rgba(45,49,66,0.03)" stroke="rgba(45,49,66,0.30)" stroke-width="1"/>
+        <rect x="48" y="310" width="32" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.22)" stroke-width="0.8"/>
+        <text x="64" y="319" fill="#5a6580" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">EDGE</text>
+        <text x="104" y="336" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">CF Tunnel</text>
+        <text x="104" y="350" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">cloudflared</text>
+        <rect x="216" y="296" width="144" height="72" rx="6" fill="#f5f5f5"/>
+        <rect x="216" y="296" width="144" height="72" rx="6" fill="rgba(191,69,32,0.08)" stroke="#bf4520" stroke-width="1"/>
+        <rect x="224" y="302" width="20" height="12" rx="2" fill="transparent" stroke="rgba(191,69,32,0.50)" stroke-width="0.8"/>
+        <text x="234" y="311" fill="#bf4520" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">GW</text>
+        <text x="288" y="330" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">API Gateway</text>
+        <text x="288" y="344" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">:3000 · JWT verify</text>
+        <text x="288" y="357" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">rate limit · proxy</text>
+        <rect x="1128" y="32" width="148" height="56" rx="6" fill="#f5f5f5"/>
+        <rect x="1128" y="32" width="148" height="56" rx="6" fill="rgba(45,49,66,0.03)" stroke="rgba(45,49,66,0.30)" stroke-width="1"/>
+        <rect x="1136" y="38" width="28" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.22)" stroke-width="0.8"/>
+        <text x="1150" y="47" fill="#5a6580" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">EXT</text>
+        <text x="1202" y="64" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Google Gemini</text>
+        <text x="1202" y="78" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">LLM + embeddings</text>
+        <rect x="440" y="168" width="148" height="56" rx="6" fill="#f5f5f5"/>
+        <rect x="440" y="168" width="148" height="56" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="448" y="174" width="36" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.40)" stroke-width="0.8"/>
+        <text x="466" y="183" fill="#2d3142" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">MONGO</text>
+        <text x="514" y="200" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Auth</text>
+        <text x="514" y="214" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">:3001 · login/JWT</text>
+        <rect x="440" y="240" width="148" height="56" rx="6" fill="#f5f5f5"/>
+        <rect x="440" y="240" width="148" height="56" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="448" y="246" width="36" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.40)" stroke-width="0.8"/>
+        <text x="466" y="255" fill="#2d3142" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">MONGO</text>
+        <text x="514" y="272" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">User</text>
+        <text x="514" y="286" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">:3002 · profiles</text>
+        <rect x="440" y="312" width="148" height="56" rx="6" fill="#f5f5f5"/>
+        <rect x="440" y="312" width="148" height="56" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="448" y="318" width="36" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.40)" stroke-width="0.8"/>
+        <text x="466" y="327" fill="#2d3142" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">MONGO</text>
+        <text x="514" y="344" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Shop</text>
+        <text x="514" y="358" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">:3003 · sellers</text>
+        <rect x="612" y="168" width="148" height="56" rx="6" fill="#f5f5f5"/>
+        <rect x="612" y="168" width="148" height="56" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="620" y="174" width="36" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.40)" stroke-width="0.8"/>
+        <text x="638" y="183" fill="#2d3142" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">MONGO</text>
+        <text x="686" y="200" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Cart</text>
+        <text x="686" y="214" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">:3005 · cart lines</text>
+        <rect x="612" y="240" width="148" height="56" rx="6" fill="#f5f5f5"/>
+        <rect x="612" y="240" width="148" height="56" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="620" y="246" width="20" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.40)" stroke-width="0.8"/>
+        <text x="630" y="255" fill="#2d3142" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">PG</text>
+        <text x="686" y="272" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Voucher</text>
+        <text x="686" y="286" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">:3013 · discounts</text>
+        <rect x="612" y="312" width="148" height="56" rx="6" fill="#f5f5f5"/>
+        <rect x="612" y="312" width="148" height="56" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="620" y="318" width="36" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.40)" stroke-width="0.8"/>
+        <text x="638" y="327" fill="#2d3142" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">MONGO</text>
+        <text x="686" y="344" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Review</text>
+        <text x="686" y="358" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">:3008 · ratings</text>
+        <rect x="612" y="384" width="148" height="56" rx="6" fill="#f5f5f5"/>
+        <rect x="612" y="384" width="148" height="56" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="620" y="390" width="36" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.40)" stroke-width="0.8"/>
+        <text x="638" y="399" fill="#2d3142" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">MONGO</text>
+        <text x="686" y="416" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Chat</text>
+        <text x="686" y="430" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">:3009 · messaging</text>
+        <rect x="784" y="168" width="148" height="56" rx="6" fill="#f5f5f5"/>
+        <rect x="784" y="168" width="148" height="56" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="792" y="174" width="36" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.40)" stroke-width="0.8"/>
+        <text x="810" y="183" fill="#2d3142" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">MONGO</text>
+        <text x="858" y="200" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Product</text>
+        <text x="858" y="214" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">:3004 · catalog</text>
+        <rect x="784" y="240" width="148" height="56" rx="6" fill="#f5f5f5"/>
+        <rect x="784" y="240" width="148" height="56" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="792" y="246" width="20" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.40)" stroke-width="0.8"/>
+        <text x="802" y="255" fill="#2d3142" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">PG</text>
+        <text x="858" y="272" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Inventory</text>
+        <text x="858" y="286" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">:3007 · stock</text>
+        <rect x="784" y="312" width="148" height="56" rx="6" fill="#f5f5f5"/>
+        <rect x="784" y="312" width="148" height="56" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="792" y="318" width="20" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.40)" stroke-width="0.8"/>
+        <text x="802" y="327" fill="#2d3142" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">PG</text>
+        <text x="858" y="344" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Order</text>
+        <text x="858" y="358" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">:3006 · checkout</text>
+        <rect x="956" y="168" width="148" height="56" rx="6" fill="#f5f5f5"/>
+        <rect x="956" y="168" width="148" height="56" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="964" y="174" width="20" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.40)" stroke-width="0.8"/>
+        <text x="974" y="183" fill="#2d3142" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">PG</text>
+        <text x="1030" y="200" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Payment Gateway</text>
+        <text x="1030" y="214" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">:3012 · QR pay</text>
+        <rect x="956" y="240" width="148" height="56" rx="6" fill="#f5f5f5"/>
+        <rect x="956" y="240" width="148" height="56" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="964" y="246" width="20" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.40)" stroke-width="0.8"/>
+        <text x="974" y="255" fill="#2d3142" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">PG</text>
+        <text x="1030" y="272" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Wallet</text>
+        <text x="1030" y="286" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">:3011 · settlement</text>
+        <rect x="956" y="312" width="148" height="56" rx="6" fill="#f5f5f5"/>
+        <rect x="956" y="312" width="148" height="56" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="964" y="318" width="20" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.40)" stroke-width="0.8"/>
+        <text x="974" y="327" fill="#2d3142" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">PG</text>
+        <text x="1030" y="344" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Payment</text>
+        <text x="1030" y="358" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">:3010 · saga orch.</text>
+        <rect x="1128" y="168" width="148" height="56" rx="6" fill="#f5f5f5"/>
+        <rect x="1128" y="168" width="148" height="56" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="1136" y="174" width="36" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.40)" stroke-width="0.8"/>
+        <text x="1154" y="183" fill="#2d3142" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">AGENT</text>
+        <text x="1202" y="200" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Agentic RAG</text>
+        <text x="1202" y="214" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">:3030 · LangGraph</text>
+        <rect x="1128" y="264" width="148" height="56" rx="6" fill="#f5f5f5"/>
+        <rect x="1128" y="264" width="148" height="56" rx="6" fill="rgba(45,49,66,0.05)" stroke="#4f5d75" stroke-width="1"/>
+        <rect x="1136" y="270" width="28" height="12" rx="2" fill="transparent" stroke="rgba(79,93,117,0.50)" stroke-width="0.8"/>
+        <text x="1150" y="279" fill="#4f5d75" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">VEC</text>
+        <text x="1202" y="296" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Qdrant</text>
+        <text x="1202" y="310" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">:6333 · vectors</text>
+        <rect x="1128" y="360" width="148" height="56" rx="6" fill="#f5f5f5"/>
+        <rect x="1128" y="360" width="148" height="56" rx="6" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.20)" stroke-width="1" stroke-dasharray="4,3"/>
+        <rect x="1136" y="366" width="28" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.22)" stroke-width="0.8"/>
+        <text x="1150" y="375" fill="#5a6580" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">JOB</text>
+        <text x="1202" y="392" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Catalog Indexer</text>
+        <text x="1202" y="406" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">polls product-svc</text>
+        <rect x="440" y="520" width="148" height="56" rx="6" fill="#f5f5f5"/>
+        <rect x="440" y="520" width="148" height="56" rx="6" fill="rgba(45,49,66,0.05)" stroke="#4f5d75" stroke-width="1"/>
+        <rect x="448" y="526" width="20" height="12" rx="2" fill="transparent" stroke="rgba(79,93,117,0.50)" stroke-width="0.8"/>
+        <text x="458" y="535" fill="#4f5d75" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">DB</text>
+        <text x="514" y="552" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">MongoDB</text>
+        <text x="514" y="566" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">:27017 · db/service</text>
+        <rect x="612" y="520" width="148" height="56" rx="6" fill="#f5f5f5"/>
+        <rect x="612" y="520" width="148" height="56" rx="6" fill="rgba(45,49,66,0.05)" stroke="#4f5d75" stroke-width="1"/>
+        <rect x="620" y="526" width="20" height="12" rx="2" fill="transparent" stroke="rgba(79,93,117,0.50)" stroke-width="0.8"/>
+        <text x="630" y="535" fill="#4f5d75" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">DB</text>
+        <text x="686" y="552" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">PostgreSQL</text>
+        <text x="686" y="566" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">:5432 · db/service</text>
+        <rect x="784" y="520" width="320" height="56" rx="6" fill="#f5f5f5"/>
+        <rect x="784" y="520" width="320" height="56" rx="6" fill="rgba(191,69,32,0.08)" stroke="#bf4520" stroke-width="1"/>
+        <rect x="792" y="526" width="28" height="12" rx="2" fill="transparent" stroke="rgba(191,69,32,0.50)" stroke-width="0.8"/>
+        <text x="806" y="535" fill="#bf4520" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">BUS</text>
+        <text x="944" y="552" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Kafka event bus</text>
+        <text x="944" y="566" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">:9092 · order · payment · wallet · product · qr</text>
+        <rect x="1128" y="520" width="148" height="56" rx="6" fill="#f5f5f5"/>
+        <rect x="1128" y="520" width="148" height="56" rx="6" fill="rgba(45,49,66,0.05)" stroke="#4f5d75" stroke-width="1"/>
+        <rect x="1136" y="526" width="20" height="12" rx="2" fill="transparent" stroke="rgba(79,93,117,0.50)" stroke-width="0.8"/>
+        <text x="1146" y="535" fill="#4f5d75" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">S3</text>
+        <text x="1202" y="552" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">MinIO</text>
+        <text x="1202" y="566" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">:9000 · product images</text>
+        <line x1="40" y1="624" x2="1296" y2="624" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+        <text x="40" y="644" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">LEGEND</text>
+        <rect x="40" y="660" width="14" height="10" rx="2" fill="rgba(191,69,32,0.08)" stroke="#bf4520" stroke-width="1"/>
+        <text x="60" y="668" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Focal (entry · backbone)</text>
+        <rect x="188" y="660" width="14" height="10" rx="2" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <text x="208" y="668" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Service — tag = its database</text>
+        <rect x="356" y="660" width="14" height="10" rx="2" fill="rgba(45,49,66,0.05)" stroke="#4f5d75" stroke-width="1"/>
+        <text x="376" y="668" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Store</text>
+        <rect x="428" y="660" width="14" height="10" rx="2" fill="rgba(45,49,66,0.03)" stroke="rgba(45,49,66,0.30)" stroke-width="1"/>
+        <text x="448" y="668" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">External</text>
+        <rect x="512" y="660" width="14" height="10" rx="2" fill="rgba(79,93,117,0.10)" stroke="#5a6580" stroke-width="1"/>
+        <text x="532" y="668" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Client</text>
+        <rect x="584" y="660" width="14" height="10" rx="2" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.20)" stroke-width="1" stroke-dasharray="4,3"/>
+        <text x="604" y="668" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Background job</text>
+        <line x1="696" y1="665" x2="724" y2="665" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+        <text x="732" y="668" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">HTTPS / mTLS call</text>
+        <line x1="832" y1="665" x2="860" y2="665" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <text x="868" y="668" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Publish / write</text>
+        <line x1="956" y1="665" x2="984" y2="665" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+        <text x="992" y="668" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Consume (async)</text>
+      </svg>
+    </div>
+
+    <div class="cards">
+      <div class="card">
+        <h2>Gọi đồng bộ · HTTPS + mTLS</h2>
+        <ul>
+          <li><b>Order</b> điều phối checkout: gọi Inventory, Voucher, Product, User.</li>
+          <li><b>Cart</b> → Product, Inventory · <b>Review</b> → Order, Product · <b>Auth</b> → User, Shop.</li>
+          <li><b>Agentic RAG</b> dùng các service làm tool (product, inventory, review, cart, order, voucher, user).</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h2>Bất đồng bộ · Saga qua Kafka</h2>
+        <p><code>order.created</code> → Payment (orchestrator) → <code>wallet.debit.requested</code> → Wallet → <code>wallet.debited</code> → <code>payment.succeeded</code> → Order <code>order.paid</code>. QR đi qua Payment Gateway (<code>qr.payment.*</code>). Outbox/Inbox ở Payment, Wallet, Gateway.</p>
+      </div>
+      <div class="card">
+        <h2>Hạ tầng phụ</h2>
+        <p><code>certs-init</code> sinh CA nội bộ + cert từng service. <code>kafka-ui</code> :8080, <code>minio-init</code> tạo bucket. Stack chatbot cũ (<code>chatbot-service</code>, CLIP image-embedding) vẫn trong compose nhưng gateway trỏ tới Agentic RAG.</p>
+      </div>
+    </div>
+    <p class="note">Mỗi service sở hữu database riêng — nhãn trên ô (MONGO / PG) cho biết store của nó.</p>
+  </div>
+</body>
+</html>

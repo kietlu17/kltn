@@ -18,7 +18,6 @@ import secrets
 import time
 
 from ..conversation import (
-    _last_assistant_message,
     _normalized,
     _price_text,
     _variant_dimensions,
@@ -47,6 +46,15 @@ def _model_decided(state: AgentState) -> bool:
 
 def _variant_id(variant: dict) -> str:
     return str(variant.get("id") or variant.get("_id") or "")
+
+
+def _line_id(item: dict) -> str:
+    """Same cart line id as the storefront: "<productId>::<variantId>"."""
+    return f"{item['productId']}::{item.get('variantId') or ''}"
+
+
+def _in_stock(variant: dict) -> bool:
+    return float(variant.get("availableStock") or 0) > 0
 
 
 class OrderAgent:
@@ -161,20 +169,76 @@ class OrderAgent:
     def _rule_variant(state: AgentState, card: dict) -> str | None:
         """Fallback: the single in-stock variant matching the colour/size the
         customer named now or picked earlier."""
+        matches = OrderAgent._rule_variants(state, card)
+        return matches[0] if len(matches) == 1 else None
+
+    @staticmethod
+    def _rule_variants(state: AgentState, card: dict) -> list[str]:
+        """Every variant matching the colours/sizes the customer named now or
+        picked earlier ("size L và XL" matches two)."""
         variants = card.get("variants", [])
         mentioned = _variant_selection(state.get("message", ""), variants, card.get("name", ""))
         selected = state.get("selected_options", {}) or {}
         colors = {_normalized(value) for value in (mentioned["colors"] or selected.get("colors") or [])}
         sizes = {_normalized(value) for value in (mentioned["sizes"] or selected.get("sizes") or [])}
         if not colors and not sizes:
-            return None
+            return []
         records = _variant_dimensions(variants, card.get("name", ""))["records"]
-        matches = [
-            record["variant"] for record in records
+        return [
+            _variant_id(record["variant"]) for record in records
             if (not colors or record["color"] in colors)
             and (not sizes or record["sizes"] & sizes)
         ]
-        return _variant_id(matches[0]) if len(matches) == 1 else None
+
+    @staticmethod
+    def _variant_picker(card: dict, checked=(), quantity: int = 1) -> dict:
+        """Checkbox list of a product's variants: the customer may tick several
+        (size L and XL of one shirt) and add them in one confirmation."""
+        checked = {str(item) for item in checked if item}
+        return {
+            "type": "variant_select",
+            "multiple": True,
+            "productId": str(card.get("id") or ""),
+            "productName": str(card.get("name") or ""),
+            "quantity": quantity,
+            "submitLabel": "Thêm vào giỏ",
+            "options": [
+                {
+                    "id": _variant_id(variant),
+                    "label": str(variant.get("name") or card.get("name") or "Phiên bản"),
+                    "price": float(variant.get("price") or card.get("price") or 0),
+                    "disabled": not _in_stock(variant),
+                    "checked": _variant_id(variant) in checked and _in_stock(variant),
+                }
+                for variant in card.get("variants", [])[:30]
+                if _variant_id(variant)
+            ],
+        }
+
+    def _pending_variants(self, card: dict, variant_ids: list, quantity: int) -> dict:
+        """One confirmation for one or several variants of a product."""
+        names = {
+            _variant_id(variant): str(variant.get("name") or "")
+            for variant in card.get("variants", [])
+        }
+        product_id = str(card.get("id"))
+        if len(variant_ids) == 1:
+            variant_name = names.get(str(variant_ids[0] or ""), "")
+            label = card["name"] + (f" ({variant_name})" if variant_name and variant_name != card["name"] else "")
+            return self._pending(
+                "cart_add",
+                f"Thêm {label} — số lượng {quantity}",
+                {"productId": product_id, "variantId": variant_ids[0], "quantity": quantity},
+            )
+        labels = ", ".join(names.get(item) or "phiên bản" for item in variant_ids)
+        return self._pending(
+            "cart_add",
+            f"Thêm {card['name']} ({labels}) — mỗi phiên bản số lượng {quantity}",
+            {"items": [
+                {"productId": product_id, "variantId": item, "quantity": quantity}
+                for item in variant_ids
+            ]},
+        )
 
     def _pending(self, kind: str, summary: str, payload: dict) -> dict:
         action = PendingAction(
@@ -229,8 +293,12 @@ class OrderAgent:
             pending = prepared.get("pending_action")
             if not pending:
                 return prepared
-            lines.append({**pending["payload"], "label": pending["summary"].removeprefix("Thêm ")})
-        summary = "Thêm " + "; ".join(line["label"] for line in lines)
+            label = pending["summary"].removeprefix("Thêm ")
+            payload = pending["payload"]
+            for item in payload.get("items") or [payload]:
+                lines.append({**item, "label": label})
+                label = ""
+        summary = "Thêm " + "; ".join(line["label"] for line in lines if line["label"])
         return self._pending(
             "cart_add",
             summary,
@@ -264,21 +332,39 @@ class OrderAgent:
                 return {
                     "route": "cart_add",
                     "products": [available],
-                    "suggestions": [f"Thêm {name} vào giỏ" for name in names[:6]],
                     "tool_result": {
                         "clarification": f"{available.get('name', 'Sản phẩm')} không có phiên bản {wanted} còn hàng. "
-                        + (f"Các phiên bản hiện có: {', '.join(names[:8])}. Bạn chọn phiên bản nào?" if names else ""),
+                        f"Các phiên bản hiện có: {', '.join(names[:8])}. "
+                        "Bạn tick một hoặc nhiều phiên bản bên dưới nhé.",
+                        "selection": self._variant_picker(available, quantity=plan.quantity),
                     },
                 }
         if not card:
             return {"tool_result": {"error": "Sản phẩm không còn bán hoặc đã hết hàng."}}
         variants = card.get("variants", [])
-        variant_id = plan.variant_id
         quantity = plan.quantity
-        if not variant_id and len(variants) == 1:
-            variant_id = variants[0].get("id")
+        picked = (state.get("request") or {}).get("variantIds")
+        if picked:
+            # Ticked in the widget's checkbox list: only real, in-stock
+            # variants of this product are taken.
+            known = {_variant_id(variant): variant for variant in variants}
+            chosen = [item for item in dict.fromkeys(picked) if item in known and _in_stock(known[item])]
+            if not chosen:
+                return {
+                    "route": "cart_add",
+                    "products": [card],
+                    "tool_result": {
+                        "clarification": "Các phiên bản bạn chọn đã hết hàng. Bạn chọn lại giúp mình nhé.",
+                        "selection": self._variant_picker(card, quantity=quantity),
+                    },
+                }
+            return self._pending_variants(card, chosen, quantity)
+        variant_ids = [plan.variant_id] if plan.variant_id else []
+        if not variant_ids and len(variants) == 1:
+            variant_ids = [variants[0].get("id")]
         clarification = ""
-        if not variant_id and len(variants) > 1:
+        suggested: list[str] = []
+        if not variant_ids and len(variants) > 1:
             decision = await self._resolve(state, {
                 "requested_action": "add",
                 "requested_quantity": plan.quantity,
@@ -289,44 +375,41 @@ class OrderAgent:
                             "index": index,
                             "name": variant.get("name", ""),
                             "price": variant.get("price"),
-                            "inStock": float(variant.get("availableStock") or 0) > 0,
+                            "inStock": _in_stock(variant),
                         }
                         for index, variant in enumerate(variants[:50], 1)
                     ],
                 },
             })
-            if decision and decision.action == "add" and decision.variant_index and decision.variant_index <= len(variants):
-                variant_id = _variant_id(variants[decision.variant_index - 1]) or None
+            if decision and decision.action == "add":
+                indices = list(dict.fromkeys(
+                    index for index in [*decision.variant_indices, decision.variant_index]
+                    if index and index <= len(variants)
+                ))
+                variant_ids = [
+                    _variant_id(variants[index - 1]) for index in indices
+                    if _variant_id(variants[index - 1]) and _in_stock(variants[index - 1])
+                ]
                 quantity = decision.quantity or quantity
             elif decision is None:
-                variant_id = self._rule_variant(state, card)
+                suggested = self._rule_variants(state, card)
+                if len(suggested) == 1:
+                    variant_ids = suggested
             else:
                 clarification = decision.clarification
-        if not variant_id and len(variants) > 1:
+        if not variant_ids and len(variants) > 1:
             return {
                 "route": "cart_add",
                 "products": [card],
-                "suggestions": [
-                    f"Thêm {variant['name']} vào giỏ"
-                    for variant in variants[:8]
-                    if variant.get("name")
-                ],
                 "tool_result": {
                     "clarification": clarification
-                    or "Sản phẩm có nhiều biến thể. Hãy chọn màu/size trước khi thêm vào giỏ.",
+                    or "Sản phẩm có nhiều phiên bản. Bạn tick một hoặc nhiều màu/size bên dưới "
+                    "rồi bấm Thêm vào giỏ nhé.",
                     "variants": variants[:12],
+                    "selection": self._variant_picker(card, suggested, quantity),
                 },
             }
-        variant_name = next(
-            (variant.get("name") for variant in variants if _variant_id(variant) == str(variant_id or "")),
-            "",
-        )
-        label = card["name"] + (f" ({variant_name})" if variant_name and variant_name != card["name"] else "")
-        return self._pending(
-            "cart_add",
-            f"Thêm {label} — số lượng {quantity}",
-            {"productId": plan.product_id, "variantId": variant_id, "quantity": quantity},
-        )
+        return self._pending_variants(card, variant_ids or [None], quantity)
 
     async def _prepare_line_change(self, state: AgentState, plan: AgentPlan) -> dict:
         cart = await self.marketplace.cart(state["user_id"])
@@ -391,6 +474,9 @@ class OrderAgent:
             return await self._checkout_handoff(state)
         cart = await self.marketplace.cart(state["user_id"])
         items = cart.get("products", []) if isinstance(cart, dict) else []
+        picked = set(request.get("checkoutLineIds") or [])
+        if picked:
+            items = [item for item in items if item.get("productId") and _line_id(item) in picked]
         if not items:
             return {"tool_result": {"error": "Giỏ hàng đang trống."}}
         products = [
@@ -454,28 +540,37 @@ class OrderAgent:
             else requested
         )
 
-    async def _checkout_scope(self, state: AgentState, lines: list[dict]) -> tuple[list[dict], str | None]:
+    async def _checkout_scope(
+        self, state: AgentState, lines: list[dict]
+    ) -> tuple[list[dict], dict | None]:
         """Which cart lines this checkout is for.
 
-        "chỉ thanh toán loa" or a product the plan resolved selects those
-        lines; "cả giỏ"/"tất cả" selects every line. When nothing is named and
-        the cart also holds products this chat never talked about, the
-        customer is asked once instead of being sent to pay for all of them.
-        Returns (lines, question); question is set when asking.
+        Lines ticked in the widget are taken as they are. "cả giỏ"/"tất cả"
+        selects every line; a request that names exactly one line ("chỉ thanh
+        toán loa"), or only lines this chat added, selects those. Anything
+        else with two or more lines ("thanh toán đơn áo thun" while the cart
+        holds an older shirt too) returns a checkbox list instead, pre-ticked
+        with the lines this chat added and the customer named.
+        Returns (lines, picker); picker is set when asking.
         """
+        picked = (state.get("request") or {}).get("checkoutLineIds")
+        if picked:
+            wanted = set(picked)
+            return [item for item in lines if _line_id(item) in wanted], None
         if len(lines) < 2:
+            return lines, None
+        message = _normalized(state.get("message", ""))
+        if _WHOLE_CART.search(message):
             return lines, None
         details = await asyncio.gather(
             *(self.marketplace.product(str(item["productId"])) for item in lines),
             return_exceptions=True,
         )
-        names = {
-            str(item["productId"]): str(product.get("name") or "") if isinstance(product, dict) else ""
+        products = {
+            str(item["productId"]): product if isinstance(product, dict) else {}
             for item, product in zip(lines, details)
         }
-        message = _normalized(state.get("message", ""))
-        if _WHOLE_CART.search(message):
-            return lines, None
+        names = {key: str(product.get("name") or "") for key, product in products.items()}
         planned = {str(item) for item in (state.get("plan") or {}).get("product_ids") or []}
         words = [word for word in re.findall(r"\w+", message) if word not in _CHECKOUT_STOP_WORDS]
 
@@ -489,23 +584,60 @@ class OrderAgent:
             # the brand or model ("xiaomi", "realme").
             return any(word == name_words[0] or (len(word) >= 3 and word in name_words) for word in words)
 
+        added = set(state.get("cart_lines_added") or [])
         selected = [item for item in lines if named(item)]
-        if selected:
+        selected_added = [item for item in selected if _line_id(item) in added]
+        if len(selected) == 1 or (selected and len(selected_added) == len(selected)):
             return selected, None
         discussed = {
             str(state.get("active_product_id") or ""),
             *(str(item.get("id") or "") for item in state.get("focused_products", [])),
         } - {""}
-        talked_about = [item for item in lines if str(item["productId"]) in discussed]
-        already_asked = "thanh toán riêng" in _last_assistant_message(state.get("history", []))
-        if talked_about and len(talked_about) < len(lines) and not already_asked:
-            focus = ", ".join(names.get(str(item["productId"])) or "sản phẩm này" for item in talked_about)
-            others = len(lines) - len(talked_about)
-            return lines, (
-                f"Giỏ hàng của bạn còn {others} sản phẩm khác ngoài {focus}. "
-                f"Bạn muốn thanh toán riêng {focus} hay thanh toán cả giỏ?"
+        session_lines = [
+            item for item in lines
+            if _line_id(item) in added or str(item["productId"]) in discussed
+        ]
+        if not selected and not session_lines:
+            # Nothing named and nothing from this chat: a plain "thanh toán"
+            # still lets the customer untick lines, with all of them ticked.
+            checked = lines
+        else:
+            checked = selected_added or selected or session_lines
+        checked_ids = {_line_id(item) for item in checked}
+
+        def label(item: dict) -> tuple[str, float]:
+            product = products.get(str(item["productId"])) or {}
+            variant = next(
+                (
+                    entry for entry in product.get("variants", [])
+                    if _variant_id(entry) == str(item.get("variantId") or "")
+                ),
+                None,
             )
-        return lines, None
+            name = product.get("name") or "Sản phẩm"
+            if variant and variant.get("name") and variant.get("name") != name:
+                name += f" ({variant['name']})"
+            price = float((variant or {}).get("price") or product.get("price") or 0)
+            return name, price
+
+        options = []
+        for item in lines:
+            name, price = label(item)
+            quantity = int(item.get("quantity") or 1)
+            options.append({
+                "id": _line_id(item),
+                "label": name,
+                "quantity": quantity,
+                "price": price * quantity,
+                "note": "vừa thêm trong chat" if _line_id(item) in added else "",
+                "checked": _line_id(item) in checked_ids,
+            })
+        return lines, {
+            "type": "checkout_select",
+            "multiple": True,
+            "submitLabel": "Thanh toán các mục đã chọn",
+            "options": options,
+        }
 
     async def _checkout_handoff(self, state: AgentState) -> dict:
         cart = await self.marketplace.cart(state["user_id"])
@@ -518,9 +650,19 @@ class OrderAgent:
                 "error": "Giỏ hàng đang trống, bạn thêm sản phẩm trước khi thanh toán nhé."
             }}
         cart_size = len(lines)
-        lines, question = await self._checkout_scope(state, lines)
-        if question:
-            return {"route": "checkout", "tool_result": {"clarification": question}}
+        lines, picker = await self._checkout_scope(state, lines)
+        if picker:
+            return {"route": "checkout", "tool_result": {
+                "clarification": (
+                    f"Giỏ hàng của bạn có {cart_size} sản phẩm. Bạn tick những sản phẩm muốn thanh toán "
+                    "bên dưới (mình đã chọn sẵn các món bạn vừa thêm/nhắc tới) rồi bấm Thanh toán nhé."
+                ),
+                "selection": picker,
+            }}
+        if not lines:
+            return {"route": "checkout", "tool_result": {
+                "error": "Các sản phẩm bạn chọn không còn trong giỏ hàng. Bạn kiểm tra lại giỏ nhé."
+            }}
         cart = {**cart, "products": lines}
         partial = len(lines) < cart_size
         try:
@@ -539,7 +681,7 @@ class OrderAgent:
         default = next((item for item in addresses if item.get("isDefault")), addresses[0])
         summary = await self._cart_summary(cart)
         if partial:
-            # Only the named lines are paid; the rest stays in the cart.
+            # Only the chosen lines are paid; the rest stays in the cart.
             summary = summary.replace(
                 "Giỏ hàng của bạn có", "Mình chỉ thanh toán", 1
             ) + f"\nCác sản phẩm còn lại ({cart_size - len(lines)}) vẫn được giữ trong giỏ."
@@ -547,9 +689,7 @@ class OrderAgent:
             "status": "handoff_required",
             "tool": "open_checkout",
             # Same line ids as the cart page: "<productId>::<variantId>".
-            "selectedProductIds": [
-                f"{item['productId']}::{item.get('variantId') or ''}" for item in lines
-            ],
+            "selectedProductIds": [_line_id(item) for item in lines],
             "addressId": str(default.get("_id") or default.get("id") or ""),
             "paymentMethod": self._payment_method(state),
             "voucherCode": (state.get("request") or {}).get("voucherCode") or "",
@@ -605,6 +745,15 @@ class OrderAgent:
                 "tool_result": {"error": "Xác nhận đã hết hạn. Hãy tạo lại thao tác."},
             }
         payload = action.payload
+        updates: dict = {}
+        if action.kind == "cart_add":
+            added = [
+                _line_id(item) for item in (payload.get("items") or [payload])
+                if item.get("productId")
+            ]
+            updates["cart_lines_added"] = list(dict.fromkeys(
+                [*(state.get("cart_lines_added") or []), *added]
+            ))[-20:]
         if action.kind == "cart_add" and payload.get("items"):
             results = [
                 await self.marketplace.add_to_cart(
@@ -640,6 +789,7 @@ class OrderAgent:
                 action.secret,
             )
         return {
+            **updates,
             "pending_action": None,
             "route": action.kind,
             "tool_result": {

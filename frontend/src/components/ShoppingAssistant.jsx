@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import api, { API_BASE_URL, resolveImageUrl } from '../services/api';
 import './ShoppingAssistant.css';
 import MicrophoneButton from './MicrophoneButton';
+import AssistantSelection from './AssistantSelection.jsx';
 import { useCart } from '../context/CartContext.jsx';
 
 // Photo and voice search need backend support: set VITE_ASSISTANT_IMAGE=false
@@ -11,10 +12,23 @@ const IMAGE_ENABLED = import.meta.env.VITE_ASSISTANT_IMAGE !== 'false';
 const VOICE_ENABLED = import.meta.env.VITE_ASSISTANT_VOICE !== 'false';
 const DEFAULT_STATUS = 'Đang tìm và kiểm tra sản phẩm…';
 
-// Server-sent events from /assistant/chat/stream: progress statuses, then the
-// same ChatResponse the plain endpoint returns. Resolves with that response;
-// rejects with an axios-shaped error so the caller handles both paths alike.
-async function streamChat(body, signal, onStatus) {
+// The streamed draft is raw model text; the final answer replaces it with the
+// server's cleaned version, so only show it readably meanwhile.
+function readableDraft(text) {
+  return text
+    .replace(/^\s*[*-]\s+/gm, '• ')
+    .replace(/^\s*#{1,6}\s*/gm, '')
+    .replace(/\*\*(.+?)\*\*|__(.+?)__/g, (_match, a, b) => a || b)
+    .replace(/\*\*/g, '');
+}
+
+// Server-sent events from /assistant/chat/stream: progress statuses, reply
+// tokens ("reset" withdraws a draft that turned out not to be the reply), then
+// the same ChatResponse the plain endpoint returns. Resolves with that
+// response; rejects with an axios-shaped error so the caller handles both
+// paths alike.
+async function streamChat(body, signal, onStatus, onDraft = () => {}) {
+  let draft = '';
   const token = sessionStorage.getItem('token') || localStorage.getItem('token');
   const response = await fetch(`${(API_BASE_URL || '').replace(/\/+$/, '')}/assistant/chat/stream`, {
     method: 'POST',
@@ -51,6 +65,14 @@ async function streamChat(body, signal, onStatus) {
       let payload;
       try { payload = JSON.parse(raw); } catch { continue; }
       if (name === 'status' && typeof payload.message === 'string') onStatus(payload.message);
+      if (name === 'token' && typeof payload.text === 'string') {
+        draft += payload.text;
+        onDraft(readableDraft(draft));
+      }
+      if (name === 'reset') {
+        draft = '';
+        onDraft('');
+      }
       if (name === 'final') return payload;
       if (name === 'error') {
         const error = new Error('assistant error');
@@ -75,6 +97,7 @@ export default function ShoppingAssistant() {
   const [attachment, setAttachment] = useState(null);
   const [busy, setBusy] = useState(false);
   const [statusText, setStatusText] = useState(DEFAULT_STATUS);
+  const [draft, setDraft] = useState('');
   const [voiceBusy, setVoiceBusy] = useState(false);
   const [error, setError] = useState('');
   const session = useRef(null);
@@ -135,6 +158,7 @@ export default function ShoppingAssistant() {
     const controller = new AbortController();
     activeRequest.current = controller;
     setStatusText(DEFAULT_STATUS);
+    setDraft('');
     const body = {
       message: text.trim(), image: selectedImage?.data || null,
       sessionId: session.current, referenceProductId, ...action,
@@ -142,8 +166,9 @@ export default function ShoppingAssistant() {
     try {
       let data;
       try {
-        data = await streamChat(body, controller.signal, setStatusText);
+        data = await streamChat(body, controller.signal, setStatusText, setDraft);
       } catch (streamError) {
+        setDraft('');
         // A server answer (session expired, login needed) is final; a broken
         // stream before any answer falls back to the plain endpoint.
         const status = streamError.response?.status;
@@ -153,6 +178,7 @@ export default function ShoppingAssistant() {
         ({ data } = await api.post('/assistant/chat', body, { timeout: 370000, signal: controller.signal }));
       }
       session.current = data.sessionId;
+      setDraft('');
       setMessages((previous) => [...previous, {
         role: 'assistant',
         text: data.answer,
@@ -162,6 +188,7 @@ export default function ShoppingAssistant() {
           ? data.suggestions.filter((item) => typeof item === 'string' && item.trim()).slice(0, 8)
           : [],
         handoff: data.handoff === true,
+        selection: data.selection && Array.isArray(data.selection.options) ? data.selection : null,
       }]);
       if (data.actionResult?.status === 'completed' || data.actionResult?.cartChanged) {
         await refreshCart();
@@ -199,6 +226,7 @@ export default function ShoppingAssistant() {
       setInput(text);
       setAttachment(selectedImage);
     } finally {
+      setDraft('');
       pending.current = false;
       setBusy(false);
       activeRequest.current = null;
@@ -256,6 +284,11 @@ export default function ShoppingAssistant() {
                             {Number.isFinite(Number(product.price)) && (
                               <span className="sa-price">{Number(product.price).toLocaleString('vi-VN')} ₫</span>
                             )}
+                            {Number(product.reviewCount) > 0 && (
+                              <span className="sa-rating" aria-label={`${product.rating} trên 5 sao, ${product.reviewCount} đánh giá`}>
+                                ★ {Number(product.rating).toLocaleString('vi-VN', { maximumFractionDigits: 1 })} · {product.reviewCount} đánh giá
+                              </span>
+                            )}
                             {product.variants?.[0]?.id && <small>Có biến thể phù hợp · Xem lựa chọn</small>}
                           </div>
                         </Link>
@@ -299,6 +332,9 @@ export default function ShoppingAssistant() {
                     )}>Hủy</button>
                   </div>
                 )}
+                {index === messages.length - 1 && message.selection && (
+                  <AssistantSelection selection={message.selection} disabled={busy} onSubmit={send} />
+                )}
                 {index === messages.length - 1 && message.suggestions?.length > 0 && (
                   <div className="sa-quick-replies" role="group" aria-label="Gợi ý trả lời nhanh">
                     {message.suggestions.map((text) => (
@@ -327,6 +363,11 @@ export default function ShoppingAssistant() {
                 ))}
                 {detailMatch && <button type="button" onClick={() => send('Tìm sản phẩm tương tự mẫu đang xem', detailMatch[1])}
                   disabled={busy}>Tìm mẫu giống sản phẩm đang xem</button>}
+              </div>
+            )}
+            {busy && draft && (
+              <div className="sa-message sa-assistant sa-draft">
+                <p>{draft}</p>
               </div>
             )}
             {busy && <p className="sa-status" role="status">{statusText}</p>}
