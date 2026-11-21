@@ -382,6 +382,15 @@ class AgentGraphTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("không có size S", answer)
         self.assertIn("M, L, XL, 2XL", answer)
 
+    async def test_detail_question_shows_the_product_card(self):
+        agent, _marketplace = self.variant_agent()
+        planned, resolved, _answer = await self.resolve_variant_turn(
+            agent, "màu be có size nào"
+        )
+        self.assertFalse(planned["render_product_cards"])
+        self.assertTrue(resolved["render_product_cards"])
+        self.assertEqual([item["id"] for item in resolved["products"]], [BASIC_ID])
+
     async def test_standalone_size_selects_variant_instead_of_buying(self):
         agent, _marketplace = self.variant_agent()
         planned, _resolved, answer = await self.resolve_variant_turn(

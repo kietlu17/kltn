@@ -811,6 +811,9 @@ class ProductAgent:
         result = {
             "route": "product_detail",
             "products": [card] if card else [],
+            # The one product asked about keeps its card (with "Thêm giỏ"),
+            # even though the planner hides cards on follow-up turns.
+            "render_product_cards": bool(card),
             "active_product_id": product_id if card else None,
             "selected_options": selected_options,
             "tool_result": {

@@ -189,6 +189,9 @@ export default function ShoppingAssistant() {
           : [],
         handoff: data.handoff === true,
         selection: data.selection && Array.isArray(data.selection.options) ? data.selection : null,
+        checkoutLines: data.route === 'cart_add' && Array.isArray(data.actionResult?.addedLines)
+          ? data.actionResult.addedLines.filter((item) => typeof item === 'string')
+          : [],
       }]);
       if (data.actionResult?.status === 'completed' || data.actionResult?.cartChanged) {
         await refreshCart();
@@ -231,6 +234,12 @@ export default function ShoppingAssistant() {
       setBusy(false);
       activeRequest.current = null;
     }
+  }
+
+  function openCheckout(selectedProductIds) {
+    localStorage.setItem('checkoutSelection', JSON.stringify(selectedProductIds));
+    setOpen(false);
+    navigate('/checkout', { state: { selectedProductIds, source: 'assistant' } });
   }
 
   function reset() {
@@ -330,6 +339,12 @@ export default function ShoppingAssistant() {
                       null,
                       { cancelActionId: message.pendingAction.actionId },
                     )}>Hủy</button>
+                  </div>
+                )}
+                {index === messages.length - 1 && message.checkoutLines?.length > 0 && (
+                  <div className="sa-confirm-actions">
+                    <button type="button" disabled={busy}
+                      onClick={() => openCheckout(message.checkoutLines)}>Thanh toán</button>
                   </div>
                 )}
                 {index === messages.length - 1 && message.selection && (

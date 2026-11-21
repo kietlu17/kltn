@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Chatbot Architecture</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&family=Be+Vietnam+Pro:wght@400;500;600&family=Noto+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --color-paper: #f5f5f5; --color-ink: #2d3142; --color-muted: #4f5d75;
+      --font-sans: 'Geist', 'Be Vietnam Pro', system-ui, sans-serif; --font-serif: 'Instrument Serif', 'Noto Serif', serif; --font-mono: 'Geist Mono', ui-monospace, monospace; }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink); min-height: 100vh; display: flex; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1200px; width: 100%; min-width: 0; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400; letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    .caption { font-family: var(--font-serif); font-style: italic; font-size: 1.05rem; color: var(--color-muted); text-align: center; margin-top: 1rem; }
+    svg { width: 100%; min-width: 1200px; display: block; }
+    @media (max-width: 860px) { body { padding: 2rem 16px; } }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0; } }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Architecture · AI Chatbot subsystem</p>
+    <h1>Logical architecture of the AI Chatbot subsystem with Agentic RAG</h1>
+    <div class="diagram-container">
+      <svg viewBox="0 0 1200 816" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="chatbot-layered-architecture-title chatbot-layered-architecture-desc">
+        <title id="chatbot-layered-architecture-title">Logical architecture of the AI Chatbot</title>
+        <desc id="chatbot-layered-architecture-desc">Buyer messages flow from the React UI through the API Gateway to the AI Chatbot Service, where a LangGraph router sends product questions to a ProductAgent using hybrid retrieval (BM25, dense vectors, RRF, cross-encoder), policy questions to a policy knowledge base, and cart or order requests to an OrderAgent that calls the business microservices.</desc>
+        <defs>
+          <pattern id="chatbot-layered-dots" width="22" height="22" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="0.9" fill="rgba(45,49,66,0.10)"/></pattern>
+          <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/></marker>
+          <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bf4520"/></marker>
+          <marker id="arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#2e5aa8"/></marker>
+        </defs>
+        <rect width="1200" height="816" fill="#f5f5f5"/>
+        <rect width="1200" height="816" fill="url(#chatbot-layered-dots)" opacity="0.55"/>
+        <rect x="16" y="24" width="1168" height="96" rx="8" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.1)" stroke-width="0.8"/>
+        <rect x="28" y="28" width="120" height="13" rx="2" fill="#f5f5f5"/>
+        <text x="88.0" y="37.5" fill="#5a6580" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.1em">USER INTERFACE LAYER</text>
+        <rect x="16" y="144" width="1168" height="96" rx="8" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.1)" stroke-width="0.8"/>
+        <rect x="28" y="148" width="60" height="13" rx="2" fill="#f5f5f5"/>
+        <text x="58.0" y="157.5" fill="#5a6580" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.1em">API LAYER</text>
+        <rect x="16" y="264" width="1168" height="200" rx="8" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.1)" stroke-width="0.8"/>
+        <rect x="28" y="268" width="163" height="13" rx="2" fill="#f5f5f5"/>
+        <text x="109.5" y="277.5" fill="#5a6580" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.1em">AI ORCHESTRATION · LANGGRAPH</text>
+        <rect x="16" y="488" width="840" height="240" rx="8" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.1)" stroke-width="0.8"/>
+        <rect x="144" y="492" width="125" height="13" rx="2" fill="#f5f5f5"/>
+        <text x="206.5" y="501.5" fill="#5a6580" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.1em">AGENTIC RAG RETRIEVAL</text>
+        <rect x="872" y="488" width="312" height="240" rx="8" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.1)" stroke-width="0.8"/>
+        <rect x="1000" y="492" width="130" height="13" rx="2" fill="#f5f5f5"/>
+        <text x="1065.0" y="501.5" fill="#5a6580" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.1em">BUSINESS MICROSERVICES</text>
+        <rect x="40" y="512" width="376" height="176" rx="8" fill="rgba(45,49,66,0.03)" stroke="rgba(45,49,66,0.18)" stroke-width="0.8" stroke-dasharray="4,3"/>
+        <rect x="160" y="516" width="98" height="13" rx="2" fill="#f5f5f5"/>
+        <text x="209.0" y="525.5" fill="#5a6580" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.1em">HYBRID RETRIEVAL</text>
+        <path d="M 200,80 H 280" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <path d="M 380,104 V 176" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <rect x="388" y="134" width="47" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="411.5" y="142.5" fill="#5a6580" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">MESSAGE</text>
+        <path d="M 480,200 H 600" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <rect x="516.5" y="180" width="47" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="540.0" y="188.5" fill="#5a6580" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">FORWARD</text>
+        <path d="M 700,224 V 296" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <path d="M 800,320 H 880" fill="none" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+        <path d="M 650,344 V 364 Q 650,372 642,372 H 232 Q 224,372 224,380 V 400" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <path d="M 700,344 V 400" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <path d="M 750,344 V 364 Q 750,372 758,372 H 1012 Q 1020,372 1020,380 V 400" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <rect x="296" y="352" width="85" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="338.5" y="360.5" fill="#5a6580" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">PRODUCT ADVICE</text>
+        <rect x="858" y="352" width="74" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="895.0" y="360.5" fill="#5a6580" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">CART · ORDER</text>
+        <rect x="708" y="378" width="42" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="729.0" y="386.5" fill="#5a6580" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">POLICY</text>
+        <path d="M 188,448 V 464 Q 188,472 180,472 H 142 Q 134,472 134,480 V 544" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <path d="M 260,448 V 464 Q 260,472 268,472 H 306 Q 314,472 314,480 V 544" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <path d="M 134,584 V 596 Q 134,604 142,604 H 192 Q 200,604 200,612 V 624" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <path d="M 314,584 V 596 Q 314,604 306,604 H 256 Q 248,604 248,612 V 624" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <path d="M 294,644 H 440" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <path d="M 520,624 V 432 Q 520,424 512,424 H 324" fill="none" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+        <rect x="528" y="540" width="37" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="546.5" y="548.5" fill="#5a6580" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">TOP-K</text>
+        <path d="M 700,448 V 544" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <rect x="708" y="512" width="42" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="729.0" y="520.5" fill="#5a6580" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">LOOKUP</text>
+        <path d="M 960,448 V 528" fill="none" stroke="#bf4520" stroke-width="1.4" marker-end="url(#arrow-accent)"/>
+        <rect x="968" y="470" width="58" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="997.0" y="478.5" fill="#5a6580" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">TOOL CALL</text>
+        <rect x="40" y="56" width="160" height="48" rx="6" fill="#f5f5f5"/>
+        <rect x="40" y="56" width="160" height="48" rx="6" fill="rgba(79,93,117,0.10)" stroke="#5a6580" stroke-width="1"/>
+        <rect x="48" y="62" width="30" height="12" rx="2" fill="none" stroke="#5a6580" stroke-opacity="0.4" stroke-width="0.8"/>
+        <text x="63.0" y="71" fill="#5a6580" fill-opacity="0.85" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">USER</text>
+        <text x="120.0" y="84.0" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', 'Be Vietnam Pro', system-ui, sans-serif" text-anchor="middle">Buyer</text>
+        <rect x="280" y="56" width="200" height="48" rx="6" fill="#f5f5f5"/>
+        <rect x="280" y="56" width="200" height="48" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="288" y="62" width="20" height="12" rx="2" fill="none" stroke="#2d3142" stroke-opacity="0.4" stroke-width="0.8"/>
+        <text x="298.0" y="71" fill="#2d3142" fill-opacity="0.85" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">UI</text>
+        <text x="380.0" y="82.0" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', 'Be Vietnam Pro', system-ui, sans-serif" text-anchor="middle">React Frontend</text>
+        <text x="380.0" y="96.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">Chatbot Interface</text>
+        <rect x="280" y="176" width="200" height="48" rx="6" fill="#f5f5f5"/>
+        <rect x="280" y="176" width="200" height="48" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="288" y="182" width="25" height="12" rx="2" fill="none" stroke="#2d3142" stroke-opacity="0.4" stroke-width="0.8"/>
+        <text x="300.5" y="191" fill="#2d3142" fill-opacity="0.85" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">API</text>
+        <text x="380.0" y="202.0" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', 'Be Vietnam Pro', system-ui, sans-serif" text-anchor="middle">API Gateway</text>
+        <text x="380.0" y="216.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">Backend API</text>
+        <rect x="600" y="176" width="200" height="48" rx="6" fill="#f5f5f5"/>
+        <rect x="600" y="176" width="200" height="48" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="608" y="182" width="25" height="12" rx="2" fill="none" stroke="#2d3142" stroke-opacity="0.4" stroke-width="0.8"/>
+        <text x="620.5" y="191" fill="#2d3142" fill-opacity="0.85" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">SVC</text>
+        <text x="700.0" y="202.0" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', 'Be Vietnam Pro', system-ui, sans-serif" text-anchor="middle">AI Chatbot Service</text>
+        <text x="700.0" y="216.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">FastAPI</text>
+        <rect x="600" y="296" width="200" height="48" rx="6" fill="#f5f5f5"/>
+        <rect x="600" y="296" width="200" height="48" rx="6" fill="rgba(191,69,32,0.08)" stroke="#bf4520" stroke-width="1"/>
+        <rect x="608" y="302" width="25" height="12" rx="2" fill="none" stroke="#bf4520" stroke-opacity="0.4" stroke-width="0.8"/>
+        <text x="620.5" y="311" fill="#bf4520" fill-opacity="0.85" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">LLM</text>
+        <text x="700.0" y="322.0" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', 'Be Vietnam Pro', system-ui, sans-serif" text-anchor="middle">Router / Supervisor</text>
+        <text x="700.0" y="336.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">intent routing</text>
+        <rect x="880" y="296" width="200" height="48" rx="6" fill="#f5f5f5"/>
+        <rect x="880" y="296" width="200" height="48" rx="6" fill="rgba(45,49,66,0.05)" stroke="#4f5d75" stroke-width="1"/>
+        <rect x="888" y="302" width="20" height="12" rx="2" fill="none" stroke="#4f5d75" stroke-opacity="0.4" stroke-width="0.8"/>
+        <text x="898.0" y="311" fill="#4f5d75" fill-opacity="0.85" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">DB</text>
+        <text x="980.0" y="322.0" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', 'Be Vietnam Pro', system-ui, sans-serif" text-anchor="middle">Conversation State</text>
+        <text x="980.0" y="336.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">checkpoint</text>
+        <rect x="124" y="400" width="200" height="48" rx="6" fill="#f5f5f5"/>
+        <rect x="124" y="400" width="200" height="48" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="132" y="406" width="35" height="12" rx="2" fill="none" stroke="#2d3142" stroke-opacity="0.4" stroke-width="0.8"/>
+        <text x="149.5" y="415" fill="#2d3142" fill-opacity="0.85" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">AGENT</text>
+        <text x="224.0" y="426.0" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', 'Be Vietnam Pro', system-ui, sans-serif" text-anchor="middle">ProductAgent</text>
+        <text x="224.0" y="440.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">tool: search</text>
+        <rect x="600" y="400" width="200" height="48" rx="6" fill="#f5f5f5"/>
+        <rect x="600" y="400" width="200" height="48" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="608" y="406" width="35" height="12" rx="2" fill="none" stroke="#2d3142" stroke-opacity="0.4" stroke-width="0.8"/>
+        <text x="625.5" y="415" fill="#2d3142" fill-opacity="0.85" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">AGENT</text>
+        <text x="700.0" y="426.0" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', 'Be Vietnam Pro', system-ui, sans-serif" text-anchor="middle">Policy branch</text>
+        <text x="700.0" y="440.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">policy QA</text>
+        <rect x="920" y="400" width="200" height="48" rx="6" fill="#f5f5f5"/>
+        <rect x="920" y="400" width="200" height="48" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="928" y="406" width="35" height="12" rx="2" fill="none" stroke="#2d3142" stroke-opacity="0.4" stroke-width="0.8"/>
+        <text x="945.5" y="415" fill="#2d3142" fill-opacity="0.85" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">AGENT</text>
+        <text x="1020.0" y="426.0" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', 'Be Vietnam Pro', system-ui, sans-serif" text-anchor="middle">OrderAgent</text>
+        <text x="1020.0" y="440.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">tool: cart · order</text>
+        <rect x="64" y="544" width="140" height="40" rx="6" fill="#f5f5f5"/>
+        <rect x="64" y="544" width="140" height="40" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <text x="134.0" y="563.0" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', 'Be Vietnam Pro', system-ui, sans-serif" text-anchor="middle">BM25</text>
+        <text x="134.0" y="576.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">Qdrant · sparse</text>
+        <rect x="244" y="544" width="140" height="40" rx="6" fill="#f5f5f5"/>
+        <rect x="244" y="544" width="140" height="40" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <text x="314.0" y="563.0" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', 'Be Vietnam Pro', system-ui, sans-serif" text-anchor="middle">Dense Vector</text>
+        <text x="314.0" y="576.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">Qdrant · dense</text>
+        <rect x="154" y="624" width="140" height="40" rx="6" fill="#f5f5f5"/>
+        <rect x="154" y="624" width="140" height="40" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <text x="224.0" y="643.0" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', 'Be Vietnam Pro', system-ui, sans-serif" text-anchor="middle">RRF</text>
+        <text x="224.0" y="656.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">rank fusion</text>
+        <rect x="440" y="624" width="160" height="40" rx="6" fill="#f5f5f5"/>
+        <rect x="440" y="624" width="160" height="40" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <text x="520.0" y="643.0" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', 'Be Vietnam Pro', system-ui, sans-serif" text-anchor="middle">Cross-Encoder</text>
+        <text x="520.0" y="656.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">reranking</text>
+        <rect x="600" y="544" width="200" height="48" rx="6" fill="#f5f5f5"/>
+        <rect x="600" y="544" width="200" height="48" rx="6" fill="rgba(45,49,66,0.05)" stroke="#4f5d75" stroke-width="1"/>
+        <rect x="608" y="550" width="20" height="12" rx="2" fill="none" stroke="#4f5d75" stroke-opacity="0.4" stroke-width="0.8"/>
+        <text x="618.0" y="559" fill="#4f5d75" fill-opacity="0.85" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">KB</text>
+        <text x="700.0" y="570.0" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', 'Be Vietnam Pro', system-ui, sans-serif" text-anchor="middle">Policy Knowledge</text>
+        <text x="700.0" y="584.0" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">policy documents</text>
+        <rect x="920" y="528" width="200" height="176" rx="6" fill="#f5f5f5"/>
+        <rect x="920" y="528" width="200" height="176" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="928" y="534" width="30" height="12" rx="2" fill="none" stroke="#2d3142" stroke-opacity="0.4" stroke-width="0.8"/>
+        <text x="943" y="543" fill="#2d3142" fill-opacity="0.85" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">API</text>
+        <text x="1032.0" y="547" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', 'Be Vietnam Pro', system-ui, sans-serif" text-anchor="middle">Business services</text>
+        <line x1="932" y1="560" x2="1108" y2="560" stroke="rgba(45,49,66,0.12)" stroke-width="0.8"/>
+        <text x="936" y="578" fill="#2d3142" font-size="11" font-weight="500" font-family="'Geist', 'Be Vietnam Pro', system-ui, sans-serif">Catalog Service</text>
+        <line x1="932" y1="588" x2="1108" y2="588" stroke="rgba(45,49,66,0.12)" stroke-width="0.8"/>
+        <text x="936" y="606" fill="#2d3142" font-size="11" font-weight="500" font-family="'Geist', 'Be Vietnam Pro', system-ui, sans-serif">Inventory Service</text>
+        <line x1="932" y1="616" x2="1108" y2="616" stroke="rgba(45,49,66,0.12)" stroke-width="0.8"/>
+        <text x="936" y="634" fill="#2d3142" font-size="11" font-weight="500" font-family="'Geist', 'Be Vietnam Pro', system-ui, sans-serif">Cart Service</text>
+        <line x1="932" y1="644" x2="1108" y2="644" stroke="rgba(45,49,66,0.12)" stroke-width="0.8"/>
+        <text x="936" y="662" fill="#2d3142" font-size="11" font-weight="500" font-family="'Geist', 'Be Vietnam Pro', system-ui, sans-serif">Order Service</text>
+        <line x1="932" y1="672" x2="1108" y2="672" stroke="rgba(45,49,66,0.12)" stroke-width="0.8"/>
+        <text x="936" y="690" fill="#2d3142" font-size="11" font-weight="500" font-family="'Geist', 'Be Vietnam Pro', system-ui, sans-serif">Payment / Wallet Services</text>
+        <text x="1184" y="756" fill="#4f5d75" font-size="14" font-style="italic" font-family="'Instrument Serif', 'Noto Serif', serif" text-anchor="end">The LLM never writes to transactional databases — every order or payment change goes through a business service.</text>
+        <line x1="16" y1="776" x2="1184" y2="776" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+        <text x="16" y="796" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">LEGEND</text>
+        <rect x="110" y="788" width="16" height="10" rx="2" fill="rgba(191,69,32,0.08)" stroke="#bf4520" stroke-width="1"/>
+        <text x="132" y="796.5" fill="#2d3142" font-size="10" font-family="'Geist', 'Be Vietnam Pro', system-ui, sans-serif">Central orchestration</text>
+        <rect x="280" y="788" width="16" height="10" rx="2" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <text x="302" y="796.5" fill="#2d3142" font-size="10" font-family="'Geist', 'Be Vietnam Pro', system-ui, sans-serif">Processing component</text>
+        <rect x="450" y="788" width="16" height="10" rx="2" fill="rgba(45,49,66,0.05)" stroke="#4f5d75" stroke-width="1"/>
+        <text x="472" y="796.5" fill="#2d3142" font-size="10" font-family="'Geist', 'Be Vietnam Pro', system-ui, sans-serif">Data / state</text>
+        <rect x="620" y="788" width="16" height="10" rx="2" fill="rgba(79,93,117,0.10)" stroke="#5a6580" stroke-width="1"/>
+        <text x="642" y="796.5" fill="#2d3142" font-size="10" font-family="'Geist', 'Be Vietnam Pro', system-ui, sans-serif">User</text>
+        <line x1="790" y1="793" x2="814" y2="793" stroke="#bf4520" stroke-width="1.4"/>
+        <text x="820" y="796.5" fill="#2d3142" font-size="10" font-family="'Geist', 'Be Vietnam Pro', system-ui, sans-serif">Business API call</text>
+        <line x1="950" y1="793" x2="974" y2="793" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3"/>
+        <text x="980" y="796.5" fill="#2d3142" font-size="10" font-family="'Geist', 'Be Vietnam Pro', system-ui, sans-serif">Result return / state save</text>
+      </svg>
+    </div>
+    <p class="caption">Figure 3.1. Logical architecture of the AI Chatbot subsystem with Agentic RAG.</p>
+  </div>
+</body>
+</html>

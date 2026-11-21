@@ -788,6 +788,14 @@ class OrderAgent:
                 payload["quoteId"],
                 action.secret,
             )
+        if action.kind == "cart_add":
+            # The widget offers "Thanh toán" for exactly the lines just added
+            # and refreshes the cart badge on cartChanged.
+            result = {
+                **(result if isinstance(result, dict) else {}),
+                "cartChanged": True,
+                "addedLines": added,
+            }
         return {
             **updates,
             "pending_action": None,

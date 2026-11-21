@@ -56,6 +56,9 @@ class TypedConfirmationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(models.decide_calls, 0)
         self.assertIsNone(result["pending_action"])
         self.assertTrue(result["tool_result"]["success"])
+        # The widget's "Thanh toán" button opens checkout for the added line.
+        self.assertTrue(result["tool_result"]["result"]["cartChanged"])
+        self.assertEqual(result["tool_result"]["result"]["addedLines"], [f"{PRODUCT_ID}::{VARIANT_ID}"])
 
     async def test_model_yes_inside_a_longer_message_needs_explicit_words(self):
         models = SemanticModels(

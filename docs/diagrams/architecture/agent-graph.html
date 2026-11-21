@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agent graph · Agentic RAG assistant</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Geist', system-ui, sans-serif; background: #f5f5f5; color: #2d3142; min-height: 100vh;
+      display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1320px; width: 100%; }
+    .eyebrow { font-family: 'Geist Mono', ui-monospace, monospace; font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em;
+      text-transform: uppercase; color: #4f5d75; margin-bottom: 0.5rem; }
+    h1 { font-family: 'Instrument Serif', serif; font-size: 2.5rem; font-weight: 400; letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    .scroll { overflow-x: auto; }
+    svg { width: 100%; min-width: 1280px; display: block; }
+    @media print { svg { min-width: 0; } .scroll { overflow-x: visible; } }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Architecture · LangGraph agent graph</p>
+    <h1>Agentic RAG · Supervisor and agents</h1>
+    <div class="scroll">
+    <svg viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="agent-graph-title agent-graph-desc">
+      <title id="agent-graph-title">LangGraph agent graph of the agentic RAG assistant</title>
+      <desc id="agent-graph-desc">The supervisor understands each turn and plans a route to ProductAgent, the tool-calling Advisor, or OrderAgent, while policy, research and search side branches run in parallel; all branches join in collect and finalize, which returns the chat response.</desc>
+      <defs>
+        <marker id="ag-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/></marker>
+      </defs>
+      <rect width="1280" height="720" fill="#f5f5f5"/>
+      <path d="M288,112 H366" stroke="#4f5d75" stroke-width="1.6" fill="none" marker-end="url(#ag-arrow)"/>
+      <path d="M968,112 H1046" stroke="#4f5d75" stroke-width="1.6" fill="none" marker-end="url(#ag-arrow)"/>
+      <path d="M288,248 H366" stroke="#4f5d75" stroke-width="1.6" fill="none" marker-end="url(#ag-arrow)"/>
+      <path d="M968,248 H1046" stroke="#4f5d75" stroke-width="1.6" fill="none" marker-end="url(#ag-arrow)"/>
+      <path d="M288,384 H366" stroke="#4f5d75" stroke-width="1.6" fill="none" marker-end="url(#ag-arrow)"/>
+      <path d="M968,384 H1046" stroke="#4f5d75" stroke-width="1.6" fill="none" marker-end="url(#ag-arrow)"/>
+      <path d="M288,520 H366" stroke="#4f5d75" stroke-width="1.6" fill="none" marker-end="url(#ag-arrow)"/>
+      <path d="M968,520 H1046" stroke="#4f5d75" stroke-width="1.6" fill="none" marker-end="url(#ag-arrow)"/>
+      <path d="M920,200 V162" stroke="#4f5d75" stroke-width="1.6" fill="none" marker-end="url(#ag-arrow)" stroke-dasharray="5,4"/>
+      <rect x="40" y="64" width="248" height="504" rx="8" fill="#f5f5f5"/>
+      <rect x="40" y="64" width="248" height="504" rx="8" fill="rgba(191,69,32,0.08)" stroke="#bf4520" stroke-width="1.4"/>
+      <text x="60" y="94" fill="#2d3142" font-size="16" font-weight="600" font-family="'Geist', sans-serif">Supervisor</text>
+      <text x="60" y="114" fill="#bf4520" font-size="12" font-family="'Geist Mono', monospace">understand · plan · route</text>
+      <rect x="88" y="128" width="152" height="28" rx="4" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+      <text x="164" y="146" fill="#2d3142" font-size="11" font-family="'Geist Mono', monospace" text-anchor="middle">understand</text>
+      <path d="M164,156 V190" stroke="#4f5d75" stroke-width="1.6" fill="none" marker-end="url(#ag-arrow)"/>
+      <rect x="88" y="192" width="152" height="28" rx="4" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+      <text x="164" y="210" fill="#2d3142" font-size="11" font-family="'Geist Mono', monospace" text-anchor="middle">resolve_context</text>
+      <path d="M164,220 V254" stroke="#4f5d75" stroke-width="1.6" fill="none" marker-end="url(#ag-arrow)"/>
+      <rect x="88" y="256" width="152" height="28" rx="4" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+      <text x="164" y="274" fill="#2d3142" font-size="11" font-family="'Geist Mono', monospace" text-anchor="middle">plan</text>
+      <text x="60" y="332" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">FALLBACK ROUTES</text>
+      <rect x="88" y="344" width="152" height="28" rx="4" fill="#ececec" stroke="#bfc0c0" stroke-width="1"/>
+      <text x="164" y="362" fill="#2d3142" font-size="11" font-family="'Geist Mono', monospace" text-anchor="middle">clarify_guard</text>
+      <rect x="88" y="384" width="152" height="28" rx="4" fill="#ececec" stroke="#bfc0c0" stroke-width="1"/>
+      <text x="164" y="402" fill="#2d3142" font-size="11" font-family="'Geist Mono', monospace" text-anchor="middle">general</text>
+      <text x="60" y="452" fill="#5a6580" font-size="11" font-family="'Geist Mono', monospace">1 semantic decision per</text>
+      <text x="60" y="470" fill="#5a6580" font-size="11" font-family="'Geist Mono', monospace">turn; confidence &lt; 0.5</text>
+      <text x="60" y="488" fill="#5a6580" font-size="11" font-family="'Geist Mono', monospace">asks the buyer to clarify</text>
+      <rect x="368" y="64" width="600" height="96" rx="8" fill="#f5f5f5"/>
+      <rect x="368" y="64" width="600" height="96" rx="8" fill="#ffffff" stroke="#2d3142" stroke-width="1.4"/>
+      <text x="388" y="94" fill="#2d3142" font-size="16" font-weight="600" font-family="'Geist', sans-serif">ProductAgent</text>
+      <text x="388" y="114" fill="#5a6580" font-size="12" font-family="'Geist Mono', monospace">catalog questions · hybrid search</text>
+      <rect x="388" y="122" width="132" height="28" rx="4" fill="#ececec" stroke="#bfc0c0" stroke-width="1"/>
+      <text x="454" y="140" fill="#2d3142" font-size="11" font-family="'Geist Mono', monospace" text-anchor="middle">browse_categories</text>
+      <rect x="528" y="122" width="124" height="28" rx="4" fill="#ececec" stroke="#bfc0c0" stroke-width="1"/>
+      <text x="590" y="140" fill="#2d3142" font-size="11" font-family="'Geist Mono', monospace" text-anchor="middle">retrieve ⇄ relax</text>
+      <rect x="660" y="122" width="84" height="28" rx="4" fill="#ececec" stroke="#bfc0c0" stroke-width="1"/>
+      <text x="702" y="140" fill="#2d3142" font-size="11" font-family="'Geist Mono', monospace" text-anchor="middle">web_expand</text>
+      <rect x="752" y="122" width="112" height="28" rx="4" fill="#ececec" stroke="#bfc0c0" stroke-width="1"/>
+      <text x="808" y="140" fill="#2d3142" font-size="11" font-family="'Geist Mono', monospace" text-anchor="middle">product_detail</text>
+      <rect x="872" y="122" width="56" height="28" rx="4" fill="#ececec" stroke="#bfc0c0" stroke-width="1"/>
+      <text x="900" y="140" fill="#2d3142" font-size="11" font-family="'Geist Mono', monospace" text-anchor="middle">policy</text>
+      <rect x="368" y="200" width="600" height="96" rx="8" fill="#f5f5f5"/>
+      <rect x="368" y="200" width="600" height="96" rx="8" fill="#ffffff" stroke="#2d3142" stroke-width="1.4"/>
+      <text x="388" y="230" fill="#2d3142" font-size="16" font-weight="600" font-family="'Geist', sans-serif">Advisor</text>
+      <text x="388" y="250" fill="#5a6580" font-size="12" font-family="'Geist Mono', monospace">tool-calling agent · hybrid mode</text>
+      <rect x="388" y="258" width="120" height="28" rx="4" fill="#ececec" stroke="#bfc0c0" stroke-width="1"/>
+      <text x="448" y="276" fill="#2d3142" font-size="11" font-family="'Geist Mono', monospace" text-anchor="middle">search_products</text>
+      <rect x="516" y="258" width="92" height="28" rx="4" fill="#ececec" stroke="#bfc0c0" stroke-width="1"/>
+      <text x="562" y="276" fill="#2d3142" font-size="11" font-family="'Geist Mono', monospace" text-anchor="middle">get_product</text>
+      <rect x="616" y="258" width="124" height="28" rx="4" fill="#ececec" stroke="#bfc0c0" stroke-width="1"/>
+      <text x="678" y="276" fill="#2d3142" font-size="11" font-family="'Geist Mono', monospace" text-anchor="middle">compare_products</text>
+      <rect x="368" y="336" width="600" height="96" rx="8" fill="#f5f5f5"/>
+      <rect x="368" y="336" width="600" height="96" rx="8" fill="#ffffff" stroke="#2d3142" stroke-width="1.4"/>
+      <text x="388" y="366" fill="#2d3142" font-size="16" font-weight="600" font-family="'Geist', sans-serif">OrderAgent</text>
+      <text x="388" y="386" fill="#5a6580" font-size="12" font-family="'Geist Mono', monospace">every write becomes a pendingAction</text>
+      <rect x="388" y="394" width="76" height="28" rx="4" fill="#ececec" stroke="#bfc0c0" stroke-width="1"/>
+      <text x="426" y="412" fill="#2d3142" font-size="11" font-family="'Geist Mono', monospace" text-anchor="middle">cart_view</text>
+      <rect x="472" y="394" width="96" height="28" rx="4" fill="#ececec" stroke="#bfc0c0" stroke-width="1"/>
+      <text x="520" y="412" fill="#2d3142" font-size="11" font-family="'Geist Mono', monospace" text-anchor="middle">prepare_cart</text>
+      <rect x="576" y="394" width="124" height="28" rx="4" fill="#ececec" stroke="#bfc0c0" stroke-width="1"/>
+      <text x="638" y="412" fill="#2d3142" font-size="11" font-family="'Geist Mono', monospace" text-anchor="middle">prepare_checkout</text>
+      <rect x="708" y="394" width="96" height="28" rx="4" fill="#ececec" stroke="#bfc0c0" stroke-width="1"/>
+      <text x="756" y="412" fill="#2d3142" font-size="11" font-family="'Geist Mono', monospace" text-anchor="middle">order_status</text>
+      <rect x="812" y="394" width="120" height="28" rx="4" fill="#ececec" stroke="#bfc0c0" stroke-width="1"/>
+      <text x="872" y="412" fill="#2d3142" font-size="11" font-family="'Geist Mono', monospace" text-anchor="middle">resolve_pending</text>
+      <rect x="368" y="472" width="600" height="96" rx="8" fill="#f5f5f5"/>
+      <rect x="368" y="472" width="600" height="96" rx="8" fill="#ffffff" stroke="#2d3142" stroke-width="1.4"/>
+      <text x="388" y="502" fill="#2d3142" font-size="16" font-weight="600" font-family="'Geist', sans-serif">Side branches</text>
+      <text x="388" y="522" fill="#5a6580" font-size="12" font-family="'Geist Mono', monospace">run in parallel with the main route</text>
+      <rect x="388" y="530" width="92" height="28" rx="4" fill="#ececec" stroke="#bfc0c0" stroke-width="1"/>
+      <text x="434" y="548" fill="#2d3142" font-size="11" font-family="'Geist Mono', monospace" text-anchor="middle">policy_side</text>
+      <rect x="488" y="530" width="104" height="28" rx="4" fill="#ececec" stroke="#bfc0c0" stroke-width="1"/>
+      <text x="540" y="548" fill="#2d3142" font-size="11" font-family="'Geist Mono', monospace" text-anchor="middle">research_side</text>
+      <rect x="600" y="530" width="92" height="28" rx="4" fill="#ececec" stroke="#bfc0c0" stroke-width="1"/>
+      <text x="646" y="548" fill="#2d3142" font-size="11" font-family="'Geist Mono', monospace" text-anchor="middle">search_side</text>
+      <rect x="1048" y="64" width="192" height="504" rx="8" fill="#f5f5f5"/>
+      <rect x="1048" y="64" width="192" height="504" rx="8" fill="#ffffff" stroke="#2d3142" stroke-width="1.4"/>
+      <text x="1068" y="94" fill="#2d3142" font-size="16" font-weight="600" font-family="'Geist', sans-serif">Join &amp; answer</text>
+      <text x="1068" y="114" fill="#5a6580" font-size="12" font-family="'Geist Mono', monospace">barrier · superstep</text>
+      <rect x="1080" y="128" width="128" height="28" rx="4" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+      <text x="1144" y="146" fill="#2d3142" font-size="11" font-family="'Geist Mono', monospace" text-anchor="middle">collect</text>
+      <path d="M1144,156 V190" stroke="#4f5d75" stroke-width="1.6" fill="none" marker-end="url(#ag-arrow)"/>
+      <rect x="1080" y="192" width="128" height="28" rx="4" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+      <text x="1144" y="210" fill="#2d3142" font-size="11" font-family="'Geist Mono', monospace" text-anchor="middle">finalize</text>
+      <path d="M1144,220 V254" stroke="#4f5d75" stroke-width="1.6" fill="none" marker-end="url(#ag-arrow)"/>
+      <rect x="1080" y="256" width="128" height="28" rx="4" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+      <text x="1144" y="274" fill="#2d3142" font-size="11" font-family="'Geist Mono', monospace" text-anchor="middle">ChatResponse</text>
+      <text x="1064" y="332" fill="#5a6580" font-size="11" font-family="'Geist Mono', monospace">LLM writes the answer</text>
+      <text x="1064" y="350" fill="#5a6580" font-size="11" font-family="'Geist Mono', monospace">from verified facts;</text>
+      <text x="1064" y="368" fill="#5a6580" font-size="11" font-family="'Geist Mono', monospace">template if the model</text>
+      <text x="1064" y="386" fill="#5a6580" font-size="11" font-family="'Geist Mono', monospace">fails or the budget</text>
+      <text x="1064" y="404" fill="#5a6580" font-size="11" font-family="'Geist Mono', monospace">(6 calls / 15 s) runs out</text>
+      <rect x="828" y="172" width="80" height="16" rx="2" fill="#f5f5f5"/>
+      <text x="908" y="184" fill="#5a6580" font-size="12" font-family="'Geist Mono', monospace" text-anchor="end">FALLBACK</text>
+      <line x1="40" y1="616" x2="1240" y2="616" stroke="rgba(45,49,66,0.12)" stroke-width="1"/>
+      <rect x="40" y="632" width="28" height="16" rx="3" fill="rgba(191,69,32,0.08)" stroke="#bf4520" stroke-width="1.2"/>
+      <text x="76" y="644" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" letter-spacing="0.06em">SUPERVISOR</text>
+      <rect x="196" y="632" width="28" height="16" rx="3" fill="#ffffff" stroke="#2d3142" stroke-width="1.2"/>
+      <text x="232" y="644" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" letter-spacing="0.06em">AGENT / BRANCH</text>
+      <rect x="384" y="632" width="28" height="16" rx="3" fill="#ececec" stroke="#bfc0c0" stroke-width="1"/>
+      <text x="420" y="644" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" letter-spacing="0.06em">GRAPH NODE / TOOL</text>
+      <line x1="592" y1="640" x2="624" y2="640" stroke="#4f5d75" stroke-width="1.6" marker-end="url(#ag-arrow)"/>
+      <text x="636" y="644" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" letter-spacing="0.06em">ROUTE</text>
+      <line x1="720" y1="640" x2="752" y2="640" stroke="#4f5d75" stroke-width="1.6" stroke-dasharray="5,4" marker-end="url(#ag-arrow)"/>
+      <text x="764" y="644" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" letter-spacing="0.06em">FALLBACK ON FAILURE</text>
+      <text x="1240" y="644" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end" letter-spacing="0.06em">STATE · AsyncSqliteSaver CHECKPOINT PER SESSION</text>
+    </svg>
+    </div>
+  </div>
+</body>
+</html>

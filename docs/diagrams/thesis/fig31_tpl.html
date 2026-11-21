@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kiến trúc AI Chatbot</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&family=Be+Vietnam+Pro:wght@400;500;600&family=Noto+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --color-paper: #f5f5f5; --color-ink: #2d3142; --color-muted: #4f5d75;
+      --font-sans: 'Geist', 'Be Vietnam Pro', system-ui, sans-serif; --font-serif: 'Instrument Serif', 'Noto Serif', serif; --font-mono: 'Geist Mono', ui-monospace, monospace; }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink); min-height: 100vh; display: flex; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1200px; width: 100%; min-width: 0; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400; letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    .caption { font-family: var(--font-serif); font-style: italic; font-size: 1.05rem; color: var(--color-muted); text-align: center; margin-top: 1rem; }
+    svg { width: 100%; min-width: 1200px; display: block; }
+    @media (max-width: 860px) { body { padding: 2rem 16px; } }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0; } }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Architecture · phân hệ AI Chatbot</p>
+    <h1>Kiến trúc logic phân hệ AI Chatbot tích hợp Agentic RAG</h1>
+    <div class="diagram-container">
+      <svg viewBox="0 0 1200 816" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="chatbot-layered-architecture-title chatbot-layered-architecture-desc">
+        <title id="chatbot-layered-architecture-title">Kiến trúc logic phân hệ AI Chatbot</title>
+        <desc id="chatbot-layered-architecture-desc">Tin nhắn của người mua đi từ giao diện React qua API Gateway tới AI Chatbot Service, nơi Router LangGraph chuyển câu hỏi sản phẩm sang ProductAgent dùng hybrid retrieval (BM25, dense vector, RRF, cross-encoder), câu hỏi chính sách sang kho tri thức chính sách, và yêu cầu giỏ hàng, đơn hàng sang OrderAgent gọi các microservice nghiệp vụ.</desc>
+        <defs>
+          <pattern id="chatbot-layered-dots" width="22" height="22" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="0.9" fill="rgba(45,49,66,0.10)"/></pattern>
+          <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/></marker>
+          <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bf4520"/></marker>
+          <marker id="arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#2e5aa8"/></marker>
+        </defs>
+        <rect width="1200" height="816" fill="#f5f5f5"/>
+        <rect width="1200" height="816" fill="url(#chatbot-layered-dots)" opacity="0.55"/>
+        {{BODY}}
+      </svg>
+    </div>
+    <p class="caption">Hình 3.1. Sơ đồ kiến trúc logic phân hệ AI Chatbot tích hợp Agentic RAG.</p>
+  </div>
+</body>
+</html>
