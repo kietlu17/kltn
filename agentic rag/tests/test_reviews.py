@@ -1,5 +1,6 @@
 """Buyers' reviews reach the product cards and the models that advise."""
 
+import base64
 import json
 import unittest
 
@@ -88,6 +89,24 @@ class ReviewPromptTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(described["reviewHighlights"][0].startswith("5★"))
         self.assertEqual(_brief(card)["review_count"], 12)
         self.assertEqual(len(_full(card)["reviews"]), 2)
+
+    async def test_answer_model_receives_the_shoppers_photo(self):
+        sent = {}
+
+        class Model:
+            async def ainvoke(self, messages):
+                sent["content"] = messages[-1].content
+
+                class Reply:
+                    text = "ok"
+                return Reply()
+
+        gateway = object.__new__(GeminiGateway)
+        gateway.settings = AgenticSettings(**SETTINGS)
+        gateway.llm = gateway.answer_llm = Model()
+        png = base64.b64encode(b"\x89PNG\r\n\x1a\n" + b"0" * 40).decode()
+        await gateway.answer("giống ảnh này", {}, {}, [], [], image=png)
+        self.assertEqual(sent["content"][1]["image_url"]["url"], f"data:image/png;base64,{png}")
 
     def test_review_question_is_left_to_the_answer_model(self):
         turn = SemanticTurn(

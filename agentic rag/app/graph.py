@@ -2126,14 +2126,16 @@ class AgenticShoppingGraph:
         else:
             try:
                 memory = memory_note(state)
+                image = str((state.get("request") or {}).get("image") or "")
                 answer = await self.models.answer(
                     state.get("message", ""),
                     state.get("plan", {}),
                     model_result,
                     products,
                     state.get("history", []),
-                    # Only when there is memory: test doubles keep the old signature.
+                    # Only when present: test doubles keep the old signature.
                     **({"memory": memory} if memory else {}),
+                    **({"image": image} if image else {}),
                 )
             except Exception as error:
                 log.warning("answer failed, using template: %s: %s", type(error).__name__, str(error)[:200])

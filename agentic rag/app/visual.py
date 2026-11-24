@@ -38,6 +38,19 @@ def image_payload(image: str) -> str:
     return encoded
 
 
+def image_data_url(image: str) -> str:
+    """Data URL for a vision model; the type comes from the bytes, not the client."""
+    encoded = image_payload(image)
+    head = base64.b64decode(encoded[:24])
+    if head.startswith(b"\x89PNG"):
+        kind = "png"
+    elif head.startswith(b"RIFF"):
+        kind = "webp"
+    else:
+        kind = "jpeg"
+    return f"data:image/{kind};base64,{encoded}"
+
+
 class VisualSearch:
     def __init__(
         self,
