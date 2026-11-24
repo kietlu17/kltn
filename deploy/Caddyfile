@@ -11,13 +11,7 @@
 		Referrer-Policy strict-origin-when-cross-origin
 	}
 
-	# Same rule as vite.config.js: a browser navigation (GET + text/html) gets the
-	# SPA, every other request on these prefixes goes to the API gateway.
-	@navigation {
-		method GET
-		header Accept *text/html*
-		not path /uploads/* /product-images/*
-	}
+	# The frontend is hosted on Vercel; this server only exposes the API and images.
 	@api path /assistant /assistant/* /auth /auth/* /users /users/* /shops /shops/* /products /products/* /inventory /inventory/* /vouchers /vouchers/* /uploads/* /categories /categories/* /cart /cart/* /orders /orders/* /payments /payments/* /reviews /reviews/* /chat /chat/*
 
 	# Objects stored in MinIO (read-only for the public)
@@ -30,11 +24,6 @@
 		handle @images {
 			reverse_proxy minio:9000
 		}
-		handle @navigation {
-			root * /srv
-			try_files {path} /index.html
-			file_server
-		}
 		handle @api {
 			reverse_proxy api-gateway:3000 {
 				flush_interval -1
@@ -43,9 +32,7 @@
 			}
 		}
 		handle {
-			root * /srv
-			try_files {path} /index.html
-			file_server
+			respond 404
 		}
 	}
 }
