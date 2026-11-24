@@ -24,6 +24,7 @@ from .agents.advisor import ShoppingAdvisor
 from .agents.order import ORDER_NODES
 from .config import AgenticSettings
 from .memory import apply_profile_updates, memory_context, memory_note, resolved_message
+from .mentions import MAX_NAMED_CARDS, named_products
 from .conversation import (  # noqa: F401 - re-exported for callers and tests
     _last_assistant_message,
     _INTENT_LABELS,
@@ -125,6 +126,8 @@ def _soften(constraint: SemanticConstraint) -> SemanticConstraint:
 # and shown for each other one.
 _MAIN_RESULTS_WITH_EXTRAS = 4
 _EXTRA_SEARCH_RESULTS = 3
+# Products shown in a session that a later reply may still name.
+_MAX_RECENT_PRODUCTS = 40
 # Order-agent intents answered from the customer's real cart or orders.
 _CART_READING_INTENTS = {"checkout", "cart_view", "cart_update", "cart_remove", "order_status"}
 # Matched on _normalized text: a bare "yes" to the assistant's question.
@@ -2014,6 +2017,30 @@ class AgenticShoppingGraph:
             return f"Mình tìm thấy {len(products)} sản phẩm phù hợp và còn hàng."
         return "Mình có thể giúp tìm sản phẩm, quản lý giỏ hàng, xem đơn và checkout có xác nhận."
 
+    async def _named_but_hidden(
+        self, state: AgentState, answer: str, shown: list[dict], rendered: bool
+    ) -> list[dict]:
+        """Cards of the products the reply names that the turn does not show:
+        shown earlier in the session, or found but hidden on this turn."""
+        loaded = {str(item["id"]): item for item in shown if item.get("id")}
+        known = {
+            str(item["id"]): item
+            for item in [*state.get("recent_products", []), *state.get("focused_products", []), *shown]
+            if item.get("id")
+        }
+        named = [
+            item for item in named_products(answer, known.values())
+            if not (rendered and item in loaded)
+        ][:MAX_NAMED_CARDS]
+        cards = await asyncio.gather(
+            *(self.marketplace.product_card(item) for item in named if item not in loaded),
+            return_exceptions=True,
+        )
+        for card in cards:
+            if isinstance(card, dict) and card.get("id"):
+                loaded[str(card["id"])] = card
+        return [loaded[item] for item in named if item in loaded]
+
     async def finalize(self, state: AgentState) -> dict:
         sources = list(state.get("sources", []))
         multi_route = False
@@ -2163,6 +2190,16 @@ class AgenticShoppingGraph:
                 else:
                     answer += f"\n\nMình chưa tìm thấy “{extra['query']}” còn hàng phù hợp."
             extra_update = {"products": shown, "render_product_cards": bool(shown)}
+        if state.get("route") in {"product_search", "product_detail", "general"}:
+            rendered = extra_update.get("render_product_cards", state.get("render_product_cards", True))
+            missing = await self._named_but_hidden(state, answer, shown, rendered)
+            if missing:
+                extra_update = {
+                    "products": [*shown, *missing] if rendered else missing,
+                    "render_product_cards": True,
+                }
+                shown_ids = {str(item.get("id")) for item in shown}
+                shown.extend(item for item in missing if str(item.get("id")) not in shown_ids)
         if policy_appendix:
             answer = f"{answer}\n\n{policy_appendix}" if answer else policy_appendix
         clarifying = state.get("route") in {"clarify", "out_of_scope"}
@@ -2182,10 +2219,17 @@ class AgenticShoppingGraph:
                 focused = new_focused
         elif new_focused:
             focused = new_focused
+        recent = {str(item["id"]): item for item in state.get("recent_products", []) if item.get("id")}
+        for item in shown:
+            if item.get("id"):
+                product_id = str(item["id"])
+                recent.pop(product_id, None)
+                recent[product_id] = {"id": product_id, "name": item.get("name", "")}
         return {
             **extra_update,
             "answer": answer,
             "focused_products": focused,
+            "recent_products": list(recent.values())[-_MAX_RECENT_PRODUCTS:],
             "sources": sources,
             "suggestions": suggestions[:8],
             "handoff": bool(state.get("handoff")) and (clarifying or "supportRequest" in (state.get("tool_result") or {})),

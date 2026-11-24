@@ -9,9 +9,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from langchain_core.messages import AIMessage, ToolMessage  # noqa: E402
 from langgraph.checkpoint.memory import MemorySaver  # noqa: E402
 
+from app.mentions import named_products  # noqa: E402
 from app.config import AgenticSettings  # noqa: E402
 from app.graph import AgenticShoppingGraph  # noqa: E402
-from app.schemas import SemanticConstraint, SemanticTask, SemanticTurn  # noqa: E402
+from app.schemas import SemanticConstraint, SemanticReference, SemanticTask, SemanticTurn  # noqa: E402
 from test_graph import state as base_state  # noqa: E402
 from test_invariants import BY_ID, CatalogMarketplace, CatalogRetriever, ScriptedModels  # noqa: E402
 
@@ -60,6 +61,36 @@ def search_turn(query, *constraints):
 
 def product_id(name):
     return next(key for key, item in BY_ID.items() if item["name"] == name)
+
+
+class MentionTests(unittest.TestCase):
+    # Names as they are in the catalog.
+    ACER = {"id": "acer", "name": "Laptop Acer Aspire Lite 14 AL14 71P 55P9 - NX.D7USV.001 "
+                                  "(i5 13500H, 16GB, 512GB, Full HD+, Win11)"}
+    NEO = {"id": "neo", "name": "MacBook Neo 13 inch A18 Pro"}
+    DELL_I3 = {"id": "i3", "name": "Laptop Dell 15 DC15250 - 71100520 (Core 3 100U, 8GB, 512GB, Win11)"}
+    DELL_I7 = {"id": "i7", "name": "Laptop Dell 15 DC15250 - DC15250-i7U161W11SLU (i7 1355U, 16GB, 1TB, Win11)"}
+
+    def test_configuration_and_sku_may_be_left_out(self):
+        for text in (
+            "Laptop Acer Aspire Lite 14 AL14 71P 55P9 - NX.D7USV.001: 18.990.000đ",
+            "Laptop Acer Aspire Lite 14 AL14-71P-55P9, chip i5",
+            "chiếc Acer Aspire Lite 14 AL14 71P 55P9.",
+        ):
+            self.assertEqual(named_products(text, [self.ACER]), ["acer"], text)
+
+    def test_order_follows_the_reply(self):
+        text = "1. MacBook Neo 13 inch A18 Pro 2. Laptop Acer Aspire Lite 14 AL14 71P 55P9 - NX.D7USV.001"
+        self.assertEqual(named_products(text, [self.ACER, self.NEO]), ["neo", "acer"])
+
+    def test_a_sku_names_one_configuration_and_the_model_names_both(self):
+        dells = [self.DELL_I3, self.DELL_I7]
+        self.assertEqual(named_products("Laptop Dell 15 DC15250 - 71100520 rẻ hơn", dells), ["i3"])
+        self.assertEqual(named_products("Laptop Dell 15 DC15250 có 2 bản", dells), ["i3", "i7"])
+
+    def test_no_accidental_mentions(self):
+        self.assertEqual(named_products("JBL Clip 50", [{"id": "c", "name": "Loa Bluetooth JBL Clip 5"}]), [])
+        self.assertEqual(named_products("áo thun nam dễ phối", [{"id": "a", "name": "Áo thun nam (form rộng)"}]), [])
 
 
 class AdvisorTests(unittest.IsolatedAsyncioTestCase):
@@ -147,6 +178,33 @@ class AdvisorTests(unittest.IsolatedAsyncioTestCase):
             focused_products=[{"id": clip, "name": "Loa Bluetooth JBL Clip 5"}],
         )
         self.assertEqual([item["id"] for item in result["products"]], [clip])
+
+    async def test_a_reply_naming_an_earlier_product_shows_its_card(self):
+        """The focus has narrowed to one model; the reply suggests another,
+        shown turns ago, whether the advisor or the graph wrote it."""
+        clip, flip = product_id("Loa Bluetooth JBL Clip 5"), product_id("Loa Bluetooth JBL Flip 6")
+        text = "JBL Clip 5 hợp đấy, còn JBL Flip 6 to hơn."
+
+        async def answer(*_args, **_kwargs):
+            return text
+
+        detail = SemanticTurn(
+            tasks=[SemanticTask(intent="product_detail", query="có hợp không",
+                                references=[SemanticReference(kind="active")])], confidence=0.9)
+        for advised, turn in ((True, search_turn("loa")), (False, detail)):
+            agent, models = build(ScriptedLLM([AIMessage(content=text)]))
+            models.answer = answer
+            result = await self.run_turn(
+                agent, models, "có phù hợp với công việc văn phòng không", turn,
+                active_product_id=clip,
+                focused_products=[{"id": clip, "name": "Loa Bluetooth JBL Clip 5"}],
+                recent_products=[{"id": flip, "name": "Loa Bluetooth JBL Flip 6"},
+                                 {"id": clip, "name": "Loa Bluetooth JBL Clip 5"}],
+            )
+            self.assertEqual("ADVISOR" in result["warnings"], advised)
+            self.assertEqual([item["id"] for item in result["products"]], [clip, flip])
+            self.assertTrue(result["render_product_cards"])
+            self.assertEqual([item["id"] for item in result["recent_products"]], [clip, flip])
 
     async def test_a_reply_naming_no_product_shows_no_unrelated_cards(self):
         llm = ScriptedLLM([

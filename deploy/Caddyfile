@@ -1,0 +1,51 @@
+{$SITE_ADDRESS::80} {
+	encode zstd gzip
+
+	request_body {
+		max_size 10MB
+	}
+
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options SAMEORIGIN
+		Referrer-Policy strict-origin-when-cross-origin
+	}
+
+	# Same rule as vite.config.js: a browser navigation (GET + text/html) gets the
+	# SPA, every other request on these prefixes goes to the API gateway.
+	@navigation {
+		method GET
+		header Accept *text/html*
+		not path /uploads/* /product-images/*
+	}
+	@api path /assistant /assistant/* /auth /auth/* /users /users/* /shops /shops/* /products /products/* /inventory /inventory/* /vouchers /vouchers/* /uploads/* /categories /categories/* /cart /cart/* /orders /orders/* /payments /payments/* /reviews /reviews/* /chat /chat/*
+
+	# Objects stored in MinIO (read-only for the public)
+	@images {
+		method GET HEAD
+		path /product-images/*
+	}
+
+	route {
+		handle @images {
+			reverse_proxy minio:9000
+		}
+		handle @navigation {
+			root * /srv
+			try_files {path} /index.html
+			file_server
+		}
+		handle @api {
+			reverse_proxy api-gateway:3000 {
+				flush_interval -1
+				# Identity headers are set by the gateway only
+				header_up -X-User-*
+			}
+		}
+		handle {
+			root * /srv
+			try_files {path} /index.html
+			file_server
+		}
+	}
+}

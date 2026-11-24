@@ -522,6 +522,9 @@ class AgentState(TypedDict, total=False):
     answer: Annotated[str, UntrackedValue(str)]
     pending_action: dict | None
     focused_products: list[dict]
+    # {id, name} of products shown in this session, newest last: a reply may
+    # name one after the focus moved on, and it still gets its card.
+    recent_products: list[dict]
     active_product_id: str | None
     selected_options: dict[str, list[str]]
     # Cart lines ("<productId>::<variantId>") this chat added, so "thanh toán

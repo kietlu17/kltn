@@ -339,6 +339,7 @@ def create_agentic_app() -> FastAPI:
             "answer": "",
             "pending_action": previous.get("pending_action"),
             "focused_products": previous.get("focused_products", []),
+            "recent_products": previous.get("recent_products", []),
             "active_product_id": previous.get("active_product_id"),
             "selected_options": previous.get(
                 "selected_options", {"colors": [], "sizes": []}
@@ -420,6 +421,9 @@ def create_agentic_app() -> FastAPI:
                 "pending_action": pending,
                 "focused_products": result.get(
                     "focused_products", previous.get("focused_products", [])
+                ),
+                "recent_products": result.get(
+                    "recent_products", previous.get("recent_products", [])
                 ),
                 "active_product_id": result.get("active_product_id"),
                 "selected_options": result.get(

@@ -24,8 +24,8 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, Tool
 
 from ..brands import brand_in_text, canonical_brand
 from ..budget import bounded
-from ..conversation import _normalized
 from ..memory import memory_context
+from ..mentions import MAX_NAMED_CARDS, named_products
 from ..models import plain_chat_text
 from ..schemas import AgentState, SearchFilters
 from ..taxonomy import build_catalog_tree, resolve_category_ids, resolve_category_path
@@ -180,28 +180,6 @@ def _full(product: dict) -> dict:
             for item in (product.get("variants") or [])[:20]
         ],
     }
-
-
-def _mention_position(answer: str, name: str) -> int | None:
-    """Where the reply names a product: its full name, or the part of the name
-    from the brand on ("JBL Clip 5"), so the cards follow the reply."""
-    folded = _normalized(answer)
-    full = _normalized(name).strip()
-    candidates = [full]
-    brand = brand_in_text(name)
-    if brand:
-        words = full.split()
-        first = _normalized(brand).split()[0]
-        if first in words:
-            tail = " ".join(words[words.index(first):])
-            if len(tail.split()) >= 2:
-                candidates.append(tail)
-    else:
-        words = full.split()
-        if len(words) > 3:
-            candidates.append(" ".join(words[-3:]))
-    positions = [folded.find(item) for item in candidates if item and folded.find(item) >= 0]
-    return min(positions) if positions else None
 
 
 class ShoppingAdvisor:
@@ -377,30 +355,23 @@ class ShoppingAdvisor:
                 messages.append(HumanMessage(content="Đủ thông tin rồi, hãy trả lời khách ngay (không gọi công cụ nữa)."))
         if not answer:
             return None
-        # A reply about products already on screen ("JBL Clip 5 kết nối được
-        # Windows") needs no tool call, but still gets their cards.
-        unseen = [
-            str(item.get("id"))
-            for item in state.get("focused_products", [])
-            if item.get("id") and str(item.get("id")) not in seen
-            and _mention_position(answer, str(item.get("name") or "")) is not None
-        ]
-        if unseen:
-            cards = await asyncio.gather(
-                *(self.marketplace.product_card(item) for item in unseen[:4]), return_exceptions=True
-            )
-            for card in cards:
-                if isinstance(card, dict) and card.get("id"):
-                    seen[str(card["id"])] = card
-        # Cards follow the reply: the products it names, in its order. A reply
-        # that names none shows none, rather than unrelated search results.
-        named = sorted(
-            (position, product_id)
-            for product_id, product in seen.items()
-            if (position := _mention_position(answer, str(product.get("name") or ""))) is not None
+        # Cards follow the reply: the products it names, in its order, whether
+        # looked up this turn or shown earlier in the session. A reply that
+        # names none shows none, rather than unrelated search results.
+        known = {
+            str(item["id"]): item
+            for item in [*state.get("recent_products", []), *state.get("focused_products", []), *seen.values()]
+            if item.get("id")
+        }
+        named = named_products(answer, known.values())[:MAX_NAMED_CARDS]
+        unseen = [item for item in named if item not in seen]
+        cards = await asyncio.gather(
+            *(self.marketplace.product_card(item) for item in unseen), return_exceptions=True
         )
-        card_ids = [product_id for _position, product_id in named]
-        products = [seen[item] for item in dict.fromkeys(card_ids) if item in seen][:6]
+        for card in cards:
+            if isinstance(card, dict) and card.get("id"):
+                seen[str(card["id"])] = card
+        products = [seen[item] for item in named if item in seen]
         criteria = {
             key: value
             for key, value in {

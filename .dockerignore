@@ -10,3 +10,11 @@ chatbot-service/data
 frontend/test-results
 frontend/playwright-report
 product-service/uploads
+
+# Never bake local secrets into images
+**/.env
+**/.env.*
+**/secrets
+output
+tmp
+**/dist

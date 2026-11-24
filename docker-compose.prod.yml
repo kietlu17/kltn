@@ -1,0 +1,194 @@
+# Production overlay, used together with docker-compose.yml:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# Images come from Docker Hub; only Caddy (80/443) is published.
+
+services:
+  mongo:
+    ports: !reset []
+
+  postgres:
+    ports: !reset []
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env}
+
+  kafka_e:
+    ports: !reset []
+    environment:
+      KAFKA_HEAP_OPTS: -Xms256m -Xmx768m
+
+  kafka-ui_e:
+    profiles: [debug]
+    ports: !reset []
+
+  # minio/minio and minio/mc were removed from Docker Hub; these are our own copies.
+  minio:
+    image: ${DOCKERHUB_USERNAME:?set in .env}/ecommerce-minio:stable
+    ports: !reset []
+
+  minio-init:
+    image: ${DOCKERHUB_USERNAME:?set in .env}/ecommerce-minio-mc:stable
+
+  cloudflared:
+    profiles: [tunnel]
+
+  auth-service:
+    build: !reset null
+    image: ${DOCKERHUB_USERNAME:?set in .env}/ecommerce-auth-service:${IMAGE_TAG:-latest}
+    environment:
+      JWT_SECRET: ${JWT_SECRET:?set in .env}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+
+  user-service:
+    build: !reset null
+    image: ${DOCKERHUB_USERNAME:?set in .env}/ecommerce-user-service:${IMAGE_TAG:-latest}
+
+  shop-service:
+    build: !reset null
+    image: ${DOCKERHUB_USERNAME:?set in .env}/ecommerce-shop-service:${IMAGE_TAG:-latest}
+
+  product-service:
+    build: !reset null
+    image: ${DOCKERHUB_USERNAME:?set in .env}/ecommerce-product-service:${IMAGE_TAG:-latest}
+
+  cart-service:
+    build: !reset null
+    image: ${DOCKERHUB_USERNAME:?set in .env}/ecommerce-cart-service:${IMAGE_TAG:-latest}
+
+  order-service:
+    build: !reset null
+    image: ${DOCKERHUB_USERNAME:?set in .env}/ecommerce-order-service:${IMAGE_TAG:-latest}
+    environment:
+      PG_PASSWORD: ${POSTGRES_PASSWORD}
+
+  inventory-service:
+    build: !reset null
+    image: ${DOCKERHUB_USERNAME:?set in .env}/ecommerce-inventory-service:${IMAGE_TAG:-latest}
+    environment:
+      PG_PASSWORD: ${POSTGRES_PASSWORD}
+
+  voucher-service:
+    build: !reset null
+    image: ${DOCKERHUB_USERNAME:?set in .env}/ecommerce-voucher-service:${IMAGE_TAG:-latest}
+    environment:
+      PG_PASSWORD: ${POSTGRES_PASSWORD}
+
+  review-service:
+    build: !reset null
+    image: ${DOCKERHUB_USERNAME:?set in .env}/ecommerce-review-service:${IMAGE_TAG:-latest}
+
+  chat-service:
+    build: !reset null
+    image: ${DOCKERHUB_USERNAME:?set in .env}/ecommerce-chat-service:${IMAGE_TAG:-latest}
+
+  payment-service:
+    build: !reset null
+    image: ${DOCKERHUB_USERNAME:?set in .env}/ecommerce-payment-service:${IMAGE_TAG:-latest}
+    environment:
+      PG_PASSWORD: ${POSTGRES_PASSWORD}
+
+  wallet-service:
+    build: !reset null
+    image: ${DOCKERHUB_USERNAME:?set in .env}/ecommerce-wallet-service:${IMAGE_TAG:-latest}
+    environment:
+      PG_PASSWORD: ${POSTGRES_PASSWORD}
+
+  payment-gateway:
+    build: !reset null
+    image: ${DOCKERHUB_USERNAME:?set in .env}/ecommerce-payment-gateway:${IMAGE_TAG:-latest}
+    environment:
+      PG_PASSWORD: ${POSTGRES_PASSWORD}
+
+  api-gateway:
+    build: !reset null
+    image: ${DOCKERHUB_USERNAME:?set in .env}/ecommerce-api-gateway:${IMAGE_TAG:-latest}
+    ports: !reset []
+    environment:
+      JWT_SECRET: ${JWT_SECRET:?set in .env}
+
+  chatbot-service:
+    build: !reset null
+    image: ${DOCKERHUB_USERNAME:?set in .env}/ecommerce-chatbot-service:${IMAGE_TAG:-latest}
+
+  image-embedding:
+    build: !reset null
+    image: ${DOCKERHUB_USERNAME:?set in .env}/ecommerce-chatbot-service:${IMAGE_TAG:-latest}
+
+  chatbot-image-indexer:
+    build: !reset null
+    image: ${DOCKERHUB_USERNAME:?set in .env}/ecommerce-chatbot-service:${IMAGE_TAG:-latest}
+
+  chatbot-indexer:
+    build: !reset null
+    image: ${DOCKERHUB_USERNAME:?set in .env}/ecommerce-chatbot-service:${IMAGE_TAG:-latest}
+    # Replaced by agentic-indexer; both would burn the same Gemini quota.
+    profiles: [legacy]
+
+  chatbot-policy-indexer:
+    build: !reset null
+    image: ${DOCKERHUB_USERNAME:?set in .env}/ecommerce-chatbot-service:${IMAGE_TAG:-latest}
+
+  agentic-rag: &agentic
+    image: ${DOCKERHUB_USERNAME:?set in .env}/ecommerce-agentic-rag:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    env_file:
+      - ./.env
+    environment: &agentic-environment
+      AGENTIC_DATA_DIR: /data
+      AGENTIC_MODEL_TIMEOUT_SECONDS: 20
+      QDRANT_URL: http://qdrant:6333
+      PRODUCT_SERVICE_URL: https://product-service:3004
+      INVENTORY_SERVICE_URL: https://inventory-service:3007
+      REVIEW_SERVICE_URL: https://review-service:3008
+      CART_SERVICE_URL: https://cart-service:3005
+      ORDER_SERVICE_URL: https://order-service:3006
+      VOUCHER_SERVICE_URL: https://voucher-service:3013
+      USER_SERVICE_URL: https://user-service:3002
+      MTLS_ENABLED: "true"
+      MTLS_CA_PATH: /certs/ca/ca.crt
+      MTLS_CLIENT_CERT_PATH: /certs/chatbot-service/tls.crt
+      MTLS_CLIENT_KEY_PATH: /certs/chatbot-service/tls.key
+    volumes:
+      - agentic_data:/data
+      - certs_data:/certs:ro
+    depends_on:
+      certs-init:
+        condition: service_completed_successfully
+      qdrant:
+        condition: service_started
+      product-service:
+        condition: service_started
+
+  agentic-indexer:
+    <<: *agentic
+    command: ["python", "-m", "app.indexer", "run"]
+    stop_grace_period: 120s
+    environment:
+      <<: *agentic-environment
+      GEMINI_API_KEY_FILE: /secrets/gemini_api_key
+    volumes:
+      - agentic_indexer_data:/data
+      - ./secrets:/secrets:ro
+      - certs_data:/certs:ro
+
+  web:
+    image: ${DOCKERHUB_USERNAME:?set in .env}/ecommerce-web:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api-gateway:
+        condition: service_started
+
+volumes:
+  agentic_data:
+  agentic_indexer_data:
+  caddy_data:
+  caddy_config:
