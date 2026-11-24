@@ -453,15 +453,19 @@ class GeminiGateway:
         if getattr(settings, "web_search_provider", "gemini") == "gateway" and settings.llm_provider == "openai":
             from langchain_openai import ChatOpenAI
 
-            return ChatOpenAI(
-                model=settings.web_search_model or settings.llm_model,
-                base_url=settings.llm_base_url,
-                api_key=settings.llm_api_key,
-                temperature=0,
-                max_tokens=1024,
-                timeout=settings.model_timeout,
-                max_retries=0,
-            )
+            options = {
+                "model": settings.web_search_model or settings.llm_model,
+                "base_url": settings.llm_base_url,
+                "api_key": settings.llm_api_key,
+                "temperature": 0,
+                "max_tokens": 1024,
+                "timeout": settings.model_timeout,
+                "max_retries": 0,
+            }
+            # GPT reasoning models reject temperature unless effort is "none".
+            if settings.reasoning_effort:
+                options["reasoning_effort"] = settings.reasoning_effort
+            return ChatOpenAI(**options)
         options = {
             "model": settings.web_search_model or settings.gemini_model,
             "google_api_key": settings.gemini_api_key,

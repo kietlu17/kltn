@@ -1,5 +1,6 @@
 import hashlib
 import os
+from urllib.parse import urlsplit
 from dataclasses import dataclass, field
 
 from dotenv import load_dotenv
@@ -16,6 +17,13 @@ def _bounded_int(name: str, default: int, minimum: int, maximum: int) -> int:
 def _bounded_float(name: str, default: float, minimum: float, maximum: float) -> float:
     value = float(os.getenv(name, str(default)))
     return max(minimum, min(maximum, value))
+
+
+def _llm_api_key() -> str:
+    """gpt_key is an OpenAI key: never send it to a third-party gateway."""
+    key = os.getenv("AGENTIC_LLM_API_KEY", "").strip()
+    host = urlsplit(os.getenv("AGENTIC_LLM_BASE_URL", "").strip()).hostname
+    return key or (os.getenv("gpt_key", "").strip() if host == "api.openai.com" else "")
 
 
 @dataclass(frozen=True)
@@ -39,7 +47,7 @@ class AgenticSettings:
     )
     llm_base_url: str = field(default_factory=lambda: os.getenv("AGENTIC_LLM_BASE_URL", "").strip())
     llm_api_key: str = field(
-        default_factory=lambda: os.getenv("AGENTIC_LLM_API_KEY", "").strip(), repr=False
+        default_factory=_llm_api_key, repr=False
     )
     llm_model: str = field(default_factory=lambda: os.getenv("AGENTIC_LLM_MODEL", "").strip())
     reasoning_effort: str = field(
